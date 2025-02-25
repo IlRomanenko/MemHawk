@@ -1,0 +1,57 @@
+BasedOnStyle: LLVM
+
+Language: Cpp
+Standard: c++17
+
+ColumnLimit: 120
+AlignAfterOpenBracket: Align
+
+MaxEmptyLinesToKeep: 2
+InsertNewlineAtEOF: true
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+# IndentAccessModifiers: true
+AccessModifierOffset: -4
+SeparateDefinitionBlocks: Always
+
+
+PointerAlignment: Left
+AllowShortFunctionsOnASingleLine: false
+
+IncludeBlocks:   Regroup
+IncludeCategories:
+  # Group 1: Local headers (quoted includes)
+  - Regex:           '^".*"$'
+    Priority:        1
+
+  # Group 2: External/system headers (contains "/")
+  - Regex:           '^<.*/.*>$'
+    Priority:        2
+
+  # Group 3: Standard library headers (no "/")
+  - Regex:           '^<[^/]+>$'
+    Priority:        3
+
+SortIncludes: true
+IncludeIsMainSourceRegex: '(_test)?$'
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+    AfterClass: true
+    AfterControlStatement: false
+    AfterEnum: true
+    AfterFunction: true
+    AfterNamespace: true
+    AfterObjCDeclaration: false
+    AfterStruct: true
+    AfterUnion: false
+    BeforeCatch: false
+    BeforeElse: false
+    IndentBraces: false
+  
+AlwaysBreakTemplateDeclarations: Yes
+BreakConstructorInitializers: BeforeColon
+BreakBeforeInheritanceComma: true
+BreakTemplateDeclarations: Yes
