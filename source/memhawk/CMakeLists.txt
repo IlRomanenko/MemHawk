@@ -3,9 +3,9 @@ set(target_name MemHawk)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror=undef -Werror=return-type -g -flto=auto -fPIC")
 
-include(CheckSymbolExists)
-check_symbol_exists(cfree malloc.h HAVE_CFREE)
-check_symbol_exists(valloc stdlib.h HAVE_VALLOC)
+# include(CheckSymbolExists)
+# check_symbol_exists(cfree malloc.h HAVE_CFREE)
+# check_symbol_exists(valloc stdlib.h HAVE_VALLOC)
 
 add_library(${target_name} SHARED
     src/thread_tracker.cpp
@@ -18,15 +18,14 @@ add_library(${target_name} SHARED
     src/memhawk_api.cpp
 )
 
-target_link_libraries(${target_name} 
+target_link_libraries(${target_name}
 PRIVATE
-    xxHash::xxhash
     unwind
+    unwind-generic
     fmt
     absl::flat_hash_map
     atomic
-    unwind-generic
-    # dl
+    dl
 )
 
 target_include_directories(${target_name}

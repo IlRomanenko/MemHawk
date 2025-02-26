@@ -2,6 +2,7 @@
 
 #include "log.h"
 
+#include <boost/container_hash/hash.hpp>
 #include <fmt/format.h>
 #include <sys/types.h>
 
@@ -21,9 +22,7 @@ Stacktrace::Stacktrace(void** data, size_t size)
     m_skip = 0;
     m_size = std::min(MaxUnwindSize, size);
     std::copy(data, std::next(data, m_size), m_data);
-
-    auto span = GetTrace();
-    m_hash = XXH32(span.data(), span.size() * sizeof(void*), 0);
+    RecalculateHash();
 }
 
 Stacktrace Stacktrace::Unwind(size_t capacity, size_t skip)
@@ -52,9 +51,7 @@ inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t skip)
     }
     m_size = resultSize;
     m_skip = skip;
-
-    auto span = GetTrace();
-    m_hash = XXH32(span.data(), span.size() * sizeof(void*), 0);
+    RecalculateHash();
 }
 
 void Stacktrace::Setup()
@@ -75,8 +72,7 @@ void Stacktrace::ShrinkBySize(size_t size)
         return;
     }
     m_size = m_skip + size;
-    auto span = GetTrace();
-    m_hash = XXH32(span.data(), span.size() * sizeof(void*), 0);
+    RecalculateHash();
 }
 
 void Stacktrace::ShrinkByPtr(void* ptr)
@@ -91,14 +87,20 @@ void Stacktrace::ShrinkByPtr(void* ptr)
     }
 }
 
-std::span<void*> Stacktrace::GetTrace()
+absl::Span<void*> Stacktrace::GetTrace()
 {
-    return {m_data + m_skip, m_data + m_size};
+    return absl::MakeSpan(m_data + m_skip, m_size - m_skip);
 }
 
-std::span<void* const> Stacktrace::GetTrace() const
+absl::Span<void* const> Stacktrace::GetTrace() const
 {
-    return {m_data + m_skip, m_data + m_size};
+    return absl::MakeConstSpan(m_data + m_skip, m_data + m_size);
+}
+
+void Stacktrace::RecalculateHash()
+{
+    auto span = GetTrace();
+    m_hash = static_cast<uint32_t>(boost::hash_range(span.begin(), span.end()));
 }
 
 std::string Stacktrace::Describe() const

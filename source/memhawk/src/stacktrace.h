@@ -1,7 +1,8 @@
 #pragma once
 
+#include <absl/types/span.h>
+
 #include <cstdint>
-#include <span>
 #include <stdlib.h>
 #include <string>
 
@@ -21,11 +22,12 @@ public:
     void ShrinkByPtr(void* ptr);
     uint32_t Hash() const;
     std::string Describe() const;
-    std::span<void*> GetTrace();
-    std::span<void* const> GetTrace() const;
+    absl::Span<void*> GetTrace();
+    absl::Span<void* const> GetTrace() const;
 
 private:
     void UnwindStacktrace(size_t capacity, size_t skip);
+    void RecalculateHash();
 
 private:
     void* m_data[MaxUnwindSize];
