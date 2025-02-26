@@ -1,2 +1,1 @@
-# add_subdirectory(RadixTree)
-add_subdirectory(MemHawk)
+add_subdirectory(memhawk)
