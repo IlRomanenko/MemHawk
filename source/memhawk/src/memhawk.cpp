@@ -289,14 +289,14 @@ void MemHawk::WorkerUpdateData()
             // Will handle this case separately
             continue;
         }
-        WorkerAccoutTracker(*tracker);
+        WorkerAccountThreadTracker(*tracker);
     }
     // todo: account inner trackers
     WorkerAccountInnerTracker(*m_innerTracker);
     WorkerAccountInnerTracker(*gtl_tracker);
 }
 
-void MemHawk::WorkerAccoutTracker(InThreadTracker& tracker)
+void MemHawk::WorkerAccountThreadTracker(InThreadTracker& tracker)
 {
     auto& byTraceIdIndex = m_workerData->index.get<WorkerData::ByTraceId>();
     absl::MutexLock trackerLock(&tracker.mt);

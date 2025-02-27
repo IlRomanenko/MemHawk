@@ -37,7 +37,7 @@ inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t skip)
     auto resultSize = unw_backtrace(m_data, size);
     // remove duplicates -> not interested in recursion
     // auto last = std::unique(m_data, std::next(m_data, resultSize));
-    // todo: Create correct mechanishm for removing recursion
+    // todo: Create correct mechanism for removing recursion
     auto last = std::next(m_data, resultSize);
     resultSize = std::distance(m_data, last);
     while (resultSize > 0 && m_data[resultSize - 1] == nullptr) {

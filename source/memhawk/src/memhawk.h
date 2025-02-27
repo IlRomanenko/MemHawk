@@ -114,7 +114,7 @@ private:
     void TrackingWorker();
     void WorkerUpdateData();
     void WorkerPrintData();
-    void WorkerAccoutTracker(InThreadTracker& tracer);
+    void WorkerAccountThreadTracker(InThreadTracker& tracer);
     void WorkerAccountInnerTracker(InThreadTracker& tracker);
 
     // Postponed allocs handlers

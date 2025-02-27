@@ -141,7 +141,7 @@ void init()
     {
         const auto str = GetProcessLogName("log");
         LogInit(str.c_str());
-        // register deinitialisation of log system
+        // register deinitialization of log system
         std::atexit(LogDeinit);
     }
     LogInfo("[" fI32 "]", getpid());
