@@ -22,14 +22,13 @@
             "name": "RelWithDebInfo",
             "displayName": "DevBuild Release",
             "description": "Create release build",
-            "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "RelWithDebInfo",
                 "CMAKE_TOOLCHAIN_FILE": "",
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "CMAKE_CXX_FLAGS": "-O3 -g -march=native -mavx2 -fprefetch-loop-arrays -funroll-loops",
+                "CMAKE_CXX_FLAGS": "-O3 -g -march=native -mavx2",
                 "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
                 "MEMHAWK_BUILD_TESTING": true,
                 "BUILD_TESTING": false

@@ -9,7 +9,7 @@ extern "C" {
 #define MemHawkLogLevelError 3
 #define MemHawkLogLevelOff 4
 
-void SetUpSigHandler(int signal);
+void SetLogLevel(unsigned int level);
 
 // todo: add more methods
 }

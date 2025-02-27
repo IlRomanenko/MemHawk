@@ -1,10 +1,12 @@
 include(FetchContent)
+include(ExternalProject)
 
 FetchContent_Declare(
     fmt
-        GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-        GIT_TAG 11.1.1
+    GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+    GIT_TAG 11.1.1
     EXCLUDE_FROM_ALL
+    SYSTEM
 )
 FetchContent_MakeAvailable(fmt)
 
@@ -15,31 +17,110 @@ set(ABSL_PROPAGATE_CXX_STD ON CACHE BOOL "" FORCE)
 
 FetchContent_Declare(
     absl
-        GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
-        GIT_TAG 20240722.0
+    GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
+    GIT_TAG 20240722.0
     EXCLUDE_FROM_ALL
+    SYSTEM
 )
 FetchContent_MakeAvailable(absl)
 
-
-if (${MEMHAWK_BUILD_TESTING})
+if(${MEMHAWK_BUILD_TESTING})
     FetchContent_Declare(
         googletest
-            GIT_REPOSITORY https://github.com/google/googletest.git
-            GIT_TAG v1.16.0
+        GIT_REPOSITORY https://github.com/google/googletest.git
+        GIT_TAG v1.16.0
         EXCLUDE_FROM_ALL
+        SYSTEM
     )
     FetchContent_MakeAvailable(googletest)
 
     set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(
         benchmark
-            GIT_REPOSITORY https://github.com/google/benchmark.git
-            GIT_TAG v1.9.1
+        GIT_REPOSITORY https://github.com/google/benchmark.git
+        GIT_TAG v1.9.1
         EXCLUDE_FROM_ALL
+        SYSTEM
     )
     FetchContent_MakeAvailable(benchmark)
 endif()
 
 find_package(Threads REQUIRED)
 find_package(Boost 1.70.0 REQUIRED NO_MODULE COMPONENTS container)
+
+# Download and build libunwind
+set(UNWIND_INSTALL_DIR ${CMAKE_BINARY_DIR}/libunwind-install)
+set(UNWIND_LIBRARY_DIR ${UNWIND_INSTALL_DIR}/lib)
+set(UNWIND_INCLUDE_DIR ${UNWIND_INSTALL_DIR}/include)
+
+set(LIBUNWIND_OPTIONS)
+list(APPEND LIBUNWIND_OPTIONS "--enable-static" "--disable-shared" "--disable-tests")
+
+# both variants for building with -fPIC
+list(APPEND LIBUNWIND_OPTIONS "--enable-pic" "--with-pic")
+
+IF(MEMHAWK_LZMA)
+    find_package(lzma REQUIRED)
+    list(APPEND LIBUNWIND_OPTIONS "--enable-minidebuginfo")
+else()
+    list(APPEND LIBUNWIND_OPTIONS "--disable-minidebuginfo")
+endif()
+
+IF(MEMHAWK_ZLIB)
+    find_package(zlib REQUIRED)
+    list(APPEND LIBUNWIND_OPTIONS "--enable-zlibdebuginfo")
+else()
+    list(APPEND LIBUNWIND_OPTIONS "--disable-zlibdebuginfo")
+endif()
+
+IF(MEMHAWK_MSABI)
+    # todo: what package should be required?
+    # find_package(zlib REQUIRED)
+    list(APPEND LIBUNWIND_OPTIONS "--enable-msabi-support")
+else()
+    list(APPEND LIBUNWIND_OPTIONS "--disable-msabi-support")
+endif()
+
+list(APPEND LIBUNWIND_OPTIONS "--prefix=${UNWIND_INSTALL_DIR}")
+
+ExternalProject_Add(
+    libunwind_src
+    GIT_REPOSITORY https://github.com/libunwind/libunwind.git
+    GIT_TAG v1.8.1
+    CONFIGURE_COMMAND autoreconf -i && ./configure ${LIBUNWIND_OPTIONS}
+    BUILD_COMMAND make
+    INSTALL_COMMAND make install
+    BUILD_IN_SOURCE ON
+    UPDATE_DISCONNECTED 1
+    BUILD_BYPRODUCTS
+        ${UNWIND_LIBRARY_DIR}/libunwind.a
+)
+
+
+# todo: change it somehow, otherwise unwind_static fails to create
+# because libunwind_src is not evaluated on configure stage
+file(MAKE_DIRECTORY ${UNWIND_LIBRARY_DIR})
+file(MAKE_DIRECTORY ${UNWIND_INCLUDE_DIR})
+
+add_library(unwind_static STATIC IMPORTED GLOBAL)
+set_target_properties(unwind_static PROPERTIES
+    IMPORTED_LOCATION ${UNWIND_LIBRARY_DIR}/libunwind.a
+    INTERFACE_INCLUDE_DIRECTORIES ${UNWIND_INCLUDE_DIR}
+)
+
+if(MEMHAWK_LZMA)
+    find_library(LZMA_LIBRARY lzma REQUIRED)
+    set_target_properties(unwind_static PROPERTIES
+        INTERFACE_LINK_LIBRARIES "${LZMA_LIBRARY}"
+    )
+endif()
+
+if(MEMHAWK_ZLIB)
+    find_library(ZLIB_LIBRARY zlib REQUIRED)
+    set_target_properties(unwind_static PROPERTIES
+        INTERFACE_LINK_LIBRARIES "${ZLIB_LIBRARY}"
+    )
+endif()
+
+# Add a dependency to ensure libunwind is built before your target
+add_dependencies(unwind_static libunwind_src)

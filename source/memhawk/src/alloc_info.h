@@ -42,8 +42,8 @@ struct AllocSummary
 
     inline AllocSummary& operator+=(const AllocInfo& rhs)
     {
-        size += rhs.size;
-        overhead += rhs.offset;
+        size += static_cast<int64_t>(rhs.size);
+        overhead += static_cast<int64_t>(rhs.offset);
         count++;
         total++;
         return *this;
@@ -51,8 +51,8 @@ struct AllocSummary
 
     inline AllocSummary& operator-=(const AllocInfo& rhs)
     {
-        size -= rhs.size;
-        overhead -= rhs.offset;
+        size -= static_cast<int64_t>(rhs.size);
+        overhead -= static_cast<int64_t>(rhs.offset);
         count--;
         // doesn't change total
         return *this;

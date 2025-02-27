@@ -1,11 +1,12 @@
 
-set(target_name MemHawk)
+set(target_name memhawk)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror=undef -Werror=return-type -g -flto=auto -fPIC")
-
-# include(CheckSymbolExists)
-# check_symbol_exists(cfree malloc.h HAVE_CFREE)
-# check_symbol_exists(valloc stdlib.h HAVE_VALLOC)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wshadow -Werror=undef -Werror=return-type")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wsign-conversion -Wunused  -Wold-style-cast -Wcast-align")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Woverloaded-virtual -Wnon-virtual-dtor -Wsuggest-override")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wmisleading-indentation -Wduplicated-cond -Wduplicated-branches")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wuseless-cast -Wstrict-aliasing -Warray-bounds -Wimplicit-fallthrough")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wuninitialized")
 
 add_library(${target_name} SHARED
     src/thread_tracker.cpp
@@ -20,10 +21,13 @@ add_library(${target_name} SHARED
 
 target_link_libraries(${target_name}
 PRIVATE
-    unwind
-    unwind-generic
+    unwind_static
     fmt
     absl::flat_hash_map
+    absl::synchronization
+    absl::time
+    absl::span
+    absl::cleanup
     atomic
     dl
 )
@@ -33,10 +37,6 @@ PUBLIC
     include/
 )
 
-set(MEMHAWK_LIB_VERSION 1.0.00)
-set(MEMHAWK_LIB_SOVERSION 1)
-
-
 set_target_properties(${target_name} PROPERTIES
     VERSION ${MEMHAWK_LIB_VERSION}
     SOVERSION ${MEMHAWK_LIB_SOVERSION}
@@ -44,8 +44,8 @@ set_target_properties(${target_name} PROPERTIES
 )
 
 install(TARGETS ${target_name}
-    LIBRARY NAMELINK_COMPONENT
-    PUBLIC_HEADER DESTINATION "include/MemHawk"
+    LIBRARY NAMELINK_COMPONENT DESTINATION ${CMAKE_INSTALL_PREFIX}/memhawk
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_PREFIX}/include/memhwak
 )
 
 memhawk_build(${target_name})

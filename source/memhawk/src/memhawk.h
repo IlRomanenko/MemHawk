@@ -22,6 +22,7 @@
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <thread>
 
 namespace bmi = boost::multi_index;
 
@@ -65,7 +66,7 @@ private:
                 return summary.size;
             }
 
-            constexpr int64_t TotalCount() const
+            constexpr uint64_t TotalCount() const
             {
                 return summary.total;
             }
@@ -89,7 +90,7 @@ private:
                 >,
                 bmi::ordered_non_unique<
                     bmi::tag<ByTotalCount>,
-                    bmi::const_mem_fun<IndexValue, int64_t, &IndexValue::TotalCount>,
+                    bmi::const_mem_fun<IndexValue, uint64_t, &IndexValue::TotalCount>,
                     std::greater<>
                 >
             >
@@ -128,7 +129,7 @@ private:
     // Inner worker
     std::mutex m_mt;
     std::condition_variable m_cv;
-    std::atomic<bool> m_stopped;
+    std::atomic<bool> m_stopped{false};
     std::thread m_worker;
     std::unique_ptr<WorkerData> m_workerData;
 

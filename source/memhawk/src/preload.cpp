@@ -125,8 +125,6 @@ void* dummy_calloc(size_t num, size_t size) noexcept
     return dummyPool().alloc(num, size);
 }
 
-static bool initialised = false;
-
 void init()
 {
     hooks::calloc.original = &dummy_calloc;
@@ -140,15 +138,13 @@ void init()
     hooks::valloc.init();
     hooks::aligned_alloc.init();
 
-
-    initialised = true;
     {
         const auto str = GetProcessLogName("log");
         LogInit(str.c_str());
         // register deinitialisation of log system
         std::atexit(LogDeinit);
     }
-    LogInfo("[" fI32 "]: " fI32 "", getpid(), gettid());
+    LogInfo("[" fI32 "]", getpid());
 }
 
 }; // namespace hooks
@@ -159,7 +155,7 @@ static_assert(alignof(max_align_t) == sizeof(AllocInfo));
 void* hawk_malloc(size_t size)
 {
     LogDebug("requested: " fSzt, size);
-    if (unlikely(!hooks::initialised)) {
+    if (unlikely(!hooks::malloc)) {
         hooks::init();
     }
     auto trace = Stacktrace::Unwind(TrackDepth);
@@ -188,7 +184,7 @@ void* hawk_valloc(size_t size)
 {
     LogDebug("requested: " fSzt, size);
 
-    if (unlikely(!hooks::initialised)) {
+    if (unlikely(!hooks::valloc)) {
         hooks::init();
     }
     auto trace = Stacktrace::Unwind(TrackDepth);
@@ -216,7 +212,7 @@ void* hawk_aligned_alloc(size_t align, size_t size)
 {
     LogDebug("requested: " fSzt, size);
 
-    if (unlikely(!hooks::initialised)) {
+    if (unlikely(!hooks::aligned_alloc)) {
         hooks::init();
     }
     auto trace = Stacktrace::Unwind(TrackDepth);
@@ -275,13 +271,13 @@ void* hawk_calloc(size_t nm, size_t size)
 {
     LogDebug("requested: " fSzt " " fSzt, nm, size);
 
-    if (unlikely(!hooks::initialised)) {
+    if (unlikely(!hooks::calloc)) {
         hooks::init();
     }
     auto trace = Stacktrace::Unwind(TrackDepth);
 
     size_t totalSize = nm * size + AdditionalSize;
-    void* ptr = hooks::calloc(1, totalSize);
+    void* ptr = hooks::calloc(1ul, totalSize);
     if (unlikely(ptr == nullptr)) {
         return ptr;
     }
@@ -306,7 +302,7 @@ void* hawk_realloc(void* ptr, size_t size)
 {
     LogDebug("requested: " fPtr " " fSzt, ptr, size);
 
-    if (unlikely(!hooks::initialised)) {
+    if (unlikely(!hooks::realloc)) {
         hooks::init();
     }
     auto trace = Stacktrace::Unwind(TrackDepth);
@@ -356,7 +352,7 @@ void hawk_free(void* ptr)
     }
     LogDebug("requested: " fPtr, ptr);
 
-    if (unlikely(!hooks::initialised)) {
+    if (unlikely(!hooks::free)) {
         hooks::init();
     }
 

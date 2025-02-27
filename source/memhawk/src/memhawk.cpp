@@ -18,13 +18,14 @@
 #include <fmt/format.h>
 
 #include <chrono>
+#include <csignal>
 #include <cstring>
 #include <fstream>
 #include <memory>
 #include <mutex>
+#include <pthread.h>
 #include <sstream>
 #include <unistd.h>
-#include <xxhash.h>
 
 struct OnThreadFinishGuard
 {
@@ -250,6 +251,12 @@ void MemHawk::PostponeDealloc(const AllocInfo& info)
 void MemHawk::TrackingWorker()
 {
     RegisterThread();
+    pthread_setname_np(pthread_self(), "MemHawkTh");
+    sigset_t mask{};
+    sigfillset(&mask); // Block all signals
+    pthread_sigmask(SIG_BLOCK, &mask, nullptr);
+
+    LogInfo("Tracking worker started");
 
     m_workerData = std::make_unique<WorkerData>();
 
@@ -267,6 +274,8 @@ void MemHawk::TrackingWorker()
     }
     m_workerData->summaryFile.close();
     m_workerData->stacktracesFile.close();
+
+    LogInfo("Tracking worker finished");
 }
 
 void MemHawk::WorkerUpdateData()
@@ -323,18 +332,21 @@ void MemHawk::WorkerPrintData()
 
     std::stringstream str;
     str << absl::FormatTime(absl::Now()) << "\n";
-    str << fmt::format("Total heap: {:.3f}mb, active: {}, total: {}, memhawk overhead: {:.3f}mb\n",
+    str << fmt::format("Application heap: {:.3f}mb, active: {}, total: {}, memhawk overhead: {:.3f}mb\n",
                        m_workerData->summary.size / 1024.0 / 1024, m_workerData->summary.count,
                        m_workerData->summary.total, m_workerData->summary.overhead / 1024.0 / 1024);
 
     for (const auto& value : bySizeRange) {
+        if (value.summary.count == 0) {
+            continue;
+        }
         const auto it = m_workerData->writtenStacktraces.insert(value.traceId);
         if (it.second) {
             newStacktraces.insert(value.traceId);
         }
+        const auto average = value.summary.count == 0 ? 0.0 : 1.0 * value.summary.size / value.summary.count;
         str << fmt::format("TraceId: {}, active: {}, size: {:.3f}mb, average: {:.3f}b, total: {}\n", value.traceId,
-                           value.summary.count, value.summary.size / 1024.0 / 1024,
-                           value.summary.size / 1.0 / value.summary.count, value.summary.total);
+                           value.summary.count, value.summary.size / 1024.0 / 1024, average, value.summary.total);
     }
     str << "\n\n";
     m_workerData->summaryFile << str.str();
@@ -353,4 +365,6 @@ void MemHawk::WorkerPrintData()
         auto traceStr = trace.value().Describe();
         m_workerData->stacktracesFile << fmt::format("TraceId: {}\n{}\n", traceId, traceStr) << std::endl;
     }
+    m_workerData->stacktracesFile.flush();
+    m_workerData->summaryFile.flush();
 }

@@ -12,7 +12,6 @@
 #include <dlfcn.h>
 #include <sstream>
 #include <stdio.h>
-#include <xxhash.h>
 
 #define UNW_LOCAL_ONLY 1
 #include <libunwind.h>
@@ -21,7 +20,7 @@ Stacktrace::Stacktrace(void** data, size_t size)
 {
     m_skip = 0;
     m_size = std::min(MaxUnwindSize, size);
-    std::copy(data, std::next(data, m_size), m_data);
+    std::copy(data, std::next(data, static_cast<ssize_t>(m_size)), m_data);
     RecalculateHash();
 }
 
@@ -49,19 +48,18 @@ inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t skip)
         LogWarning("Failed to unwind, got empty stacktrace");
         return;
     }
-    m_size = resultSize;
+    m_size = static_cast<size_t>(resultSize);
     m_skip = skip;
     RecalculateHash();
 }
 
 void Stacktrace::Setup()
 {
-    // todo: Create defines for it and specify on compile time
     if (unw_set_caching_policy(unw_local_addr_space, UNW_CACHE_PER_THREAD)) {
-        fprintf(stderr, "WARNING: Failed to enable per-thread libunwind caching.\n");
+        LogWarning("Failed to enable per-thread libunwind caching");
     }
     if (unw_set_cache_size(unw_local_addr_space, 1024, 0)) {
-        fprintf(stderr, "WARNING: Failed to set libunwind cache size.\n");
+        LogWarning("Failed to set libunwind cache size");
     }
 }
 
