@@ -3,6 +3,7 @@
 #include "alloc_info.h"
 #include "stacktrace.h"
 #include "stacktrace_tracker.h"
+#include "stacktrace_tracker_fixed_size.h"
 #include "thread_tracker.h"
 
 #include <absl/container/flat_hash_set.h>
@@ -21,6 +22,7 @@
 #include <cstdint>
 #include <fstream>
 #include <functional>
+#include <future>
 #include <memory>
 #include <thread>
 
@@ -39,9 +41,7 @@ public:
     void SetUpTrackerThread();
 
     void TrackAlloc(AllocInfo& info, Stacktrace&& trace);
-    void TrackDealloc(const AllocInfo& info, const Stacktrace& trace);
-
-    void OnThreadFinish(InThreadTracker* tracker);
+    void TrackDealloc(AllocInfo& info, const Stacktrace& trace);
 
 private:
     struct WorkerData
@@ -105,8 +105,7 @@ private:
             Alloc,
             Free
         };
-        AllocInfo info{};
-        Stacktrace trace{};
+        AllocInfo info{0, 0};
         Operation op = Operation::Alloc;
     };
 
@@ -114,16 +113,16 @@ private:
     void TrackingWorker();
     void WorkerUpdateData();
     void WorkerPrintData();
-    void WorkerAccountThreadTracker(InThreadTracker& tracer);
-    void WorkerAccountInnerTracker(InThreadTracker& tracker);
+    void WorkerAccountThreadTracker(ThreadTracker& tracer);
 
     // Postponed allocs handlers
-    void PostponeAlloc(const AllocInfo& info, Stacktrace&& trace);
+    void PostponeAlloc(const AllocInfo& info);
     void PostponeDealloc(const AllocInfo& info);
     void ProcessPostponed();
 
     // Threads registration
     void RegisterThread();
+    void SetUpThreadFinishPromise(ThreadTracker* tracker);
 
 private:
     // Inner worker
@@ -133,12 +132,14 @@ private:
     std::thread m_worker;
     std::unique_ptr<WorkerData> m_workerData;
 
+
     // Trackers
     absl::Mutex m_thTrackersMt;
-    std::deque<std::unique_ptr<InThreadTracker>> m_thTrackers;
+    std::deque<std::unique_ptr<ThreadTracker>> m_thTrackers;
     std::deque<uint32_t> m_finishedTrackers;
-    StacktraceTracker m_btTracker;
-    uint32_t m_maxRetPtrIndex{};
+    std::list<std::future<uint32_t>> m_finishPromises;
+
+    StacktraceTracker m_btTracker{false};
 
     // Postponed and inner tracking
     absl::Mutex m_postponedMt;
@@ -147,6 +148,6 @@ private:
     // fixed size buffer for postponed operations
     boost::circular_buffer<Postponed> m_postponed;
     // tracker for all inner allocations
-    std::unique_ptr<InThreadTracker> m_innerTracker;
-    StacktraceTracker m_innerBtTracker;
+    std::unique_ptr<ThreadTracker> m_innerTracker;
+    StacktraceTrackerFixed m_innerBtTracker;
 };

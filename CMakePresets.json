@@ -9,11 +9,10 @@
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_TOOLCHAIN_FILE": "",
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                 "CMAKE_CXX_FLAGS": "-O0 -g",
-                "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev_debug",
+                "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
                 "MEMHAWK_BUILD_TESTING": true,
                 "BUILD_TESTING": false
             }
@@ -25,10 +24,26 @@
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "CMAKE_TOOLCHAIN_FILE": "",
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "CMAKE_CXX_FLAGS": "-O3 -g -march=native -mavx2",
+                "CMAKE_CXX_FLAGS": "-O2 -DDEBUG -g -march=native -mavx2",
+                "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
+                "MEMHAWK_BUILD_TESTING": true,
+                "BUILD_TESTING": false
+            }
+        },
+        {
+            "name": "RelWithDebInfoClang",
+            "displayName": "Clang Release",
+            "description": "Create release build",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "clang++",
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_CXX_FLAGS": "-O2 -DDEBUG -g -march=native -mavx2",
                 "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
                 "MEMHAWK_BUILD_TESTING": true,
                 "BUILD_TESTING": false

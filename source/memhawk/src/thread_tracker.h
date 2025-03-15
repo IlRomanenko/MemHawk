@@ -2,15 +2,17 @@
 
 
 #include "alloc_info.h"
-#include "stacktrace_tracker.h"
+#include "i_stacktrace_tracker.h"
+#include "lru_cache.h"
+#include "stacktrace.h"
 
 #include <absl/container/flat_hash_map.h>
+#include <absl/container/flat_hash_set.h>
 #include <absl/synchronization/mutex.h>
 
 #include <cstdint>
-#include <vector>
 
-struct InThreadTracker
+struct ThreadTracker
 {
     // works as spinlock in fast path
     absl::Mutex mt;
@@ -21,18 +23,26 @@ struct InThreadTracker
     uint64_t totalDeallocs{};
     TracedAllocSummary total{0};
 
-    // Stacktrace.Hash() -> TracedAllocSummary index
-    absl::flat_hash_map<uint32_t, uint32_t> knownStacktraces;
+    // Stacktrace -> StacktraceId
+    LruCache<CompressedStacktrace, uint32_t> lruStacktraces;
+    CompressedStacktrace localCompressed; // local element to reduce allocations
 
-    std::vector<TracedAllocSummary> allocsStats;
-    std::vector<uint32_t> changedAllocsStats;
+    // StacktraceId -> AllocSummary
+    absl::flat_hash_map<uint32_t, AllocSummary> allocSummaries;
 
-    StacktraceTracker& btTracker;
+    // Tracker for all stacktraces
+    IStacktraceTracker& btTracker;
 
-    InThreadTracker(uint32_t id, StacktraceTracker& tracker) : trackerId(id), btTracker(tracker)
+    ThreadTracker(uint32_t id, uint32_t capacity, IStacktraceTracker& tracker)
+        : trackerId(id), lruStacktraces(capacity), allocSummaries(capacity), btTracker(tracker)
     {
     }
 
-    void TrackAlloc(const AllocInfo& info, Stacktrace&& trace);
+    // Updates traceId in AllocInfo
+    void SaveTraceId(AllocInfo& info, Stacktrace&& trace);
+
+    void TrackAlloc(const AllocInfo& info);
     void TrackDealloc(const AllocInfo& info);
+
+    void Clear();
 };

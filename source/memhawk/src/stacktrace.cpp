@@ -16,12 +16,37 @@
 #define UNW_LOCAL_ONLY 1
 #include <libunwind.h>
 
+#include <xxhash.h>
+
+#include <lz4.h>
+
+
+bool CompressedStacktrace::operator==(const CompressedStacktrace& other) const
+{
+    if (hash != other.hash) {
+        return false;
+    }
+    return data == other.data;
+}
+
+bool CompressedStacktrace::operator<(const CompressedStacktrace& other) const
+{
+    if (hash == other.hash) {
+        return data < other.data;
+    }
+    return hash < other.hash;
+}
+
+void CompressedStacktrace::RecalculateHash()
+{
+    hash = XXH3_64bits(data.data(), data.size() * sizeof(uint64_t));
+}
+
 Stacktrace::Stacktrace(void** data, size_t size)
 {
     m_skip = 0;
     m_size = std::min(MaxUnwindSize, size);
     std::copy(data, std::next(data, static_cast<ssize_t>(m_size)), m_data);
-    RecalculateHash();
 }
 
 Stacktrace Stacktrace::Unwind(size_t capacity, size_t skip)
@@ -35,9 +60,6 @@ inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t skip)
 {
     size_t size = std::min(capacity, MaxUnwindSize);
     auto resultSize = unw_backtrace(m_data, size);
-    // remove duplicates -> not interested in recursion
-    // auto last = std::unique(m_data, std::next(m_data, resultSize));
-    // todo: Create correct mechanism for removing recursion
     auto last = std::next(m_data, resultSize);
     resultSize = std::distance(m_data, last);
     while (resultSize > 0 && m_data[resultSize - 1] == nullptr) {
@@ -48,9 +70,60 @@ inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t skip)
         LogWarning("Failed to unwind, got empty stacktrace");
         return;
     }
+
     m_size = static_cast<size_t>(resultSize);
     m_skip = skip;
-    RecalculateHash();
+    // remove duplicates -> not interested in recursion
+    SqueezeRecursion(4);
+}
+
+void Stacktrace::Compress(CompressedStacktrace& result) const
+{
+    const auto span = GetTrace();
+    result.data.resize(span.size());
+    memcpy(result.data.data(), span.data(), span.size() * sizeof(void*));
+    result.RecalculateHash();
+}
+
+// Simple recursion squeezing algorithm with O(N^2) asymptotic
+void Stacktrace::SqueezeRecursion(size_t depth)
+{
+    size_t begin = m_skip;
+    size_t left = m_skip;
+    size_t cur = left + 1;
+    size_t end = m_size;
+    while (cur < end) {
+        size_t cycleSize = 0;
+
+        //  begin         left    cur    end
+        // [  |    ....    |   ... | .... | ]
+        for (size_t spanSize = 1; spanSize < depth && cur + spanSize < end; spanSize++) {
+            bool matched = true;
+            if (begin + spanSize > left + 1) {
+                break;
+            }
+            for (size_t p = 0; p < spanSize; p++) {
+                if (m_data[cur + p] != m_data[left - spanSize + p + 1]) {
+                    matched = false;
+                    break;
+                }
+            }
+            if (matched) {
+                cycleSize = spanSize;
+                break;
+            }
+        }
+        if (cycleSize > 0) {
+            cur += cycleSize;
+        } else {
+            left++;
+            m_data[left] = m_data[cur];
+            cur++;
+        }
+    }
+    end = left + 1;
+
+    m_size = static_cast<size_t>(end);
 }
 
 void Stacktrace::Setup()
@@ -70,7 +143,6 @@ void Stacktrace::ShrinkBySize(size_t size)
         return;
     }
     m_size = m_skip + size;
-    RecalculateHash();
 }
 
 void Stacktrace::ShrinkByPtr(void* ptr)
@@ -95,12 +167,6 @@ absl::Span<void* const> Stacktrace::GetTrace() const
     return absl::MakeConstSpan(m_data + m_skip, m_data + m_size);
 }
 
-void Stacktrace::RecalculateHash()
-{
-    auto span = GetTrace();
-    m_hash = static_cast<uint32_t>(boost::hash_range(span.begin(), span.end()));
-}
-
 std::string Stacktrace::Describe() const
 {
     char buf[512];
@@ -113,13 +179,13 @@ std::string Stacktrace::Describe() const
         unw_word_t offset{};
         unw_get_elf_filename_by_ip(unw_local_addr_space, reinterpret_cast<unw_word_t>(ip), elfName, 512, &offset,
                                    nullptr);
-
-        stream << fmt::format("{} + {:x}: {}\n", elfName, offset, buf);
+        
+        stream << fmt::format("{}: {} + {:x}: {}\n", ip, elfName, offset, buf);
     }
     return stream.str();
 }
 
-uint32_t Stacktrace::Hash() const
+bool Stacktrace::operator==(const Stacktrace& rhs) const
 {
-    return m_hash;
+    return m_size == rhs.m_size && m_skip == rhs.m_skip && memcmp(m_data, rhs.m_data, m_size) == 0;
 }

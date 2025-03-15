@@ -8,7 +8,11 @@ struct AllocInfo
 {
     uint64_t size{};
     uint32_t offset{}; // in case of alignment
-    uint32_t traceHash{};
+    uint32_t traceId{};
+
+    explicit AllocInfo(uint64_t ctrSize, uint32_t ctrOffset) : size(ctrSize), offset(ctrOffset), traceId(0)
+    {
+    }
 };
 
 struct AllocSummary
@@ -16,7 +20,7 @@ struct AllocSummary
     // signed integers, because we can track deallocation of pointer,
     // that was allocated in another thread
     int64_t size{};
-    int64_t count{};
+    int64_t active{};
     int64_t overhead{};
 
     // total allocations
@@ -25,7 +29,7 @@ struct AllocSummary
     inline AllocSummary& operator+=(const AllocSummary& rhs)
     {
         size += rhs.size;
-        count += rhs.count;
+        active += rhs.active;
         overhead += rhs.overhead;
         total += rhs.total;
         return *this;
@@ -34,7 +38,7 @@ struct AllocSummary
     inline AllocSummary& operator-=(const AllocSummary& rhs)
     {
         size -= rhs.size;
-        count -= rhs.count;
+        active -= rhs.active;
         overhead -= rhs.overhead;
         total += rhs.total; // sum of allocations
         return *this;
@@ -44,7 +48,7 @@ struct AllocSummary
     {
         size += static_cast<int64_t>(rhs.size);
         overhead += static_cast<int64_t>(rhs.offset);
-        count++;
+        active++;
         total++;
         return *this;
     }
@@ -53,7 +57,7 @@ struct AllocSummary
     {
         size -= static_cast<int64_t>(rhs.size);
         overhead -= static_cast<int64_t>(rhs.offset);
-        count--;
+        active--;
         // doesn't change total
         return *this;
     }
@@ -62,11 +66,11 @@ struct AllocSummary
 struct TracedAllocSummary
 {
     bool changed{false};
-    uint32_t traceHash{};
+    uint32_t traceId{};
     AllocSummary summary{};
     AllocSummary diff{};
 
-    explicit TracedAllocSummary(uint32_t ctrTrace) : traceHash(ctrTrace)
+    explicit TracedAllocSummary(uint32_t ctrTraceId) : traceId(ctrTraceId)
     {
     }
 
@@ -111,8 +115,8 @@ struct TracedAllocSummary
     }
 
 private:
-    TracedAllocSummary(uint32_t trace, int64_t size, int64_t count)
-        : traceHash(trace), summary{size, count}, diff{size, count}
+    TracedAllocSummary(uint32_t ctrTraceId, int64_t size, int64_t count)
+        : traceId(ctrTraceId), summary{size, count}, diff{size, count}
     {
     }
 };

@@ -1,33 +1,52 @@
 #pragma once
 
+#include "i_stacktrace_tracker.h"
 #include "stacktrace.h"
 
 #include <absl/container/flat_hash_map.h>
 #include <absl/synchronization/mutex.h>
+#include <boost/container/devector.hpp>
 
 #include <cstdint>
-#include <deque>
+#include <memory>
 #include <optional>
 
-class StacktraceTracker
+class StacktraceTracker : public IStacktraceTracker
 {
 public:
     void PostponedConstruct();
 
-    std::optional<Stacktrace> GetStacktraceFromHash(uint32_t traceHash);
-    void SaveStacktrace(Stacktrace&& trace);
+    uint32_t InsertStacktrace(Stacktrace&& trace) override;
+    std::optional<Stacktrace> GetStacktraceFromId(uint32_t traceId) override;
 
     size_t StacktracesCount();
 
+    StacktraceTracker(bool ctrDump = false) : dump(ctrDump) {}
+    ~StacktraceTracker();
+
 private:
+
+    struct TraceNode{
+        void* ptr{};
+        uint32_t parent{};
+        bool leaf{};
+
+        absl::flat_hash_map<void*, uint32_t> edges;
+
+        explicit TraceNode(void* ctrPtr, uint32_t ctrParent, bool ctrLeaf)
+            : ptr(ctrPtr), parent(ctrParent), leaf(ctrLeaf)
+        {
+        }
+    };
+
     struct Storage
     {
-        absl::flat_hash_map<uint32_t, uint32_t> m_stacktraces;
-        // reversed m_stacktraces map, utilizes continious nature of m_traceId
-        std::deque<Stacktrace> m_reversedStacktraces;
+        boost::container::devector<TraceNode> nodes;
+        boost::container::devector<uint32_t> leafsId;
     };
 
 private:
     absl::Mutex m_mt;
+    bool dump{false};
     std::unique_ptr<Storage> m_storage;
 };

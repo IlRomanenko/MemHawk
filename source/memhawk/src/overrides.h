@@ -42,7 +42,7 @@ void operator delete[](void* p, size_t size, std::align_val_t alignment) noexcep
 
 
 extern "C" {
-// libc conterpart
+// libc counterpart
 void* __libc_malloc(size_t size) ALIAS(hawk_malloc);
 void __libc_free(void* ptr) ALIAS(hawk_free);
 void* __libc_realloc(void* ptr, size_t size) ALIAS(hawk_realloc);

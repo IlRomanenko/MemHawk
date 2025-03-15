@@ -144,6 +144,7 @@ void init()
         // register deinitialization of log system
         std::atexit(LogDeinit);
     }
+    Stacktrace::Setup();
     LogInfo("[" fI32 "]", getpid());
 }
 
@@ -164,16 +165,12 @@ void* hawk_malloc(size_t size)
     void* ptr = hooks::malloc(totalSize);
 
     AllocInfo* info = reinterpret_cast<AllocInfo*>(ptr);
-    info->offset = AdditionalSize;
-    info->size = size;
-    info->traceHash = 0;
+    *info = AllocInfo{size, AdditionalSize};
     ptr = reinterpret_cast<char*>(ptr) + AdditionalSize;
 
     LogDebug("result: " fPtr, ptr);
 
     if (auto storage = GlobalStorage::GetGlobalStorage(); storage) {
-        // save trace hash only after initialisation of GlobalStorage
-        info->traceHash = trace.Hash();
         auto memhawk = storage->GetMemHawk();
         memhawk->TrackAlloc(*info, std::move(trace));
     }
@@ -192,16 +189,12 @@ void* hawk_valloc(size_t size)
     auto totalSize = size + AdditionalSize;
     void* ptr = hooks::valloc(totalSize);
     AllocInfo* info = reinterpret_cast<AllocInfo*>(ptr);
-    info->offset = AdditionalSize;
-    info->size = size;
-    info->traceHash = 0;
+    *info = AllocInfo{size, AdditionalSize};
     ptr = reinterpret_cast<char*>(ptr) + AdditionalSize;
 
     LogDebug("result: " fPtr, ptr);
 
     if (auto storage = GlobalStorage::GetGlobalStorage(); storage) {
-        // save trace hash only after initialisation of GlobalStorage
-        info->traceHash = trace.Hash();
         auto memhawk = storage->GetMemHawk();
         memhawk->TrackAlloc(*info, std::move(trace));
     }
@@ -220,16 +213,12 @@ void* hawk_aligned_alloc(size_t align, size_t size)
     auto alignedSize = (AdditionalSize + align - 1) / align * align;
     void* ptr = hooks::aligned_alloc(align, (size + alignedSize));
     AllocInfo* info = reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) + alignedSize - AdditionalSize);
-    info->offset = alignedSize;
-    info->size = size;
-    info->traceHash = 0;
+    *info = AllocInfo{size, static_cast<uint32_t>(alignedSize)};
     ptr = reinterpret_cast<char*>(ptr) + alignedSize;
 
     LogDebug("result: " fPtr, ptr);
 
     if (auto storage = GlobalStorage::GetGlobalStorage(); storage) {
-        // save trace hash only after initialisation of GlobalStorage
-        info->traceHash = trace.Hash();
         auto memhawk = storage->GetMemHawk();
         memhawk->TrackAlloc(*info, std::move(trace));
     }
@@ -253,14 +242,10 @@ int hawk_posix_memalign(void** memptr, size_t alignment, size_t size)
     }
 
     AllocInfo* info = reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(*memptr) + alignedSize - AdditionalSize);
-    info->offset = alignedSize;
-    info->size = size;
-    info->traceHash = 0;
+    *info = AllocInfo{size, static_cast<uint32_t>(alignedSize)};
     *memptr = reinterpret_cast<char*>(*memptr) + alignedSize;
 
     if (auto storage = GlobalStorage::GetGlobalStorage(); storage) {
-        // save trace hash only after initialisation of GlobalStorage
-        info->traceHash = trace.Hash();
         auto memhawk = storage->GetMemHawk();
         memhawk->TrackAlloc(*info, std::move(trace));
     }
@@ -283,15 +268,11 @@ void* hawk_calloc(size_t nm, size_t size)
     }
 
     AllocInfo* info = reinterpret_cast<AllocInfo*>(ptr);
-    info->offset = AdditionalSize;
-    info->size = nm * size;
-    info->traceHash = 0;
+    *info = AllocInfo{nm * size, AdditionalSize};
     ptr = reinterpret_cast<char*>(ptr) + AdditionalSize;
     LogDebug("result: " fPtr, ptr);
 
     if (auto storage = GlobalStorage::GetGlobalStorage(); storage) {
-        // save trace hash only after initialisation of GlobalStorage
-        info->traceHash = trace.Hash();
         auto memhawk = storage->GetMemHawk();
         memhawk->TrackAlloc(*info, std::move(trace));
     }
@@ -323,15 +304,11 @@ void* hawk_realloc(void* ptr, size_t size)
     }
 
     AllocInfo* info = reinterpret_cast<AllocInfo*>(realloced);
-    info->offset = AdditionalSize;
-    info->size = size;
-    info->traceHash = 0;
+    *info = AllocInfo{size, AdditionalSize};
     realloced = reinterpret_cast<char*>(realloced) + AdditionalSize;
     LogDebug("result: " fPtr, realloced);
 
     if (auto storage = GlobalStorage::GetGlobalStorage(); storage) {
-        // save trace hash only after initialisation of GlobalStorage
-        info->traceHash = trace.Hash();
         auto memhawk = storage->GetMemHawk();
         memhawk->TrackAlloc(*info, std::move(trace));
     }
@@ -360,7 +337,7 @@ void hawk_free(void* ptr)
     ptr = reinterpret_cast<char*>(ptr) - info->offset;
     if (auto storage = GlobalStorage::GetGlobalStorage(); storage) {
         auto memhawk = storage->GetMemHawk();
-        auto trace = Stacktrace::Unwind(TrackDepth);
+        auto trace = Stacktrace::Unwind(3);
         memhawk->TrackDealloc(*info, trace);
     }
     hooks::free(ptr);

@@ -4,13 +4,14 @@ set(target_name memhawk)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wshadow -Werror=undef -Werror=return-type")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wsign-conversion -Wunused  -Wold-style-cast -Wcast-align")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Woverloaded-virtual -Wnon-virtual-dtor -Wsuggest-override")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wmisleading-indentation -Wduplicated-cond -Wduplicated-branches")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wuseless-cast -Wstrict-aliasing -Warray-bounds -Wimplicit-fallthrough")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wuseless-cast  -Wduplicated-cond -Wduplicated-branches")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wmisleading-indentation -Wstrict-aliasing -Warray-bounds -Wimplicit-fallthrough")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wuninitialized")
 
 add_library(${target_name} SHARED
     src/thread_tracker.cpp
     src/stacktrace_tracker.cpp
+    src/stacktrace_tracker_fixed_size.cpp
     src/log.cpp
     src/memhawk.cpp
     src/preload.cpp
@@ -21,6 +22,7 @@ add_library(${target_name} SHARED
 
 target_link_libraries(${target_name}
 PRIVATE
+    xxhash_static
     unwind_static
     fmt
     absl::flat_hash_map
