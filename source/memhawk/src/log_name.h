@@ -1,5 +1,6 @@
 #pragma once
 
+#include "config.h"
 #include <fmt/format.h>
 
 #include <cerrno>
@@ -11,7 +12,7 @@ namespace memhawk
 
 inline std::string GetProcessLogName(const char* suffix)
 {
-    return fmt::format("memhawk_log_{}_{}_{}.log", program_invocation_short_name, getpid(), suffix);
+    return fmt::format("{}/memhawk_{}_{}_{}.log", gl_config.LogDir, program_invocation_short_name, getpid(), suffix);
 }
 
 } // namespace memhawk

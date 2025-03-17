@@ -3,6 +3,7 @@
 #include "log.h"
 
 #include <cstddef>
+#include <string_view>
 
 namespace memhawk
 {
@@ -20,6 +21,8 @@ struct Config
     size_t MaxPostponed = 128;
     LogLevel LoggingLevel = LogLevel::Info;
     bool MainLogIntoFile = true;
+
+    std::string_view LogDir = "./";
 };
 
 extern Config gl_config;

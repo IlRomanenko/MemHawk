@@ -26,6 +26,7 @@ constexpr const char* CollapseRecursionDepthName = "collapse_recursion_depth";
 constexpr const char* MaxPostponedName = "max_postponed";
 constexpr const char* LoggingLevelName = "logging_level";
 constexpr const char* MainLogIntoFileName = "main_log_file";
+constexpr const char* LogDirName = "log_dir";
 
 template <typename... Args>
 void PrintError(std::string_view fmt, Args... args)
@@ -94,6 +95,8 @@ void InitConfig()
             size_t value{};
             ParseValue(key, valueStr, value);
             gl_config.MainLogIntoFile = value > 0;
+        } else if (key == LogDirName) {
+            gl_config.LogDir = valueStr;
         } else {
             PrintError("Unknown parameter: {}", key);
         }

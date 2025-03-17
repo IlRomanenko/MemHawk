@@ -21,9 +21,9 @@ void LogInit(const char* filename)
         gl_logFile = open(filename, O_WRONLY | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR);
         if (gl_logFile < 0) {
             int error = errno;
-            LogError("Failed to initialise logging: " fStr, strerror(error));
-            // // perhaps, abort should be called in that case
-            // abort();
+            gl_logFile = STDERR_FILENO;
+            LogError("Failed to initialise logging: " fStr ", error: ", filename, strerror(error));
+            abort();
         }
     } else {
         gl_logFile = STDERR_FILENO;

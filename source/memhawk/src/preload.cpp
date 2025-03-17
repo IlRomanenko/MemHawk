@@ -140,7 +140,7 @@ void InitHooks()
 
     InitConfig();
     {
-        const auto str = GetProcessLogName("log");
+        const auto str = GetProcessLogName("main_log");
         LogInit(str.c_str());
         // register deinitialization of log system
         std::atexit(LogDeinit);
