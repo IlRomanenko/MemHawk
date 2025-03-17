@@ -1,5 +1,7 @@
 #pragma once
 
+#include "config.h"
+
 #include <absl/types/span.h>
 #include <boost/container_hash/hash.hpp>
 
@@ -7,7 +9,8 @@
 #include <stdlib.h>
 #include <string>
 
-constexpr size_t MaxUnwindSize = 64;
+namespace memhawk
+{
 
 class Stacktrace;
 
@@ -28,25 +31,13 @@ struct CompressedStacktrace
 
 };
 
-namespace boost
-{
-template <>
-struct hash<CompressedStacktrace>
-{
-    size_t operator()(const CompressedStacktrace& trace) const
-    {
-        return trace.hash;
-    }
-};
-} // namespace boost
-
 class Stacktrace
 {
 public:
     Stacktrace() = default;
     Stacktrace(void** data, size_t size);
 
-    static Stacktrace Unwind(size_t capacity, size_t skip = 1);
+    static Stacktrace Unwind(size_t capacity, size_t collapseDepth, size_t skip = 2);
     static void Setup();
 
     void Compress(CompressedStacktrace& result) const;
@@ -60,11 +51,25 @@ public:
     bool operator==(const Stacktrace& rhs) const;
 
 private:
-    void UnwindStacktrace(size_t capacity, size_t skip);
+    void UnwindStacktrace(size_t capacity, size_t collapseDepth, size_t skip);
     void SqueezeRecursion(size_t depth);
 
 private:
-    void* m_data[MaxUnwindSize];
+    void* m_data[MaxUnwindDepth];
     size_t m_size{};
     size_t m_skip{};
 };
+
+} // namespace memhawk
+
+namespace boost
+{
+template <>
+struct hash<memhawk::CompressedStacktrace>
+{
+    size_t operator()(const memhawk::CompressedStacktrace& trace) const
+    {
+        return trace.hash;
+    }
+};
+} // namespace boost

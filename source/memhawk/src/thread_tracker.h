@@ -12,6 +12,9 @@
 
 #include <cstdint>
 
+namespace memhawk
+{
+
 struct ThreadTracker
 {
     // works as spinlock in fast path
@@ -46,3 +49,5 @@ struct ThreadTracker
 
     void Clear();
 };
+
+} // namespace memhawk

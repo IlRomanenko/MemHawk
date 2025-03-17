@@ -1,6 +1,7 @@
 #include "stacktrace_tracker.h"
 
-#include "log.h"
+#include "config.h"
+#include "log_name.h"
 #include "stacktrace.h"
 
 #include <boost/range/adaptor/reversed.hpp>
@@ -12,7 +13,9 @@
 #include <cstdlib>
 #include <fstream>
 #include <optional>
-#include <sstream>
+
+namespace memhawk
+{
 
 void StacktraceTracker::PostponedConstruct()
 {
@@ -27,22 +30,21 @@ size_t StacktraceTracker::StacktracesCount()
     return m_storage->leafsId.size();
 }
 
+StacktraceTracker::StacktraceTracker(bool dump) : m_dump(dump)
+{
+}
+
 StacktraceTracker::~StacktraceTracker()
 {
-    LogInfo(fSzt, m_storage->nodes.size());
-    if (!dump) {
+    if (!m_dump) {
         return;
     }
-    std::ofstream result(fmt::format("res_{}.txt", getpid()), std::ios_base::out | std::ios_base::trunc);
-
+    std::ofstream result(GetProcessLogName("inner_stacktraces"), std::ios_base::out | std::ios_base::trunc);
+    result << "Inner stacktraces:" << "\n";
     for (const auto& traceId : m_storage->leafsId) {
         const auto trace = GetStacktraceFromId(traceId).value();
-        auto span = trace.GetTrace();
-        std::stringstream str;
-        for (const auto& ptr : span) {
-            str << reinterpret_cast<uintptr_t>(ptr) << ' ';
-        }
-        result << str.str() << "\n";
+        const auto stacktrace = trace.Describe();
+        result << "traceId: " << traceId << "\n" << stacktrace << "\n\n";
     }
     result.flush();
     result.close();
@@ -57,11 +59,11 @@ uint32_t StacktraceTracker::InsertStacktrace(Stacktrace&& trace)
 
     uint32_t nodeId = 0;
     for (const auto& ptr : reversed) {
-        auto nextNodeIt = m_storage->nodes[nodeId].edges.find(ptr);
-        if (nextNodeIt == m_storage->nodes[nodeId].edges.end()) {
+        auto nextNodeIt = m_storage->edges.find({nodeId, ptr});
+        if (nextNodeIt == m_storage->edges.end()) {
             uint32_t nextNodeId = m_storage->nodes.size();
             m_storage->nodes.push_back(TraceNode{ptr, nodeId, false});
-            nextNodeIt = m_storage->nodes[nodeId].edges.insert({ptr, nextNodeId}).first;
+            nextNodeIt = m_storage->edges.insert({{nodeId, ptr}, nextNodeId}).first;
         }
         nodeId = nextNodeIt->second;
     }
@@ -76,7 +78,7 @@ uint32_t StacktraceTracker::InsertStacktrace(Stacktrace&& trace)
 std::optional<Stacktrace> StacktraceTracker::GetStacktraceFromId(uint32_t traceId)
 {
     absl::MutexLock lock(&m_mt);
-    std::array<void*, MaxUnwindSize> trace;
+    std::array<void*, MaxUnwindDepth> trace;
     size_t traceIt = 0;
     if (traceId >= m_storage->nodes.size()) {
         return {};
@@ -93,3 +95,5 @@ std::optional<Stacktrace> StacktraceTracker::GetStacktraceFromId(uint32_t traceI
     }
     return Stacktrace(trace.data(), traceIt);
 }
+
+} // namespace memhawk

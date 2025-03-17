@@ -4,8 +4,11 @@
 #include "log.h"
 #include "memhawk.h"
 
-LogLevel gl_logLevel = LogLevel::Info;
+namespace memhawk
+{
+
 int gl_logFile = STDERR_FILENO;
+Config gl_config;
 
 static bool glInitialised = false;
 std::unique_ptr<GlobalStorage> GlobalStorage::m_global = {};
@@ -61,3 +64,5 @@ MemHawk* GlobalStorage::GetMemHawk()
 {
     return m_memHawk.get();
 }
+
+} // namespace memhawk

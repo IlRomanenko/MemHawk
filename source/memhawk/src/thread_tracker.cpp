@@ -3,6 +3,9 @@
 #include "alloc_info.h"
 #include "stacktrace.h"
 
+namespace memhawk
+{
+
 void ThreadTracker::SaveTraceId(AllocInfo& info, Stacktrace&& trace)
 {
     absl::MutexLock lock(&mt);
@@ -53,3 +56,5 @@ void ThreadTracker::Clear()
     // allocSummaries.erase(allocSummaries.begin(), allocSummaries.end());
     allocSummaries.clear();
 }
+
+} // namespace memhawk

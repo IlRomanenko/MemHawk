@@ -2,7 +2,9 @@
 
 #include <cstddef>
 #include <new>
-extern "C" {
+
+namespace memhawk
+{
 
 // replacement for libc functions
 void* hawk_malloc(size_t size);
@@ -43,4 +45,4 @@ void HawkInternalDeleteArrayAligned(void* p, std::align_val_t /*alignment*/) noe
 void HawkInternalDeleteArrayAlignedNothrow(void* p, std::align_val_t /*alignment*/, const std::nothrow_t&) noexcept;
 void HawkInternalDeleteArraySizedAligned(void* p, size_t /*size*/, std::align_val_t /*alignment*/) noexcept;
 
-} // extern "C"
+}

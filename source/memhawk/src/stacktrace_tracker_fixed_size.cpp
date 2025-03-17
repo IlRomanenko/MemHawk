@@ -1,14 +1,19 @@
 #include "stacktrace_tracker_fixed_size.h"
 
+#include "log_name.h"
 #include "stacktrace.h"
+
 #include <fmt/format.h>
 
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
-#include <limits>
 #include <fstream>
+#include <limits>
 #include <optional>
+
+namespace memhawk
+{
 
 constexpr uint32_t FixedTrackerIdFlag = 1ul << (std::numeric_limits<uint32_t>::digits - 1);
 
@@ -23,27 +28,21 @@ size_t StacktraceTrackerFixed::StacktracesCount()
     return m_size;
 }
 
+StacktraceTrackerFixed::StacktraceTrackerFixed(bool dump) : m_dump(dump)
+{
+}
+
 StacktraceTrackerFixed::~StacktraceTrackerFixed()
 {
-    // if (!dump) {
-    //     return;
-    // }
-    std::ofstream result(fmt::format("res_inner_{}.txt", getpid()), std::ios_base::out | std::ios_base::trunc);
-
+    if (!m_dump) {
+        return;
+    }
+    std::ofstream result(GetProcessLogName("inner_stacktraces"), std::ios_base::out | std::ios_base::trunc);
     result << "Inner stacktraces:" << "\n";
     for (size_t i = 0; i < m_size; i++) {
         const auto stacktrace = m_stacktraces[i].Describe();
         result << "traceId: " << i << "\n" << stacktrace << "\n\n";
     }
-    // for (const auto& traceId : m_storage->leafsId) {
-    //     const auto trace = GetStacktraceFromId(traceId).value();
-    //     auto span = trace.GetTrace();
-    //     std::stringstream str;
-    //     for (const auto& ptr : span) {
-    //         str << reinterpret_cast<uintptr_t>(ptr) << ' ';
-    //     }
-    //     result << str.str() << "\n";
-    // }
     result.flush();
     result.close();
 }
@@ -65,7 +64,7 @@ uint32_t StacktraceTrackerFixed::InsertStacktraceUnlocked(Stacktrace&& trace)
         }
     }
     if (!foundPos) {
-        if (m_size < 128) {
+        if (m_size < StorageSize) {
             foundPos = m_size;
             m_size++;
             m_stacktraces[foundPos.value()] = std::move(trace);
@@ -88,3 +87,5 @@ std::optional<Stacktrace> StacktraceTrackerFixed::GetStacktraceFromId(uint32_t t
     }
     return m_stacktraces[traceId];
 }
+
+} // namespace memhawk

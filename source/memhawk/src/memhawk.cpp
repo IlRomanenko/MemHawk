@@ -2,6 +2,7 @@
 #include "memhawk.h"
 
 #include "alloc_info.h"
+#include "config.h"
 #include "log.h"
 #include "log_name.h"
 #include "macros.h"
@@ -17,17 +18,18 @@
 #include <boost/range/iterator_range.hpp>
 #include <fmt/format.h>
 
-#include <chrono>
 #include <csignal>
 #include <cstdint>
 #include <cstring>
-#include <fstream>
 #include <future>
-#include <memory>
 #include <mutex>
 #include <pthread.h>
 #include <sstream>
 #include <unistd.h>
+
+
+namespace memhawk
+{
 
 thread_local ThreadTracker* gtl_tracker = nullptr;
 thread_local void* gtl_retPtrs[8] = {
@@ -38,10 +40,7 @@ struct RetPtrTag
 {
 };
 
-constexpr size_t MaxPostponed = 256;
-constexpr size_t LruCapacity = 128;
-
-MemHawk::MemHawk() : m_postponedCapacity(MaxPostponed), m_postponed(MaxPostponed)
+MemHawk::MemHawk() : m_postponedCapacity(gl_config.MaxPostponed), m_postponed(gl_config.MaxPostponed)
 {
     LogInfo("Start MemHawk()");
 }
@@ -50,17 +49,6 @@ void PrintTracker(ThreadTracker* tracker)
 {
     LogInfo("TrackerId: " fU32 ", allocSummaries: (" fSzt "," fSzt "), lru: " fSzt, tracker->trackerId,
             tracker->allocSummaries.size(), tracker->allocSummaries.capacity(), tracker->lruStacktraces.Size());
-    // size_t nonZeroStats = 0;
-    // for (const auto& elem : tracker->allocsStats) {
-    //     if (elem.summary.active == 0) {
-    //         continue;
-    //     }
-    //     nonZeroStats++;
-    //     LogDebug("TraceId: " fU32 ", active: " fI64 ", size: " fI64 ", overhead: " fI64 ", total: " fI64,
-    //     elem.traceId,
-    //              elem.summary.active, elem.summary.size, elem.summary.overhead, elem.summary.total);
-    // }
-    // LogInfo("Tracker.stats " fSzt ", nonzero: " fSzt, tracker->allocsStats.size(), nonZeroStats);
 }
 
 MemHawk::~MemHawk()
@@ -95,10 +83,6 @@ MemHawk::~MemHawk()
         }
         LogInfo("TraceId: " fU32 ", active: " fI64 ", size: " fI64 ", overhead: " fI64 ", total: " fI64, elem.traceId,
                 elem.summary.active, elem.summary.size, elem.summary.overhead, elem.summary.total);
-
-        // auto trace = m_innerBtTracker.GetStacktraceFromId(elem.traceId);
-        // auto str =trace.value().Describe();
-        // LogInfo("\n" fStr "\n\n\n", str.c_str());
     }
 }
 
@@ -108,7 +92,7 @@ void MemHawk::PostponedConstruct()
     RecursionGuard<AllocTag> guard;
     {
         RecursionGuard<InnerAllocTag> innerGuard;
-        m_innerTracker = std::make_unique<ThreadTracker>(m_thTrackers.size(), LruCapacity, m_innerBtTracker);
+        m_innerTracker = std::make_unique<ThreadTracker>(m_thTrackers.size(), gl_config.LruStackSize, m_innerBtTracker);
     }
     m_btTracker.PostponedConstruct();
 
@@ -123,7 +107,7 @@ void MemHawk::PostponedConstruct()
 void MemHawk::RegisterThread()
 {
     if (unlikely(gtl_tracker != nullptr)) {
-        const auto trace = Stacktrace::Unwind(32).Describe();
+        const auto trace = Stacktrace::Unwind(32, 0).Describe();
         LogError("Trying to register already registered thread, stacktrace:\n" fStr, trace.c_str());
         return;
     }
@@ -147,7 +131,7 @@ void MemHawk::RegisterThread()
         SetUpThreadFinishPromise(gtl_tracker);
         return;
     }
-    m_thTrackers.emplace_back(std::make_unique<ThreadTracker>(m_thTrackers.size(), LruCapacity, m_btTracker));
+    m_thTrackers.emplace_back(std::make_unique<ThreadTracker>(m_thTrackers.size(), gl_config.LruStackSize, m_btTracker));
     gtl_tracker = m_thTrackers.back().get();
     SetUpThreadFinishPromise(gtl_tracker);
 }
@@ -330,7 +314,6 @@ void MemHawk::WorkerAccountThreadTracker(ThreadTracker& tracker)
     m_workerData->summary += tracker.total.ConsumeDiff();
     m_workerData->updatedTraces += tracker.allocSummaries.size();
     tracker.Clear();
-    // tracker.allocSummaries.clear(); // drop all accumulated data
 }
 
 void MemHawk::WorkerPrintData()
@@ -396,3 +379,5 @@ void MemHawk::WorkerPrintData()
     m_workerData->stacktracesFile.flush();
     m_workerData->summaryFile.flush();
 }
+
+} // namespace memhawk

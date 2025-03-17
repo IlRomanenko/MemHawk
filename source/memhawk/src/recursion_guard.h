@@ -2,6 +2,9 @@
 
 #include <cstdint>
 
+namespace memhawk
+{
+
 template <typename T>
 struct RecursionGuard
 {
@@ -35,3 +38,5 @@ struct AllocTag
 struct InnerAllocTag
 {
 };
+
+} // namespace memhawk

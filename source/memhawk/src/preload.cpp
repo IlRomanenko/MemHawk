@@ -2,11 +2,11 @@
 #include "preload.h"
 
 #include "alloc_info.h"
+#include "config.h"
 #include "global_storage.h"
 #include "log.h"
 #include "log_name.h"
 #include "macros.h"
-#include "overrides.h"
 #include "stacktrace.h"
 
 #include <cstddef>
@@ -15,8 +15,8 @@
 #include <stdio.h>
 #include <unistd.h>
 
-// todo: Get from environ configs
-constexpr size_t TrackDepth = 32;
+namespace memhawk
+{
 
 namespace hooks
 {
@@ -125,7 +125,7 @@ void* dummy_calloc(size_t num, size_t size) noexcept
     return dummyPool().alloc(num, size);
 }
 
-void init()
+void InitHooks()
 {
     hooks::calloc.original = &dummy_calloc;
 
@@ -138,6 +138,7 @@ void init()
     hooks::valloc.init();
     hooks::aligned_alloc.init();
 
+    InitConfig();
     {
         const auto str = GetProcessLogName("log");
         LogInit(str.c_str());
@@ -157,9 +158,9 @@ void* hawk_malloc(size_t size)
 {
     LogDebug("requested: " fSzt, size);
     if (unlikely(!hooks::malloc)) {
-        hooks::init();
+        hooks::InitHooks();
     }
-    auto trace = Stacktrace::Unwind(TrackDepth);
+    auto trace = Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth);
 
     auto totalSize = size + AdditionalSize;
     void* ptr = hooks::malloc(totalSize);
@@ -182,9 +183,9 @@ void* hawk_valloc(size_t size)
     LogDebug("requested: " fSzt, size);
 
     if (unlikely(!hooks::valloc)) {
-        hooks::init();
+        hooks::InitHooks();
     }
-    auto trace = Stacktrace::Unwind(TrackDepth);
+    auto trace = Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth);
 
     auto totalSize = size + AdditionalSize;
     void* ptr = hooks::valloc(totalSize);
@@ -206,9 +207,9 @@ void* hawk_aligned_alloc(size_t align, size_t size)
     LogDebug("requested: " fSzt, size);
 
     if (unlikely(!hooks::aligned_alloc)) {
-        hooks::init();
+        hooks::InitHooks();
     }
-    auto trace = Stacktrace::Unwind(TrackDepth);
+    auto trace = Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth);
 
     auto alignedSize = (AdditionalSize + align - 1) / align * align;
     void* ptr = hooks::aligned_alloc(align, (size + alignedSize));
@@ -230,9 +231,9 @@ int hawk_posix_memalign(void** memptr, size_t alignment, size_t size)
     LogDebug("requested: " fSzt, size);
 
     if (unlikely(!hooks::posix_memalign)) {
-        hooks::init();
+        hooks::InitHooks();
     }
-    auto trace = Stacktrace::Unwind(TrackDepth);
+    auto trace = Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth);
 
     auto alignedSize = (AdditionalSize + alignment - 1) / alignment * alignment;
     int res = hooks::posix_memalign(memptr, alignment, size + alignedSize);
@@ -257,9 +258,9 @@ void* hawk_calloc(size_t nm, size_t size)
     LogDebug("requested: " fSzt " " fSzt, nm, size);
 
     if (unlikely(!hooks::calloc)) {
-        hooks::init();
+        hooks::InitHooks();
     }
-    auto trace = Stacktrace::Unwind(TrackDepth);
+    auto trace = Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth);
 
     size_t totalSize = nm * size + AdditionalSize;
     void* ptr = hooks::calloc(1ul, totalSize);
@@ -284,9 +285,9 @@ void* hawk_realloc(void* ptr, size_t size)
     LogDebug("requested: " fPtr " " fSzt, ptr, size);
 
     if (unlikely(!hooks::realloc)) {
-        hooks::init();
+        hooks::InitHooks();
     }
-    auto trace = Stacktrace::Unwind(TrackDepth);
+    auto trace = Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth);
 
 
     if (ptr) {
@@ -330,14 +331,14 @@ void hawk_free(void* ptr)
     LogDebug("requested: " fPtr, ptr);
 
     if (unlikely(!hooks::free)) {
-        hooks::init();
+        hooks::InitHooks();
     }
 
     AllocInfo* info = reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) - AdditionalSize);
     ptr = reinterpret_cast<char*>(ptr) - info->offset;
     if (auto storage = GlobalStorage::GetGlobalStorage(); storage) {
         auto memhawk = storage->GetMemHawk();
-        auto trace = Stacktrace::Unwind(3);
+        auto trace = Stacktrace::Unwind(MinUnwindDepth, gl_config.CollapseRecursionDepth);
         memhawk->TrackDealloc(*info, trace);
     }
     hooks::free(ptr);
@@ -349,102 +350,4 @@ size_t hawk_malloc_usable_size(void* ptr)
     return info->size;
 }
 
-void* HawkInternalNew(size_t size) noexcept(false)
-{
-    return hawk_malloc(size);
-}
-
-void HawkInternalDelete(void* p) noexcept
-{
-    return hawk_free(p);
-}
-
-void HawkInternalDeleteSized(void* p, size_t /*size*/) noexcept
-{
-    return hawk_free(p);
-}
-
-void* HawkInternalNewArray(size_t size) noexcept(false)
-{
-    return hawk_malloc(size);
-}
-
-void HawkInternalDeleteArray(void* p) noexcept
-{
-    return hawk_free(p);
-}
-
-void HawkInternalDeleteArraySized(void* p, size_t /*size*/) noexcept
-{
-    return hawk_free(p);
-}
-
-void* HawkInternalNewNothrow(size_t size, const std::nothrow_t& /*nt*/) noexcept
-{
-    return hawk_malloc(size);
-}
-
-void* HawkInternalNewArrayNothrow(size_t size, const std::nothrow_t& /*nt*/) noexcept
-{
-    return hawk_malloc(size);
-}
-
-void HawkInternalDeleteNothrow(void* p, const std::nothrow_t& /*nt*/) noexcept
-{
-    return hawk_free(p);
-}
-
-void HawkInternalDeleteArrayNothrow(void* p, const std::nothrow_t& /*nt*/) noexcept
-{
-    return hawk_free(p);
-}
-
-void* HawkInternalNewAligned(size_t size, std::align_val_t alignment) noexcept(false)
-{
-    return hawk_aligned_alloc(static_cast<size_t>(alignment), size);
-}
-
-void* HawkInternalNewAlignedNothrow(size_t size, std::align_val_t alignment, const std::nothrow_t&) noexcept
-{
-    return hawk_aligned_alloc(static_cast<size_t>(alignment), size);
-}
-
-void HawkInternalDeleteAligned(void* p, std::align_val_t /*alignment*/) noexcept
-{
-    return hawk_free(p);
-}
-
-void HawkInternalDeleteAlignedNothrow(void* p, std::align_val_t /*alignment*/, const std::nothrow_t&) noexcept
-{
-    return hawk_free(p);
-}
-
-void HawkInternalDeleteSizedAligned(void* p, size_t /*size*/, std::align_val_t /*alignment*/) noexcept
-{
-    return hawk_free(p);
-}
-
-void* HawkInternalNewArrayAligned(size_t size, std::align_val_t alignment) noexcept(false)
-{
-    return hawk_aligned_alloc(static_cast<size_t>(alignment), size);
-}
-
-void* HawkInternalNewArrayAlignedNothrow(size_t size, std::align_val_t alignment, const std::nothrow_t&) noexcept
-{
-    return hawk_aligned_alloc(static_cast<size_t>(alignment), size);
-}
-
-void HawkInternalDeleteArrayAligned(void* p, std::align_val_t /*alignment*/) noexcept
-{
-    return hawk_free(p);
-}
-
-void HawkInternalDeleteArrayAlignedNothrow(void* p, std::align_val_t /*alignment*/, const std::nothrow_t&) noexcept
-{
-    return hawk_free(p);
-}
-
-void HawkInternalDeleteArraySizedAligned(void* p, size_t /*size*/, std::align_val_t /*alignment*/) noexcept
-{
-    return hawk_free(p);
-}
+} // namespace memhawk

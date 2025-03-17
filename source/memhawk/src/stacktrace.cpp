@@ -2,9 +2,7 @@
 
 #include "log.h"
 
-#include <boost/container_hash/hash.hpp>
 #include <fmt/format.h>
-#include <sys/types.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -15,11 +13,10 @@
 
 #define UNW_LOCAL_ONLY 1
 #include <libunwind.h>
-
 #include <xxhash.h>
 
-#include <lz4.h>
-
+namespace memhawk
+{
 
 bool CompressedStacktrace::operator==(const CompressedStacktrace& other) const
 {
@@ -45,23 +42,21 @@ void CompressedStacktrace::RecalculateHash()
 Stacktrace::Stacktrace(void** data, size_t size)
 {
     m_skip = 0;
-    m_size = std::min(MaxUnwindSize, size);
+    m_size = std::min(MaxUnwindDepth, size);
     std::copy(data, std::next(data, static_cast<ssize_t>(m_size)), m_data);
 }
 
-Stacktrace Stacktrace::Unwind(size_t capacity, size_t skip)
+Stacktrace Stacktrace::Unwind(size_t capacity, size_t collapseDepth, size_t skip)
 {
     Stacktrace trace{};
-    trace.UnwindStacktrace(capacity, skip);
+    trace.UnwindStacktrace(capacity, collapseDepth, skip);
     return trace;
 }
 
-inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t skip)
+inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t collapseDepth, size_t skip)
 {
-    size_t size = std::min(capacity, MaxUnwindSize);
+    size_t size = std::min(capacity, MaxUnwindDepth);
     auto resultSize = unw_backtrace(m_data, size);
-    auto last = std::next(m_data, resultSize);
-    resultSize = std::distance(m_data, last);
     while (resultSize > 0 && m_data[resultSize - 1] == nullptr) {
         resultSize--;
     }
@@ -74,7 +69,7 @@ inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t skip)
     m_size = static_cast<size_t>(resultSize);
     m_skip = skip;
     // remove duplicates -> not interested in recursion
-    SqueezeRecursion(4);
+    SqueezeRecursion(collapseDepth);
 }
 
 void Stacktrace::Compress(CompressedStacktrace& result) const
@@ -179,7 +174,7 @@ std::string Stacktrace::Describe() const
         unw_word_t offset{};
         unw_get_elf_filename_by_ip(unw_local_addr_space, reinterpret_cast<unw_word_t>(ip), elfName, 512, &offset,
                                    nullptr);
-        
+
         stream << fmt::format("{}: {} + {:x}: {}\n", ip, elfName, offset, buf);
     }
     return stream.str();
@@ -189,3 +184,5 @@ bool Stacktrace::operator==(const Stacktrace& rhs) const
 {
     return m_size == rhs.m_size && m_skip == rhs.m_skip && memcmp(m_data, rhs.m_data, m_size) == 0;
 }
+
+} // namespace memhawk

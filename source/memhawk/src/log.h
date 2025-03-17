@@ -1,15 +1,16 @@
 #pragma once
 
+namespace memhawk
+{
+
 enum class LogLevel
 {
     Debug = 0,
-    Info,
-    Warning,
-    Error,
-    Off
+    Info = 1,
+    Warning = 2,
+    Error = 3,
+    Off = 4
 };
-
-extern LogLevel gl_logLevel;
 
 void LogInit(const char* filename);
 void LogDeinit();
@@ -17,8 +18,8 @@ void LogPrint(const char* fmt, ...);
 
 #define LogEx(level, format, ...)                                                                                      \
     do {                                                                                                               \
-        if (LogLevel::level >= gl_logLevel) {                                                                          \
-            LogPrint("[%s]:%s :: " format "\n", #level, __func__, ##__VA_ARGS__);                                      \
+        if (memhawk::LogLevel::level >= memhawk::gl_config.LoggingLevel) {                                             \
+            memhawk::LogPrint("[%s]:%s :: " format "\n", #level, __func__, ##__VA_ARGS__);                             \
         }                                                                                                              \
     } while (0)
 
@@ -36,3 +37,5 @@ void LogPrint(const char* fmt, ...);
 #define fStr "%s"
 #define fPtr "%p"
 #define fHex "%x"
+
+} // namespace memhawk

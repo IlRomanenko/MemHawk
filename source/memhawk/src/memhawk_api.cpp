@@ -1,15 +1,17 @@
 #include "log.h"
+#include "config.h"
 
-#include <MemHawk/memhawk_api.h>
+#include <memhawk/memhawk_api.h>
 
 #include <cerrno>
 #include <cstring>
 
+
 void SetLogLevel(unsigned int level)
 {
-    if (level > static_cast<int>(LogLevel::Error)) {
+    if (level > static_cast<int>(memhawk::LogLevel::Error)) {
         LogError("Incorrect LogLevel : " fU32, level);
         return;
     }
-    gl_logLevel = static_cast<LogLevel>(level);
+    memhawk::gl_config.LoggingLevel = static_cast<memhawk::LogLevel>(level);
 }

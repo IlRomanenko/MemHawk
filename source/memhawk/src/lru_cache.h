@@ -9,6 +9,9 @@
 
 #include <optional>
 
+namespace memhawk
+{
+
 namespace
 {
 namespace bmi = boost::multi_index;
@@ -99,3 +102,5 @@ private:
     Index m_index;
     size_t m_capacity{};
 };
+
+} // namespace memhawk

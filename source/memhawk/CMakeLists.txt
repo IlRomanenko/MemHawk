@@ -13,7 +13,9 @@ add_library(${target_name} SHARED
     src/stacktrace_tracker.cpp
     src/stacktrace_tracker_fixed_size.cpp
     src/log.cpp
+    src/config.cpp
     src/memhawk.cpp
+    src/overrides.cpp
     src/preload.cpp
     src/stacktrace.cpp
     src/global_storage.cpp

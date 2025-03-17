@@ -26,6 +26,9 @@
 #include <memory>
 #include <thread>
 
+namespace memhawk
+{
+
 namespace bmi = boost::multi_index;
 
 class MemHawk
@@ -151,3 +154,5 @@ private:
     std::unique_ptr<ThreadTracker> m_innerTracker;
     StacktraceTrackerFixed m_innerBtTracker;
 };
+
+} // namespace memhawk

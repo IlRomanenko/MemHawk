@@ -4,6 +4,9 @@
 #include <emmintrin.h>
 #include <utility>
 
+namespace memhawk
+{
+
 struct AllocInfo
 {
     uint64_t size{};
@@ -120,3 +123,5 @@ private:
     {
     }
 };
+
+} // namespace memhawk

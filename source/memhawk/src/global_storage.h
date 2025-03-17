@@ -2,6 +2,9 @@
 
 #include "memhawk.h"
 
+namespace memhawk
+{
+
 class GlobalStorage
 {
 public:
@@ -19,3 +22,5 @@ private:
     static std::unique_ptr<GlobalStorage> m_global;
     std::unique_ptr<MemHawk> m_memHawk;
 };
+
+} // namespace memhawk
