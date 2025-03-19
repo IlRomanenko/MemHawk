@@ -1,6 +1,5 @@
 #pragma once
 
-#include <absl/container/flat_hash_map.h>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/key.hpp>
 #include <boost/multi_index/member.hpp>
@@ -37,9 +36,10 @@ public:
                 std::swap(node.key, key);
                 std::swap(node.value, value);
             });
+            Relocate(it);
             return {std::move(key)};
         }
-        const auto [insertIt, isInserted] = byKey.insert({std::move(key), std::move(value)});
+        const auto [insertIt, _] = byKey.insert({std::move(key), std::move(value)});
         Relocate(insertIt);
         return {};
     }
@@ -91,7 +91,7 @@ private:
     >;
     // clang-format on
 
-    void Relocate(typename Index::const_iterator it)
+    inline void Relocate(typename Index::const_iterator it)
     {
         auto& byOrder = m_index.template get<TagByOrder>();
         const auto orderIt = m_index.template project<TagByOrder>(it);

@@ -8,7 +8,7 @@ set(CMAKE_INSTALL_RPATH "$ORIGIN")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 set(CMAKE_BUILD_RPATH_USE_ORIGIN OFF)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -flto=auto -fPIC -pthread")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -flto=auto -fPIC -pthread -fno-omit-frame-pointer")
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprefetch-loop-arrays -funroll-loops")
 
 option(MEMHAWK_BUILD_TESTING OFF) # build tests

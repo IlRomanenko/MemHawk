@@ -1,6 +1,6 @@
 #pragma once
 
-#include "memhawk.h"
+#include "impl/memhawk.h"
 
 namespace memhawk
 {

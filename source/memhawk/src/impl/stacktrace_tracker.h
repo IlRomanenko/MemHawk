@@ -5,7 +5,7 @@
 
 #include <absl/container/flat_hash_map.h>
 #include <absl/synchronization/mutex.h>
-#include <boost/container/devector.hpp>
+// #include <boost/container/devector.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -42,10 +42,10 @@ private:
 
     struct Storage
     {
-        boost::container::devector<TraceNode> nodes;
+        std::vector<TraceNode> nodes;
         // <nodeId --> ptr -- > nextNodeId>
         absl::flat_hash_map<std::pair<uint32_t, void*>, uint32_t> edges;
-        boost::container::devector<uint32_t> leafsId;
+        std::vector<uint32_t> leafsId;
     };
 
 private:

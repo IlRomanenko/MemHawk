@@ -26,8 +26,6 @@ else()
 endif()
 
 IF(MEMHAWK_MSABI)
-    # todo: what package should be required?
-    # find_package(zlib REQUIRED)
     list(APPEND LIBUNWIND_OPTIONS "--enable-msabi-support")
 else()
     list(APPEND LIBUNWIND_OPTIONS "--disable-msabi-support")

@@ -152,6 +152,16 @@ void Stacktrace::ShrinkByPtr(void* ptr)
     }
 }
 
+void Stacktrace::CoarseToFunctionsStart()
+{
+    auto span = GetTrace();
+    for (auto& ip : span) {
+        unw_proc_info_t info{};
+        unw_get_proc_info_by_ip(unw_local_addr_space, reinterpret_cast<unw_word_t>(ip), &info, nullptr);
+        ip = reinterpret_cast<void*>(info.start_ip);
+    }
+}
+
 absl::Span<void*> Stacktrace::GetTrace()
 {
     return absl::MakeSpan(m_data + m_skip, m_size - m_skip);
@@ -182,7 +192,7 @@ std::string Stacktrace::Describe() const
 
 bool Stacktrace::operator==(const Stacktrace& rhs) const
 {
-    return m_size == rhs.m_size && m_skip == rhs.m_skip && memcmp(m_data, rhs.m_data, m_size) == 0;
+    return GetTrace() == rhs.GetTrace();
 }
 
 } // namespace memhawk

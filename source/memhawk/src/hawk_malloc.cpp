@@ -1,13 +1,13 @@
 
-#include "preload.h"
+#include "hawk_malloc.h"
 
-#include "alloc_info.h"
-#include "config.h"
 #include "global_storage.h"
-#include "log.h"
-#include "log_name.h"
-#include "macros.h"
-#include "stacktrace.h"
+#include "impl/alloc_info.h"
+#include "impl/config.h"
+#include "impl/log.h"
+#include "impl/log_name.h"
+#include "impl/macros.h"
+#include "impl/stacktrace.h"
 
 #include <cstddef>
 #include <cstdlib>
@@ -140,7 +140,7 @@ void InitHooks()
 
     InitConfig();
     {
-        const auto str = GetProcessLogName("main_log");
+        const auto str = GetProcessLogName("main_log", gl_config);
         LogInit(str.c_str());
         // register deinitialization of log system
         std::atexit(LogDeinit);

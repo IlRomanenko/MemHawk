@@ -7,7 +7,7 @@ RUN apt-get update -y
 RUN apt-get install -y \
     build-essential \
     gcc-9 g++-9 \
-    cmake git \
+    cmake git ccache \
     libtool autoconf unzip wget \
     libboost-container-dev \
     software-properties-common lsb-release

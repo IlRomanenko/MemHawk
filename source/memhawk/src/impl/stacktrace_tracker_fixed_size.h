@@ -33,6 +33,7 @@ private:
 private:
     absl::Mutex m_mt;
 
+    // std::array<uint32_t, StorageSize> m_storage
     std::array<Stacktrace, StorageSize> m_stacktraces;
     size_t m_size{};
 

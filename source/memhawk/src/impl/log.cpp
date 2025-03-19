@@ -2,6 +2,8 @@
 
 #include "config.h"
 
+#include <absl/base/attributes.h>
+
 #include <cerrno>
 #include <cstdarg>
 #include <cstdio>
@@ -13,7 +15,7 @@
 namespace memhawk
 {
 
-extern int gl_logFile;
+ABSL_CONST_INIT int gl_logFile = STDERR_FILENO;
 
 void LogInit(const char* filename)
 {
@@ -22,7 +24,9 @@ void LogInit(const char* filename)
         if (gl_logFile < 0) {
             int error = errno;
             gl_logFile = STDERR_FILENO;
-            LogError("Failed to initialise logging: " fStr ", error: ", filename, strerror(error));
+            constexpr size_t BufSize = 512;
+            char buffer[BufSize];
+            LogPrint("Failed to initialise logging: " fStr ", error: ", filename, strerror_r(error, buffer, 512));
             abort();
         }
     } else {

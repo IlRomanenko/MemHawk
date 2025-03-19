@@ -2,6 +2,7 @@
 
 #include "log.h"
 
+#include <absl/base/attributes.h>
 #include <boost/algorithm/string/finder.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <fmt/format.h>
@@ -13,6 +14,8 @@
 
 namespace memhawk
 {
+
+ABSL_CONST_INIT Config gl_config = {};
 
 constexpr const char* OptionsEnvName = "MEMHAWK_OPTS";
 

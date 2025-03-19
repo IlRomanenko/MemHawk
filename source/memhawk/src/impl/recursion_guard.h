@@ -1,5 +1,7 @@
 #pragma once
 
+#include <absl/base/attributes.h>
+
 #include <cstdint>
 
 namespace memhawk
@@ -28,7 +30,7 @@ struct RecursionGuard
         return level;
     }
 
-    static inline thread_local uint32_t level = 0;
+    ABSL_CONST_INIT static inline thread_local uint32_t level = 0;
 };
 
 struct AllocTag

@@ -38,10 +38,7 @@ public:
     ~MemHawk();
 
     void PostponedConstruct();
-
-    void ProceedSignal();
-
-    void SetUpTrackerThread();
+    void StartTrackingWorker();
 
     void TrackAlloc(AllocInfo& info, Stacktrace&& trace);
     void TrackDealloc(AllocInfo& info, const Stacktrace& trace);

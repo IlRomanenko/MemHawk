@@ -39,7 +39,7 @@ StacktraceTracker::~StacktraceTracker()
     if (!m_dump) {
         return;
     }
-    std::ofstream result(GetProcessLogName("inner_stacktraces"), std::ios_base::out | std::ios_base::trunc);
+    std::ofstream result(GetProcessLogName("inner_stacktraces", gl_config), std::ios_base::out | std::ios_base::trunc);
     result << "Inner stacktraces:" << "\n";
     for (const auto& traceId : m_storage->leafsId) {
         const auto trace = GetStacktraceFromId(traceId).value();

@@ -11,13 +11,13 @@
 #include "stacktrace_tracker_fixed_size.h"
 #include "thread_tracker.h"
 
+#include <absl/base/attributes.h>
 #include <absl/cleanup/cleanup.h>
 #include <absl/synchronization/mutex.h>
-#include <absl/time/clock.h>
-#include <absl/time/time.h>
 #include <boost/range/iterator_range.hpp>
 #include <fmt/format.h>
 
+#include <chrono>
 #include <csignal>
 #include <cstdint>
 #include <cstring>
@@ -27,12 +27,11 @@
 #include <sstream>
 #include <unistd.h>
 
-
 namespace memhawk
 {
 
 thread_local ThreadTracker* gtl_tracker = nullptr;
-thread_local void* gtl_retPtrs[8] = {
+ABSL_CONST_INIT thread_local void* gtl_retPtrs[8] = {
     nullptr,
 }; // only first element
 
@@ -95,12 +94,12 @@ void MemHawk::PostponedConstruct()
         m_innerTracker = std::make_unique<ThreadTracker>(m_thTrackers.size(), gl_config.LruStackSize, m_innerBtTracker);
     }
     m_btTracker.PostponedConstruct();
-
     m_workerData = std::make_unique<WorkerData>();
-    m_worker = std::thread([this]() { TrackingWorker(); });
-    LogDebug("end");
-
     RegisterThread();
+    if (gl_config.StartTrackingWorker) {
+        m_worker = std::thread([this]() { TrackingWorker(); });
+    }
+    LogDebug("end");
     LogInfo("MemHawk fully initialized");
 }
 
@@ -131,7 +130,8 @@ void MemHawk::RegisterThread()
         SetUpThreadFinishPromise(gtl_tracker);
         return;
     }
-    m_thTrackers.emplace_back(std::make_unique<ThreadTracker>(m_thTrackers.size(), gl_config.LruStackSize, m_btTracker));
+    m_thTrackers.emplace_back(
+        std::make_unique<ThreadTracker>(m_thTrackers.size(), gl_config.LruStackSize, m_btTracker));
     gtl_tracker = m_thTrackers.back().get();
     SetUpThreadFinishPromise(gtl_tracker);
 }
@@ -165,12 +165,19 @@ void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
         // internal allocation of memhawk
         RecursionGuard<InnerAllocTag> innerGuard;
         // track only inner memhawk's stacktraces in order to reduce index size
-        trace.ShrinkByPtr(gtl_retPtrs[level - 1]);
+        trace.ShrinkByPtr(gtl_retPtrs[level - 1]); // level can't be less than 1
         if (level > 1 && trace.GetTrace().size() >= 1) {
             // don't interested in previous memhawk call
             // malloc->trace->malloc and free->trace->malloc will be squashed to trace->malloc
             trace.ShrinkBySize(trace.GetTrace().size() - 1);
         }
+        // Don't interested in fine-grained stacktraces
+        if (trace.GetTrace().size() > 6) {
+            trace.ShrinkBySize(6);
+        }
+        // Use coarse representation of stacktrace in order to reduce amount of stacktraces
+        trace.CoarseToFunctionsStart();
+
         info.traceId = m_innerBtTracker.InsertStacktrace(std::move(trace));
 
         if (innerGuard) {
@@ -256,8 +263,7 @@ void MemHawk::PostponeDealloc(const AllocInfo& info)
 
 void MemHawk::TrackingWorker()
 {
-    // don't track allocation of this thread because it accesses inner struct of memhawk
-    RecursionGuard<AllocTag> guard;
+    RegisterThread();
     pthread_setname_np(pthread_self(), "MemHawkTh");
     sigset_t mask{};
     sigfillset(&mask); // Block all signals
@@ -265,9 +271,9 @@ void MemHawk::TrackingWorker()
 
     LogInfo("Tracking worker started");
 
-    m_workerData->summaryFile = std::ofstream(GetProcessLogName("summary"), std::ios_base::out | std::ios_base::trunc);
+    m_workerData->summaryFile = std::ofstream(GetProcessLogName("summary", gl_config), std::ios_base::out | std::ios_base::trunc);
     m_workerData->stacktracesFile =
-        std::ofstream(GetProcessLogName("stacktraces"), std::ios_base::out | std::ios_base::trunc);
+        std::ofstream(GetProcessLogName("stacktraces", gl_config), std::ios_base::out | std::ios_base::trunc);
 
     while (!m_stopped) {
         {
@@ -289,9 +295,17 @@ void MemHawk::WorkerUpdateData()
     m_workerData->updatedTraces = 0;
 
     for (const auto& tracker : m_thTrackers) {
-        WorkerAccountThreadTracker(*tracker);
+        if (tracker->trackerId == gtl_tracker->trackerId) {
+            // add tag in order not to deadlock
+            RecursionGuard<AllocTag> guard;
+            WorkerAccountThreadTracker(*tracker);
+        } else {
+            WorkerAccountThreadTracker(*tracker);
+        }
     }
     {
+        // add tags in order not to deadlock
+        RecursionGuard<AllocTag> guard;
         RecursionGuard<InnerAllocTag> innerGuard;
         WorkerAccountThreadTracker(*m_innerTracker);
     }
@@ -333,6 +347,8 @@ void MemHawk::WorkerPrintData()
     str << fmt::format("Application heap: {:.3f}mb, active: {}, total: {}, memhawk overhead: {:.3f}mb\n",
                        m_workerData->summary.size / 1024.0 / 1024, m_workerData->summary.active,
                        m_workerData->summary.total, m_workerData->summary.overhead / 1024.0 / 1024);
+    str << fmt::format("Total traces: {}, updated since last time: {}\n", m_workerData->index.size(),
+                       m_workerData->updatedTraces);
 
     for (const auto& value : bySizeRange) {
         if (value.summary.active == 0) {

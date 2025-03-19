@@ -15,12 +15,16 @@ constexpr size_t MinPostponedSize = 64;
 
 struct Config
 {
+    constexpr Config() = default;
+
     size_t TrackDepth = 32;
     size_t LruStackSize = 128;
     size_t CollapseRecursionDepth = 4;
     size_t MaxPostponed = 128;
     LogLevel LoggingLevel = LogLevel::Info;
     bool MainLogIntoFile = true;
+    bool StartTrackingWorker = true;
+    bool StartSignalWorker = false;
 
     std::string_view LogDir = "./";
 };

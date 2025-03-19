@@ -16,3 +16,43 @@ function(memhawk_build target)
     add_dependencies(memhawk_all ${target})
     copy_to_devbuild(${target})
 endfunction()
+
+
+set(EMBEDED_PROPERTIES
+    INCLUDE_DIRECTORIES
+    LINK_LIBRARIES
+)
+
+function(embed_library target)
+    foreach(dependency ${ARGN})
+        foreach(property ${EMBEDED_PROPERTIES})
+            set_property(TARGET ${target} APPEND PROPERTY ${property} $<TARGET_GENEX_EVAL:${dependency},$<TARGET_PROPERTY:${dependency},${property}>>)
+        endforeach()
+
+        target_sources(${target} PRIVATE $<TARGET_OBJECTS:${dependency}>)
+        target_include_directories(${target} 
+            PRIVATE
+                $<TARGET_PROPERTY:${dependency},SOURCE_DIR>/src
+        )
+    endforeach()
+endfunction()
+
+function(collect_files DIR FILES INCLUDE EXCLUDE)
+    set(local)
+    file(GLOB_RECURSE local FOLLOW_SYMLINKS RELATIVE ${DIR} ${INCLUDE})
+    if (EXCLUDE STREQUAL "")
+    else()
+        list(FILTER local EXCLUDE REGEX ${EXCLUDE})
+    endif()
+    set(${FILES} ${local} PARENT_SCOPE)
+endfunction()
+
+macro(collect_sources HEADERS SOURCES DIR)
+    collect_files(${DIR} HEADERS "*.h" "")
+    collect_files(${DIR} SOURCES "*.cpp" "")
+endmacro()
+
+macro(collect_project_sources HEADERS SOURCES DIR)
+    collect_files(${DIR} HEADERS "*.h" "tests/*")
+    collect_files(${DIR} SOURCES "*.cpp" "tests/*")
+endmacro()

@@ -1,7 +1,7 @@
 #include "overrides.h"
 
+#include "hawk_malloc.h"
 #include "overrides-libc.h" // IWYU pragma: export
-#include "preload.h"
 
 extern "C" {
 

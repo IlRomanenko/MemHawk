@@ -1,17 +1,16 @@
 
 #include "global_storage.h"
 
-#include "log.h"
-#include "memhawk.h"
+#include "impl/log.h"
+#include "impl/memhawk.h"
+
+#include <absl/base/attributes.h>
 
 namespace memhawk
 {
 
-int gl_logFile = STDERR_FILENO;
-Config gl_config;
-
-static bool glInitialised = false;
-std::unique_ptr<GlobalStorage> GlobalStorage::m_global = {};
+ABSL_CONST_INIT static bool glInitialised = false;
+ABSL_CONST_INIT std::unique_ptr<GlobalStorage> GlobalStorage::m_global = {};
 
 struct OnConstruct
 {

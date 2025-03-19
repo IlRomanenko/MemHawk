@@ -1,5 +1,6 @@
 #include "stacktrace_tracker_fixed_size.h"
 
+#include "config.h"
 #include "log_name.h"
 #include "stacktrace.h"
 
@@ -37,7 +38,7 @@ StacktraceTrackerFixed::~StacktraceTrackerFixed()
     if (!m_dump) {
         return;
     }
-    std::ofstream result(GetProcessLogName("inner_stacktraces"), std::ios_base::out | std::ios_base::trunc);
+    std::ofstream result(GetProcessLogName("inner_stacktraces", gl_config), std::ios_base::out | std::ios_base::trunc);
     result << "Inner stacktraces:" << "\n";
     for (size_t i = 0; i < m_size; i++) {
         const auto stacktrace = m_stacktraces[i].Describe();

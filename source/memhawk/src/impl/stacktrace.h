@@ -28,7 +28,6 @@ struct CompressedStacktrace
     bool operator==(const CompressedStacktrace& other) const;
     bool operator<(const CompressedStacktrace& other) const;
     void RecalculateHash();
-
 };
 
 class Stacktrace
@@ -37,10 +36,12 @@ public:
     Stacktrace() = default;
     Stacktrace(void** data, size_t size);
 
-    static Stacktrace Unwind(size_t capacity, size_t collapseDepth, size_t skip = 2);
+    static Stacktrace Unwind(size_t capacity, size_t collapseDepth, size_t skip = 1);
     static void Setup();
 
     void Compress(CompressedStacktrace& result) const;
+
+    void CoarseToFunctionsStart();
 
     void ShrinkBySize(size_t size);
     void ShrinkByPtr(void* ptr);

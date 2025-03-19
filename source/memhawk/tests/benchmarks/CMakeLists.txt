@@ -9,6 +9,7 @@ PRIVATE
     unwind_static
     absl::stacktrace
 )
+embed_library(benchmark_memhawk memhawk_impl)
 
 memhawk_build(benchmark_memhawk)
 
@@ -16,6 +17,7 @@ memhawk_build(benchmark_memhawk)
 add_executable(benchmark_compression
     compression_benchmark.cpp
 )
+
 target_link_libraries(benchmark_compression
 PRIVATE
     benchmark::benchmark

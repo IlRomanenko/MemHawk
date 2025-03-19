@@ -17,4 +17,5 @@ public:
     virtual size_t StacktracesCount() = 0;
 };
 
+
 } // namespace memhawk
