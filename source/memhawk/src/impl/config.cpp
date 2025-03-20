@@ -31,6 +31,8 @@ constexpr const char* LoggingLevelName = "logging_level";
 constexpr const char* MainLogIntoFileName = "main_log_file";
 constexpr const char* LogDirName = "log_dir";
 constexpr const char* TrackingWorkerName = "tracking_worker";
+constexpr const char* TrackerBySizeCountName = "tracker_by_size_count";
+constexpr const char* TrackerByTotalCountName = "tracker_by_total_count";
 
 template <typename... Args>
 void PrintError(fmt::format_string<Args...> fmt, Args... args)
@@ -106,6 +108,10 @@ void InitConfig()
             size_t value{};
             ParseValue(key, valueStr, value);
             gl_config.StartTrackingWorker = value > 0;
+        } else if (key == TrackerBySizeCountName) {
+            ParseValue(key, valueStr, gl_config.TrackerBySizeCount);
+        } else if (key == TrackerByTotalCountName) {
+            ParseValue(key, valueStr, gl_config.TrackerByTotalCount);
         } else {
             PrintError("Unknown parameter: {}", key);
         }

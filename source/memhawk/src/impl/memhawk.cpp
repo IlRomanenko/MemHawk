@@ -327,11 +327,11 @@ void MemHawk::WorkerPrintData()
     absl::flat_hash_set<uint32_t> newStacktraces;
 
     const auto& bySizeIndex = m_workerData->index.get<WorkerData::ByTotalSize>();
-    size_t topElementsCount = std::min(10UL, bySizeIndex.size());
+    size_t topElementsCount = std::min(gl_config.TrackerBySizeCount, bySizeIndex.size());
     const auto bySizeRange = boost::make_iterator_range_n(bySizeIndex.begin(), topElementsCount);
 
     const auto& byCountIndex = m_workerData->index.get<WorkerData::ByTotalCount>();
-    topElementsCount = std::min(10UL, byCountIndex.size());
+    topElementsCount = std::min(gl_config.TrackerByTotalCount, byCountIndex.size());
     const auto byCountRange = boost::make_iterator_range_n(byCountIndex.begin(), topElementsCount);
 
     std::stringstream str;

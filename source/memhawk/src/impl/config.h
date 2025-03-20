@@ -25,8 +25,11 @@ struct Config
     LogLevel LoggingLevel = LogLevel::Info;
     bool MainLogIntoFile = true;
     bool StartTrackingWorker = true;
-    bool StartSignalWorker = false;
-    uint32_t TrackerDumpingPeriodMs = 1000;
+    bool StartSignalWorker = false; // todo
+    uint64_t TrackerDumpingPeriodMs = 1000;
+    size_t TrackerBySizeCount = 25;
+    size_t TrackerByTotalCount = 10;
+    
 
     std::string_view LogDir = "./";
 };
