@@ -6,8 +6,7 @@ add_executable(${PROJECT_NAME} ${HEADERS} ${SOURCES})
 
 target_link_libraries(${PROJECT_NAME}
 PRIVATE
-    gtest
-    gtest_main
+    GTest::gtest_main
     memhawk_impl
 )
 target_include_directories(${PROJECT_NAME}

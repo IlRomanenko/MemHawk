@@ -1,5 +1,5 @@
-#ifndef _MEM_HAWK_
-#define _MEM_HAWK_
+#ifndef MEM_HAWK_
+#define MEM_HAWK_
 
 extern "C" {
 
@@ -15,4 +15,4 @@ void SetLogLevel(unsigned int level);
 }
 
 
-#endif // _MEM_HAWK_
+#endif // MEM_HAWK_

@@ -3,7 +3,7 @@
 #include "alloc_info.h"
 #include "stacktrace.h"
 #include "stacktrace_tracker.h"
-#include "stacktrace_tracker_fixed_size.h"
+#include "stacktrace_tracker_static.h"
 #include "thread_tracker.h"
 
 #include <absl/container/flat_hash_set.h>
@@ -68,7 +68,7 @@ private:
 
             constexpr uint64_t TotalCount() const
             {
-                return summary.total;
+                return summary.totalCount;
             }
         };
 
@@ -113,7 +113,7 @@ private:
     void TrackingWorker();
     void WorkerUpdateData();
     void WorkerPrintData();
-    void WorkerAccountThreadTracker(ThreadTracker& tracer);
+    void WorkerAccountThreadTracker(ThreadTracker& tracker);
 
     // Postponed allocs handlers
     void PostponeAlloc(const AllocInfo& info);
@@ -149,7 +149,7 @@ private:
     boost::circular_buffer<Postponed> m_postponed;
     // tracker for all inner allocations
     std::unique_ptr<ThreadTracker> m_innerTracker;
-    StacktraceTrackerFixed m_innerBtTracker;
+    StaticStacktraceTracker m_innerBtTracker;
 };
 
 } // namespace memhawk

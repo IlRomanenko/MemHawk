@@ -42,7 +42,7 @@ void* hawk_pvalloc(size_t size)
 
 void hawk_free(void* ptr)
 {
-    return memhawk::hawk_free(ptr);
+    memhawk::hawk_free(ptr);
 }
 
 size_t hawk_malloc_usable_size(void* ptr)
@@ -57,12 +57,12 @@ void* HawkInternalNew(size_t size) noexcept(false)
 
 void HawkInternalDelete(void* p) noexcept
 {
-    return memhawk::hawk_free(p);
+    memhawk::hawk_free(p);
 }
 
 void HawkInternalDeleteSized(void* p, size_t /*size*/) noexcept
 {
-    return memhawk::hawk_free(p);
+    memhawk::hawk_free(p);
 }
 
 void* HawkInternalNewArray(size_t size) noexcept(false)
@@ -72,12 +72,12 @@ void* HawkInternalNewArray(size_t size) noexcept(false)
 
 void HawkInternalDeleteArray(void* p) noexcept
 {
-    return memhawk::hawk_free(p);
+    memhawk::hawk_free(p);
 }
 
 void HawkInternalDeleteArraySized(void* p, size_t /*size*/) noexcept
 {
-    return memhawk::hawk_free(p);
+    memhawk::hawk_free(p);
 }
 
 void* HawkInternalNewNothrow(size_t size, const std::nothrow_t& /*nt*/) noexcept
@@ -92,12 +92,12 @@ void* HawkInternalNewArrayNothrow(size_t size, const std::nothrow_t& /*nt*/) noe
 
 void HawkInternalDeleteNothrow(void* p, const std::nothrow_t& /*nt*/) noexcept
 {
-    return memhawk::hawk_free(p);
+    memhawk::hawk_free(p);
 }
 
 void HawkInternalDeleteArrayNothrow(void* p, const std::nothrow_t& /*nt*/) noexcept
 {
-    return memhawk::hawk_free(p);
+    memhawk::hawk_free(p);
 }
 
 void* HawkInternalNewAligned(size_t size, std::align_val_t alignment) noexcept(false)
@@ -112,17 +112,17 @@ void* HawkInternalNewAlignedNothrow(size_t size, std::align_val_t alignment, con
 
 void HawkInternalDeleteAligned(void* p, std::align_val_t /*alignment*/) noexcept
 {
-    return memhawk::hawk_free(p);
+    memhawk::hawk_free(p);
 }
 
 void HawkInternalDeleteAlignedNothrow(void* p, std::align_val_t /*alignment*/, const std::nothrow_t&) noexcept
 {
-    return memhawk::hawk_free(p);
+    memhawk::hawk_free(p);
 }
 
 void HawkInternalDeleteSizedAligned(void* p, size_t /*size*/, std::align_val_t /*alignment*/) noexcept
 {
-    return memhawk::hawk_free(p);
+    memhawk::hawk_free(p);
 }
 
 void* HawkInternalNewArrayAligned(size_t size, std::align_val_t alignment) noexcept(false)
@@ -137,17 +137,17 @@ void* HawkInternalNewArrayAlignedNothrow(size_t size, std::align_val_t alignment
 
 void HawkInternalDeleteArrayAligned(void* p, std::align_val_t /*alignment*/) noexcept
 {
-    return memhawk::hawk_free(p);
+    memhawk::hawk_free(p);
 }
 
 void HawkInternalDeleteArrayAlignedNothrow(void* p, std::align_val_t /*alignment*/, const std::nothrow_t&) noexcept
 {
-    return memhawk::hawk_free(p);
+    memhawk::hawk_free(p);
 }
 
 void HawkInternalDeleteArraySizedAligned(void* p, size_t /*size*/, std::align_val_t /*alignment*/) noexcept
 {
-    return memhawk::hawk_free(p);
+    memhawk::hawk_free(p);
 }
 
 } // extern "C"

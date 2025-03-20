@@ -8,7 +8,6 @@
 #include "macros.h"
 #include "recursion_guard.h"
 #include "stacktrace.h"
-#include "stacktrace_tracker_fixed_size.h"
 #include "thread_tracker.h"
 
 #include <absl/base/attributes.h>
@@ -35,10 +34,6 @@ ABSL_CONST_INIT thread_local void* gtl_retPtrs[8] = {
     nullptr,
 }; // only first element
 
-struct RetPtrTag
-{
-};
-
 MemHawk::MemHawk() : m_postponedCapacity(gl_config.MaxPostponed), m_postponed(gl_config.MaxPostponed)
 {
     LogInfo("Start MemHawk()");
@@ -52,10 +47,10 @@ void PrintTracker(ThreadTracker* tracker)
 
 MemHawk::~MemHawk()
 {
-    RecursionGuard<AllocTag> guard;
-    RecursionGuard<InnerAllocTag> guardInner;
+    const RecursionGuard<AllocTag> guard;
+    const RecursionGuard<InnerAllocTag> guardInner;
     {
-        std::lock_guard lock(m_mt);
+        const std::lock_guard lock(m_mt);
         m_stopped = true;
         m_cv.notify_all();
     }
@@ -64,8 +59,8 @@ MemHawk::~MemHawk()
     }
     LogInfo("Total trackers: " fSzt ", empty: " fSzt ", max postponed: " fSzt, m_thTrackers.size(),
             m_finishedTrackers.size(), m_maxPostponedSize);
-    LogInfo("Inner traces: " fSzt ", external: " fSzt, m_innerBtTracker.StacktracesCount(),
-            m_btTracker.StacktracesCount());
+    LogInfo("Inner traces: (" fSzt ", " fSzt "), external: " fSzt, m_innerBtTracker.StacktracesCount(),
+            m_innerBtTracker.GetStorageSize(), m_btTracker.StacktracesCount());
 
     for (const auto& tracker : m_thTrackers) {
         PrintTracker(tracker.get());
@@ -81,16 +76,16 @@ MemHawk::~MemHawk()
             continue;
         }
         LogInfo("TraceId: " fU32 ", active: " fI64 ", size: " fI64 ", overhead: " fI64 ", total: " fI64, elem.traceId,
-                elem.summary.active, elem.summary.size, elem.summary.overhead, elem.summary.total);
+                elem.summary.active, elem.summary.size, elem.summary.overhead, elem.summary.totalCount);
     }
 }
 
 void MemHawk::PostponedConstruct()
 {
     LogDebug("begin");
-    RecursionGuard<AllocTag> guard;
+    const RecursionGuard<AllocTag> guard;
     {
-        RecursionGuard<InnerAllocTag> innerGuard;
+        const RecursionGuard<InnerAllocTag> innerGuard;
         m_innerTracker = std::make_unique<ThreadTracker>(m_thTrackers.size(), gl_config.LruStackSize, m_innerBtTracker);
     }
     m_btTracker.PostponedConstruct();
@@ -110,9 +105,9 @@ void MemHawk::RegisterThread()
         LogError("Trying to register already registered thread, stacktrace:\n" fStr, trace.c_str());
         return;
     }
-    RecursionGuard<AllocTag> guard;
+    const RecursionGuard<AllocTag> guard;
 
-    absl::MutexLock lock(&m_thTrackersMt);
+    const absl::MutexLock lock(&m_thTrackersMt);
     for (auto it = m_finishPromises.begin(); it != m_finishPromises.end();) {
         if (it->wait_for(std::chrono::seconds{0}) == std::future_status::ready) {
             const auto trackerId = it->get();
@@ -145,15 +140,15 @@ void MemHawk::SetUpThreadFinishPromise(ThreadTracker* tracker)
 
 void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
 {
-    RecursionGuard<RetPtrTag> retPtrGuard;
+    const RecursionGuard<RetPtrTag> retPtrGuard;
     const auto span = trace.GetTrace();
     const auto level = retPtrGuard.Level();
     if (likely(span.size() > 1)) {
         gtl_retPtrs[level] = span[1];
     }
-    auto retCleanup = absl::MakeCleanup([level]() { gtl_retPtrs[level] = nullptr; });
+    const absl::Cleanup retCleanup = [level]() { gtl_retPtrs[level] = nullptr; };
 
-    RecursionGuard<AllocTag> guard;
+    const RecursionGuard<AllocTag> guard;
     if (guard) {
         // external allocation
         if (unlikely(gtl_tracker == nullptr)) {
@@ -163,21 +158,15 @@ void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
         gtl_tracker->TrackAlloc(info);
     } else {
         // internal allocation of memhawk
-        RecursionGuard<InnerAllocTag> innerGuard;
+        const RecursionGuard<InnerAllocTag> innerGuard;
         // track only inner memhawk's stacktraces in order to reduce index size
         trace.ShrinkByPtr(gtl_retPtrs[level - 1]); // level can't be less than 1
-        if (level > 1 && trace.GetTrace().size() >= 1) {
+        if (level > 1 && !trace.GetTrace().empty()) {
             // don't interested in previous memhawk call
-            // malloc->trace->malloc and free->trace->malloc will be squashed to trace->malloc
+            // malloc->trace->malloc and free->trace->malloc will be squashed into trace->malloc
             trace.ShrinkBySize(trace.GetTrace().size() - 1);
         }
-        // Don't interested in fine-grained stacktraces
-        if (trace.GetTrace().size() > 6) {
-            trace.ShrinkBySize(6);
-        }
-        // Use coarse representation of stacktrace in order to reduce amount of stacktraces
-        trace.CoarseToFunctionsStart();
-
+        // set trace id manually, otherwise there can be malloc recursion upon inserting into tracker caches
         info.traceId = m_innerBtTracker.InsertStacktrace(std::move(trace));
 
         if (innerGuard) {
@@ -191,15 +180,15 @@ void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
 
 void MemHawk::TrackDealloc(AllocInfo& info, const Stacktrace& trace)
 {
-    RecursionGuard<RetPtrTag> retPtrGuard;
+    const RecursionGuard<RetPtrTag> retPtrGuard;
     const auto span = trace.GetTrace();
     const auto level = retPtrGuard.Level();
     if (likely(span.size() > 1)) {
         gtl_retPtrs[level] = span[1];
     }
-    auto retCleanup = absl::MakeCleanup([level]() { gtl_retPtrs[level] = nullptr; });
+    const absl::Cleanup retCleanup = [level]() { gtl_retPtrs[level] = nullptr; };
 
-    RecursionGuard<AllocTag> guard;
+    const RecursionGuard<AllocTag> guard;
     if (guard) {
         // external deallocation
         if (unlikely(gtl_tracker == nullptr)) {
@@ -208,7 +197,7 @@ void MemHawk::TrackDealloc(AllocInfo& info, const Stacktrace& trace)
         gtl_tracker->TrackDealloc(info);
     } else {
         // internal deallocation of memhawk
-        RecursionGuard<InnerAllocTag> innerGuard;
+        const RecursionGuard<InnerAllocTag> innerGuard;
         if (innerGuard) {
             ProcessPostponed();
             m_innerTracker->TrackDealloc(info);
@@ -223,7 +212,7 @@ void MemHawk::ProcessPostponed()
     do {
         Postponed delayed{};
         {
-            absl::MutexLock lock(&m_postponedMt);
+            const absl::MutexLock lock(&m_postponedMt);
             if (m_postponed.empty()) {
                 return;
             }
@@ -271,14 +260,16 @@ void MemHawk::TrackingWorker()
 
     LogInfo("Tracking worker started");
 
-    m_workerData->summaryFile = std::ofstream(GetProcessLogName("summary", gl_config), std::ios_base::out | std::ios_base::trunc);
+    m_workerData->summaryFile =
+        std::ofstream(GetProcessLogName("summary", gl_config), std::ios_base::out | std::ios_base::trunc);
     m_workerData->stacktracesFile =
         std::ofstream(GetProcessLogName("stacktraces", gl_config), std::ios_base::out | std::ios_base::trunc);
 
     while (!m_stopped) {
         {
             std::unique_lock lock(m_mt);
-            m_cv.wait_for(lock, std::chrono::seconds{1}, [this]() { return !!m_stopped; });
+            m_cv.wait_for(lock, std::chrono::milliseconds{gl_config.TrackerDumpingPeriodMs},
+                          [this]() { return !!m_stopped; });
         }
         WorkerUpdateData();
         WorkerPrintData();
@@ -291,13 +282,13 @@ void MemHawk::TrackingWorker()
 
 void MemHawk::WorkerUpdateData()
 {
-    absl::MutexLock lock(&m_thTrackersMt);
+    const absl::MutexLock lock(&m_thTrackersMt);
     m_workerData->updatedTraces = 0;
 
     for (const auto& tracker : m_thTrackers) {
         if (tracker->trackerId == gtl_tracker->trackerId) {
             // add tag in order not to deadlock
-            RecursionGuard<AllocTag> guard;
+            const RecursionGuard<AllocTag> guard;
             WorkerAccountThreadTracker(*tracker);
         } else {
             WorkerAccountThreadTracker(*tracker);
@@ -305,16 +296,17 @@ void MemHawk::WorkerUpdateData()
     }
     {
         // add tags in order not to deadlock
-        RecursionGuard<AllocTag> guard;
-        RecursionGuard<InnerAllocTag> innerGuard;
+        const RecursionGuard<AllocTag> guard;
+        const RecursionGuard<InnerAllocTag> innerGuard;
         WorkerAccountThreadTracker(*m_innerTracker);
     }
 }
 
 void MemHawk::WorkerAccountThreadTracker(ThreadTracker& tracker)
 {
+    const absl::MutexLock trackerLock(&tracker.mt);
+
     auto& byTraceIdIndex = m_workerData->index.get<WorkerData::ByTraceId>();
-    absl::MutexLock trackerLock(&tracker.mt);
     for (const auto& [traceId, summary] : tracker.allocSummaries) {
         auto statIt = byTraceIdIndex.find(traceId);
         if (statIt == byTraceIdIndex.end()) {
@@ -335,21 +327,23 @@ void MemHawk::WorkerPrintData()
     absl::flat_hash_set<uint32_t> newStacktraces;
 
     const auto& bySizeIndex = m_workerData->index.get<WorkerData::ByTotalSize>();
-    size_t topElementsCount = std::min(10ul, bySizeIndex.size());
+    size_t topElementsCount = std::min(10UL, bySizeIndex.size());
     const auto bySizeRange = boost::make_iterator_range_n(bySizeIndex.begin(), topElementsCount);
 
     const auto& byCountIndex = m_workerData->index.get<WorkerData::ByTotalCount>();
-    topElementsCount = std::min(10ul, byCountIndex.size());
+    topElementsCount = std::min(10UL, byCountIndex.size());
     const auto byCountRange = boost::make_iterator_range_n(byCountIndex.begin(), topElementsCount);
 
     std::stringstream str;
     str << absl::FormatTime(absl::Now()) << "\n";
     str << fmt::format("Application heap: {:.3f}mb, active: {}, total: {}, memhawk overhead: {:.3f}mb\n",
-                       m_workerData->summary.size / 1024.0 / 1024, m_workerData->summary.active,
-                       m_workerData->summary.total, m_workerData->summary.overhead / 1024.0 / 1024);
+                       static_cast<double>(m_workerData->summary.size) / 1024 / 1024, m_workerData->summary.active,
+                       m_workerData->summary.totalCount,
+                       static_cast<double>(m_workerData->summary.overhead) / 1024 / 1024);
     str << fmt::format("Total traces: {}, updated since last time: {}\n", m_workerData->index.size(),
                        m_workerData->updatedTraces);
 
+    str << "ByActiveSize" << "\n";
     for (const auto& value : bySizeRange) {
         if (value.summary.active == 0) {
             continue;
@@ -358,22 +352,26 @@ void MemHawk::WorkerPrintData()
         if (it.second) {
             newStacktraces.insert(value.traceId);
         }
-        const auto average = value.summary.active == 0 ? 0.0 : 1.0 * value.summary.size / value.summary.active;
+        const auto average = value.summary.active == 0
+                                 ? 0.0
+                                 : static_cast<double>(value.summary.size) / static_cast<double>(value.summary.active);
+        const auto totalMb = static_cast<double>(value.summary.size) / 1024.0 / 1024;
         str << fmt::format("TraceId: {}, active: {}, size: {:.3f}mb, average: {:.3f}b, total: {}\n", value.traceId,
-                           value.summary.active, value.summary.size / 1024.0 / 1024, average, value.summary.total);
+                           value.summary.active, totalMb, average, value.summary.totalCount);
     }
     str << "\n";
+    str << "ByTotalCount" << "\n";
     for (const auto& value : byCountRange) {
-        if (value.summary.active == 0) {
-            continue;
-        }
         const auto it = m_workerData->writtenStacktraces.insert(value.traceId);
         if (it.second) {
             newStacktraces.insert(value.traceId);
         }
-        const auto average = value.summary.active == 0 ? 0.0 : 1.0 * value.summary.size / value.summary.active;
+        const auto average = value.summary.active == 0
+                                 ? 0.0
+                                 : static_cast<double>(value.summary.size) / static_cast<double>(value.summary.active);
+        const auto totalMb = static_cast<double>(value.summary.size) / 1024.0 / 1024;
         str << fmt::format("TraceId: {}, active: {}, size: {:.3f}mb, average: {:.3f}b, total: {}\n", value.traceId,
-                           value.summary.active, value.summary.size / 1024.0 / 1024, average, value.summary.total);
+                           value.summary.active, totalMb, average, value.summary.totalCount);
     }
     str << "\n\n";
     m_workerData->summaryFile << str.str();

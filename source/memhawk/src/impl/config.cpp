@@ -30,9 +30,10 @@ constexpr const char* MaxPostponedName = "max_postponed";
 constexpr const char* LoggingLevelName = "logging_level";
 constexpr const char* MainLogIntoFileName = "main_log_file";
 constexpr const char* LogDirName = "log_dir";
+constexpr const char* TrackingWorkerName = "tracking_worker";
 
 template <typename... Args>
-void PrintError(std::string_view fmt, Args... args)
+void PrintError(fmt::format_string<Args...> fmt, Args... args)
 {
     const auto str = fmt::format(fmt, std::forward<Args>(args)...);
     LogError(fStr, str.c_str());
@@ -63,12 +64,13 @@ void InitConfig()
     for (; splitIt != decltype(splitIt)(); splitIt++) {
         const auto elemView = std::string_view(splitIt->begin(), splitIt->size());
         auto separatorPos = elemView.find(OptionKeyValueDelim);
-        if (separatorPos == elemView.npos) {
+        if (separatorPos == std::string_view::npos) {
             PrintError("Incorrect element without `=` separator: {}", elemView);
             continue;
         }
         const auto key = elemView.substr(0, separatorPos);
         const auto valueStr = elemView.substr(separatorPos + 1);
+
         if (key == TrackDepthName) {
             ParseValue(key, valueStr, gl_config.TrackDepth);
             if (gl_config.TrackDepth > MaxUnwindDepth) {
@@ -100,6 +102,10 @@ void InitConfig()
             gl_config.MainLogIntoFile = value > 0;
         } else if (key == LogDirName) {
             gl_config.LogDir = valueStr;
+        } else if (key == TrackingWorkerName) {
+            size_t value{};
+            ParseValue(key, valueStr, value);
+            gl_config.StartTrackingWorker = value > 0;
         } else {
             PrintError("Unknown parameter: {}", key);
         }

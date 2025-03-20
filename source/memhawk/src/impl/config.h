@@ -3,6 +3,7 @@
 #include "log.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <string_view>
 
 namespace memhawk
@@ -25,6 +26,7 @@ struct Config
     bool MainLogIntoFile = true;
     bool StartTrackingWorker = true;
     bool StartSignalWorker = false;
+    uint32_t TrackerDumpingPeriodMs = 1000;
 
     std::string_view LogDir = "./";
 };

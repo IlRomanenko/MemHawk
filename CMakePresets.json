@@ -11,10 +11,8 @@
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "CMAKE_CXX_FLAGS": "-O0 -g",
                 "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
-                "MEMHAWK_BUILD_TESTING": true,
-                "BUILD_TESTING": false
+                "MEMHAWK_BUILD_TESTING": true
             }
         },
         {
@@ -26,10 +24,8 @@
                 "CMAKE_BUILD_TYPE": "RelWithDebInfo",
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "CMAKE_CXX_FLAGS": "-O2 -DDEBUG -g -march=native -mavx2",
                 "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
-                "MEMHAWK_BUILD_TESTING": true,
-                "BUILD_TESTING": false
+                "MEMHAWK_BUILD_TESTING": true
             }
         },
         {
@@ -43,10 +39,40 @@
                 "CMAKE_BUILD_TYPE": "RelWithDebInfo",
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "CMAKE_CXX_FLAGS": "-O2 -DDEBUG -g -march=native -mavx2",
+                "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
+                "MEMHAWK_BUILD_TESTING": true
+            }
+        },
+        {
+            "name": "ClangTidy",
+            "displayName": "clang-tidy",
+            "description": "Create clang-tidy build",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "clang++",
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                 "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
                 "MEMHAWK_BUILD_TESTING": true,
-                "BUILD_TESTING": false
+                "MEMHAWK_USE_CLANG_TIDY": true
+            }
+        },
+        {
+            "name": "SanitizeAsan",
+            "displayName": "Asan build",
+            "description": "Compile with -fsanitize=address",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "clang++",
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
+                "MEMHAWK_BUILD_TESTING": true,
+                "ASAN": true
             }
         }
     ]

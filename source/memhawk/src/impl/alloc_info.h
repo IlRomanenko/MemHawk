@@ -27,41 +27,46 @@ struct AllocSummary
     int64_t overhead{};
 
     // total allocations
-    uint64_t total{};
+    uint64_t totalCount{};
+    uint64_t totalBytes{};
 
-    inline AllocSummary& operator+=(const AllocSummary& rhs)
+    AllocSummary& operator+=(const AllocSummary& rhs)
     {
         size += rhs.size;
         active += rhs.active;
         overhead += rhs.overhead;
-        total += rhs.total;
+        totalBytes += rhs.totalBytes;
+        totalCount += rhs.totalCount;
         return *this;
     }
 
-    inline AllocSummary& operator-=(const AllocSummary& rhs)
+    AllocSummary& operator-=(const AllocSummary& rhs)
     {
         size -= rhs.size;
         active -= rhs.active;
         overhead -= rhs.overhead;
-        total += rhs.total; // sum of allocations
+        // sum of all allocations
+        totalBytes += rhs.totalBytes;
+        totalCount += rhs.totalCount;
         return *this;
     }
 
-    inline AllocSummary& operator+=(const AllocInfo& rhs)
+    AllocSummary& operator+=(const AllocInfo& rhs)
     {
         size += static_cast<int64_t>(rhs.size);
         overhead += static_cast<int64_t>(rhs.offset);
         active++;
-        total++;
+        totalBytes += rhs.size;
+        totalCount++;
         return *this;
     }
 
-    inline AllocSummary& operator-=(const AllocInfo& rhs)
+    AllocSummary& operator-=(const AllocInfo& rhs)
     {
         size -= static_cast<int64_t>(rhs.size);
         overhead -= static_cast<int64_t>(rhs.offset);
         active--;
-        // doesn't change total
+        // don't change total
         return *this;
     }
 };

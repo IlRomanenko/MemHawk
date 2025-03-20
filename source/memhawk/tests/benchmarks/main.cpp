@@ -2,6 +2,7 @@
 #include <absl/base/optimization.h>
 #include <absl/debugging/stacktrace.h>
 #include <benchmark/benchmark.h>
+#include <boost/concept_check.hpp>
 
 #include <libunwind.h>
 #include <list>
@@ -11,7 +12,8 @@ static void BM_MT_ListAllocs(benchmark::State& state)
 {
     std::list<int> dq;
     // Perform setup here
-    for (auto _ : state) {
+    for (auto value : state) {
+        boost::ignore_unused_variable_warning(value);
         // This code gets timed
         for (auto i = 0; i < state.range(); i++) {
             dq.emplace_back(i);
@@ -36,14 +38,15 @@ static constexpr int kCacheSize = (1 << 16);
 int cacheArray[kCacheSize];
 void* unwindArray[kMaxStackDepth];
 
-ABSL_ATTRIBUTE_NOINLINE void unwind_stacktrace(benchmark::State& state, int x, int depth, bool abslUnwinder)
+ABSL_ATTRIBUTE_NOINLINE void unwind_stacktrace(benchmark::State& state, int64_t x, int64_t depth, bool abslUnwinder)
 {
     if (x <= 0) {
         // Touch a significant amount of memory so that the stack is likely to be
         // not cached in the L1 cache.
         state.PauseTiming();
-        for (int i = 0; i < kCacheSize; ++i)
+        for (int i = 0; i < kCacheSize; ++i) {
             benchmark::DoNotOptimize(cacheArray[i] = 100);
+        }
         state.ResumeTiming();
         if (abslUnwinder) {
             benchmark::DoNotOptimize(absl::GetStackTrace(unwindArray, kMaxStackDepth, 0));
@@ -58,17 +61,19 @@ ABSL_ATTRIBUTE_NOINLINE void unwind_stacktrace(benchmark::State& state, int x, i
 
 static void BM_absl_StackTrace(benchmark::State& state)
 {
-    int depth = state.range(0);
-    for (auto s : state) {
-        unwind_stacktrace(state, depth, depth, 1);
+    const auto depth = state.range(0);
+    for (auto value : state) {
+        boost::ignore_unused_variable_warning(value);
+        unwind_stacktrace(state, depth, depth, true);
     }
 }
 
 static void BM_libunwind_StackTrace(benchmark::State& state)
 {
-    int depth = state.range(0);
-    for (auto s : state) {
-        unwind_stacktrace(state, depth, depth, 0);
+    const auto depth = state.range(0);
+    for (auto value : state) {
+        boost::ignore_unused_variable_warning(value);
+        unwind_stacktrace(state, depth, depth, false);
     }
 }
 

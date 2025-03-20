@@ -12,7 +12,7 @@
 #include <cstddef>
 #include <cstdlib>
 #include <dlfcn.h>
-#include <stdio.h>
+#include <cstdio>
 #include <unistd.h>
 
 namespace memhawk
@@ -90,7 +90,7 @@ HOOK(aligned_alloc, HookType::Optional);
  */
 struct DummyPool
 {
-    static const constexpr size_t MAX_SIZE = 8 * 1024;
+    static const constexpr size_t MAX_SIZE = 8UL * 1024;
     char buf[MAX_SIZE] = {};
     size_t offset = 0;
 
@@ -101,7 +101,7 @@ struct DummyPool
 
     void* alloc(size_t num, size_t size) noexcept
     {
-        size_t oldOffset = offset;
+        const size_t oldOffset = offset;
         offset += num * size;
         if (offset >= MAX_SIZE) {
             fprintf(stderr,
@@ -236,7 +236,7 @@ int hawk_posix_memalign(void** memptr, size_t alignment, size_t size)
     auto trace = Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth);
 
     auto alignedSize = (AdditionalSize + alignment - 1) / alignment * alignment;
-    int res = hooks::posix_memalign(memptr, alignment, size + alignedSize);
+    const auto res = hooks::posix_memalign(memptr, alignment, size + alignedSize);
     LogDebug("result: " fPtr, *memptr);
     if (res != 0) {
         return res;
@@ -262,8 +262,8 @@ void* hawk_calloc(size_t nm, size_t size)
     }
     auto trace = Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth);
 
-    size_t totalSize = nm * size + AdditionalSize;
-    void* ptr = hooks::calloc(1ul, totalSize);
+    const size_t totalSize = nm * size + AdditionalSize;
+    void* ptr = hooks::calloc(1UL, totalSize);
     if (unlikely(ptr == nullptr)) {
         return ptr;
     }

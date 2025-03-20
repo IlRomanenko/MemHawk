@@ -1,15 +1,19 @@
 #include "stacktrace.h"
 
+#include "algo.h"
+#include "config.h"
 #include "log.h"
 
+#include <absl/base/attributes.h>
+#include <absl/types/span.h>
 #include <fmt/format.h>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <dlfcn.h>
 #include <sstream>
-#include <stdio.h>
 
 #define UNW_LOCAL_ONLY 1
 #include <libunwind.h>
@@ -36,14 +40,16 @@ bool CompressedStacktrace::operator<(const CompressedStacktrace& other) const
 
 void CompressedStacktrace::RecalculateHash()
 {
-    hash = XXH3_64bits(data.data(), data.size() * sizeof(uint64_t));
+    hash = XXH3_64bits(data.data(), data.size() * sizeof(uintptr_t));
 }
 
-Stacktrace::Stacktrace(void** data, size_t size)
+Stacktrace::Stacktrace() = default; // NOLINT(cppcoreguidelines-pro-type-member-init)
+
+Stacktrace::Stacktrace(void* const* data, size_t size) // NOLINT(cppcoreguidelines-pro-type-member-init)
 {
     m_skip = 0;
     m_size = std::min(MaxUnwindDepth, size);
-    std::copy(data, std::next(data, static_cast<ssize_t>(m_size)), m_data);
+    memcpy(reinterpret_cast<void*>(m_data.data()), reinterpret_cast<const void*>(data), m_size * sizeof(void*));
 }
 
 Stacktrace Stacktrace::Unwind(size_t capacity, size_t collapseDepth, size_t skip)
@@ -55,9 +61,9 @@ Stacktrace Stacktrace::Unwind(size_t capacity, size_t collapseDepth, size_t skip
 
 inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t collapseDepth, size_t skip)
 {
-    size_t size = std::min(capacity, MaxUnwindDepth);
-    auto resultSize = unw_backtrace(m_data, size);
-    while (resultSize > 0 && m_data[resultSize - 1] == nullptr) {
+    const size_t size = std::min(capacity, MaxUnwindDepth);
+    auto resultSize = unw_backtrace(m_data.data(), static_cast<int>(size));
+    while (resultSize > 0 && m_data[static_cast<size_t>(resultSize - 1)] == nullptr) {
         resultSize--;
     }
 
@@ -69,56 +75,17 @@ inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t collapseDepth, 
     m_size = static_cast<size_t>(resultSize);
     m_skip = skip;
     // remove duplicates -> not interested in recursion
-    SqueezeRecursion(collapseDepth);
+    const auto newSize = CollapseRecursion(GetTrace(), collapseDepth);
+    ShrinkBySize(newSize);
 }
 
 void Stacktrace::Compress(CompressedStacktrace& result) const
 {
     const auto span = GetTrace();
     result.data.resize(span.size());
-    memcpy(result.data.data(), span.data(), span.size() * sizeof(void*));
+    const auto begin = reinterpret_cast<const void*>(span.data());
+    memcpy(result.data.data(), begin, span.size() * sizeof(void*));
     result.RecalculateHash();
-}
-
-// Simple recursion squeezing algorithm with O(N^2) asymptotic
-void Stacktrace::SqueezeRecursion(size_t depth)
-{
-    size_t begin = m_skip;
-    size_t left = m_skip;
-    size_t cur = left + 1;
-    size_t end = m_size;
-    while (cur < end) {
-        size_t cycleSize = 0;
-
-        //  begin         left    cur    end
-        // [  |    ....    |   ... | .... | ]
-        for (size_t spanSize = 1; spanSize < depth && cur + spanSize < end; spanSize++) {
-            bool matched = true;
-            if (begin + spanSize > left + 1) {
-                break;
-            }
-            for (size_t p = 0; p < spanSize; p++) {
-                if (m_data[cur + p] != m_data[left - spanSize + p + 1]) {
-                    matched = false;
-                    break;
-                }
-            }
-            if (matched) {
-                cycleSize = spanSize;
-                break;
-            }
-        }
-        if (cycleSize > 0) {
-            cur += cycleSize;
-        } else {
-            left++;
-            m_data[left] = m_data[cur];
-            cur++;
-        }
-    }
-    end = left + 1;
-
-    m_size = static_cast<size_t>(end);
 }
 
 void Stacktrace::Setup()
@@ -138,6 +105,14 @@ void Stacktrace::ShrinkBySize(size_t size)
         return;
     }
     m_size = m_skip + size;
+}
+
+void Stacktrace::Skip(size_t size)
+{
+    m_skip += size;
+    if (m_skip > m_size) {
+        m_skip = m_size;
+    }
 }
 
 void Stacktrace::ShrinkByPtr(void* ptr)
@@ -164,12 +139,12 @@ void Stacktrace::CoarseToFunctionsStart()
 
 absl::Span<void*> Stacktrace::GetTrace()
 {
-    return absl::MakeSpan(m_data + m_skip, m_size - m_skip);
+    return absl::MakeSpan(m_data.data() + m_skip, m_size - m_skip);
 }
 
 absl::Span<void* const> Stacktrace::GetTrace() const
 {
-    return absl::MakeConstSpan(m_data + m_skip, m_data + m_size);
+    return absl::MakeConstSpan(m_data.data() + m_skip, m_size - m_skip);
 }
 
 std::string Stacktrace::Describe() const

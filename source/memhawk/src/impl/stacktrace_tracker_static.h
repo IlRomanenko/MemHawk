@@ -1,0 +1,66 @@
+#pragma once
+
+#include "i_stacktrace_tracker.h"
+#include "stacktrace.h"
+
+#include <absl/container/flat_hash_map.h>
+#include <absl/synchronization/mutex.h>
+
+#include <array>
+#include <cstdint>
+#include <optional>
+
+namespace memhawk
+{
+
+bool IsFixedTrackerId(uint32_t traceId);
+
+class StaticStacktraceTracker : public IStacktraceTracker
+{
+public:
+    static constexpr const size_t MaxStacktraceLength = 6;
+
+public:
+    explicit StaticStacktraceTracker(bool dump = false);
+    ~StaticStacktraceTracker() override;
+
+    uint32_t InsertStacktrace(Stacktrace&& trace) override;
+    std::optional<Stacktrace> GetStacktraceFromId(uint32_t traceId) override;
+
+    size_t StacktracesCount() override;
+
+    size_t GetStorageSize();
+
+private:
+    uint32_t InsertStacktraceUnlocked(Stacktrace&& trace);
+    absl::Span<const uint32_t> GetTraceSpan(uint32_t traceId);
+    Stacktrace GetStacktrace(uint32_t traceId);
+
+    struct TraceElement
+    {
+        uint64_t hash{};
+        absl::Span<const uint32_t> trace;
+        bool operator==(const TraceElement& rhs) const;
+    };
+
+    static constexpr size_t ElementsCount = 256;
+    static constexpr size_t StorageSize = ElementsCount * MaxStacktraceLength;
+
+private:
+    absl::Mutex m_mt;
+
+    // Use static arrays because memory can't be allocated upon inserting into StaticStacktraceTracker
+    // due to recursion problem
+    std::array<uint32_t, StorageSize> m_storage{};
+    std::array<TraceElement, ElementsCount> m_elements{};
+    std::array<uint32_t, MaxStacktraceLength * 8> m_compressedTrace{};
+    std::array<uint64_t, MaxStacktraceLength * 4> m_decompressedTrace{};
+
+    // std::array<Stacktrace, StorageSize> m_stacktraces;
+    uint32_t m_size{};
+    uint32_t m_storageSize{};
+
+    bool m_dump{false};
+};
+
+} // namespace memhawk

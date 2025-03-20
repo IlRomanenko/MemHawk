@@ -3,12 +3,14 @@
 #include "alloc_info.h"
 #include "stacktrace.h"
 
+#include <absl/synchronization/mutex.h>
+
 namespace memhawk
 {
 
 void ThreadTracker::SaveTraceId(AllocInfo& info, Stacktrace&& trace)
 {
-    absl::MutexLock lock(&mt);
+    const absl::MutexLock lock(&mt);
     trace.Compress(localCompressed);
     auto traceId = lruStacktraces.Touch(localCompressed);
     if (!traceId) {
@@ -25,7 +27,7 @@ void ThreadTracker::SaveTraceId(AllocInfo& info, Stacktrace&& trace)
 
 void ThreadTracker::TrackAlloc(const AllocInfo& info)
 {
-    absl::MutexLock lock(&mt);
+    const absl::MutexLock lock(&mt);
     totalAllocs++;
 
     auto summaryIt = allocSummaries.find(info.traceId);
@@ -39,7 +41,7 @@ void ThreadTracker::TrackAlloc(const AllocInfo& info)
 
 void ThreadTracker::TrackDealloc(const AllocInfo& info)
 {
-    absl::MutexLock lock(&mt);
+    const absl::MutexLock lock(&mt);
     totalDeallocs++;
 
     auto summaryIt = allocSummaries.find(info.traceId);

@@ -1,9 +1,11 @@
 #pragma once
 
+#include <cstdint>
+
 namespace memhawk
 {
 
-enum class LogLevel
+enum class LogLevel : uint8_t
 {
     Debug = 0,
     Info = 1,

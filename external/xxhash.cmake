@@ -7,14 +7,19 @@ set(XXHASH_INCLUDE_DIR ${XXHASH_INSTALL_DIR}/include)
 
 set(XXHASH_INSTALL_OPTIONS)
 list(APPEND XXHASH_INSTALL_OPTIONS "PREFIX=${XXHASH_INSTALL_DIR}")
+set(FLAGS "-O3 -fno-omit-frame-pointer")
 
+
+message(NOTICE "Enabling `xxhash` dependency")
 ExternalProject_Add(
     xxhash_src
     GIT_REPOSITORY https://github.com/Cyan4973/xxHash.git
     GIT_TAG v0.8.3
     CONFIGURE_COMMAND ""
     BUILD_COMMAND make lib
-    INSTALL_COMMAND ${XXHASH_INSTALL_OPTIONS} make install_libxxhash.a install_libxxhash.includes
+    INSTALL_COMMAND 
+        ${CMAKE_COMMAND} -E env
+        PREFIX=${XXHASH_INSTALL_DIR} CFLAGS=${FLAGS} make install_libxxhash.a install_libxxhash.includes
     BUILD_IN_SOURCE ON
     UPDATE_DISCONNECTED 1
     INSTALL_BYPRODUCTS

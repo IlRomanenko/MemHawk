@@ -11,10 +11,7 @@
 namespace memhawk
 {
 
-namespace
-{
 namespace bmi = boost::multi_index;
-};
 
 // Simple and fast lru-cache with accent on minimal allocations
 template <typename Key, typename Value>
@@ -91,7 +88,7 @@ private:
     >;
     // clang-format on
 
-    inline void Relocate(typename Index::const_iterator it)
+    void Relocate(typename Index::const_iterator it)
     {
         auto& byOrder = m_index.template get<TagByOrder>();
         const auto orderIt = m_index.template project<TagByOrder>(it);

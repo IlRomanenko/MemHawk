@@ -1,6 +1,7 @@
 #include "stacktrace_tracker.h"
 
 #include "config.h"
+#include "log.h"
 #include "log_name.h"
 #include "stacktrace.h"
 
@@ -26,7 +27,7 @@ void StacktraceTracker::PostponedConstruct()
 
 size_t StacktraceTracker::StacktracesCount()
 {
-    absl::MutexLock lock(&m_mt);
+    const absl::MutexLock lock(&m_mt);
     return m_storage->leafsId.size();
 }
 
@@ -42,9 +43,9 @@ StacktraceTracker::~StacktraceTracker()
     std::ofstream result(GetProcessLogName("inner_stacktraces", gl_config), std::ios_base::out | std::ios_base::trunc);
     result << "Inner stacktraces:" << "\n";
     for (const auto& traceId : m_storage->leafsId) {
-        const auto trace = GetStacktraceFromId(traceId).value();
-        const auto stacktrace = trace.Describe();
-        result << "traceId: " << traceId << "\n" << stacktrace << "\n\n";
+        const auto stacktrace = GetStacktrace(traceId);
+        const auto traceStr = stacktrace.Describe();
+        result << "traceId: " << traceId << "\n" << traceStr << "\n\n";
     }
     result.flush();
     result.close();
@@ -52,7 +53,7 @@ StacktraceTracker::~StacktraceTracker()
 
 uint32_t StacktraceTracker::InsertStacktrace(Stacktrace&& trace)
 {
-    absl::MutexLock lock(&m_mt);
+    const absl::MutexLock lock(&m_mt);
 
     const auto span = trace.GetTrace();
     const auto reversed = boost::adaptors::reverse(span);
@@ -61,7 +62,7 @@ uint32_t StacktraceTracker::InsertStacktrace(Stacktrace&& trace)
     for (const auto& ptr : reversed) {
         auto nextNodeIt = m_storage->edges.find({nodeId, ptr});
         if (nextNodeIt == m_storage->edges.end()) {
-            uint32_t nextNodeId = m_storage->nodes.size();
+            const uint32_t nextNodeId = m_storage->nodes.size();
             m_storage->nodes.push_back(TraceNode{ptr, nodeId, false});
             nextNodeIt = m_storage->edges.insert({{nodeId, ptr}, nextNodeId}).first;
         }
@@ -77,23 +78,28 @@ uint32_t StacktraceTracker::InsertStacktrace(Stacktrace&& trace)
 
 std::optional<Stacktrace> StacktraceTracker::GetStacktraceFromId(uint32_t traceId)
 {
-    absl::MutexLock lock(&m_mt);
-    std::array<void*, MaxUnwindDepth> trace;
-    size_t traceIt = 0;
+    const absl::MutexLock lock(&m_mt);
     if (traceId >= m_storage->nodes.size()) {
         return {};
     }
-    auto nodeId = traceId;
-    if (!m_storage->nodes[nodeId].leaf) {
+    if (!m_storage->nodes[traceId].leaf) {
         return {};
     }
+    return GetStacktrace(traceId);
+}
+
+Stacktrace StacktraceTracker::GetStacktrace(uint32_t traceId)
+{
+    std::array<void*, MaxUnwindDepth> trace{};
+    size_t traceIt = 0;
+    auto nodeId = traceId;
     while (nodeId != 0) {
         const auto& node = m_storage->nodes[nodeId];
         trace[traceIt] = node.ptr;
         traceIt++;
         nodeId = node.parent;
     }
-    return Stacktrace(trace.data(), traceIt);
+    return Stacktrace{trace.data(), traceIt};
 }
 
 } // namespace memhawk

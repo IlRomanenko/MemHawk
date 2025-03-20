@@ -14,15 +14,17 @@
 
 namespace memhawk
 {
-
+namespace
+{
 ABSL_CONST_INIT int gl_logFile = STDERR_FILENO;
+} // namespace
 
 void LogInit(const char* filename)
 {
     if (gl_config.MainLogIntoFile) {
         gl_logFile = open(filename, O_WRONLY | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR);
         if (gl_logFile < 0) {
-            int error = errno;
+            const auto error = errno;
             gl_logFile = STDERR_FILENO;
             constexpr size_t BufSize = 512;
             char buffer[BufSize];

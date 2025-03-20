@@ -20,9 +20,7 @@ struct OnConstruct
         GlobalStorage::Construct();
     }
 
-    ~OnConstruct()
-    {
-    }
+    ~OnConstruct() = default;
 };
 
 static OnConstruct glOnConstruct{};

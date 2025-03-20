@@ -6,7 +6,6 @@
 #include <boost/container_hash/hash.hpp>
 
 #include <cstdint>
-#include <stdlib.h>
 #include <string>
 
 namespace memhawk
@@ -16,10 +15,11 @@ class Stacktrace;
 
 struct CompressedStacktrace
 {
-    std::vector<uint64_t> data;
+    std::vector<uintptr_t> data;
     size_t hash{};
 
     CompressedStacktrace() = default;
+    ~CompressedStacktrace() = default;
     CompressedStacktrace(const CompressedStacktrace& other) = delete;
     CompressedStacktrace& operator=(const CompressedStacktrace&) = delete;
     CompressedStacktrace(CompressedStacktrace&& other) = default;
@@ -27,14 +27,15 @@ struct CompressedStacktrace
 
     bool operator==(const CompressedStacktrace& other) const;
     bool operator<(const CompressedStacktrace& other) const;
+
     void RecalculateHash();
 };
 
 class Stacktrace
 {
 public:
-    Stacktrace() = default;
-    Stacktrace(void** data, size_t size);
+    Stacktrace();
+    Stacktrace(void* const* data, size_t size);
 
     static Stacktrace Unwind(size_t capacity, size_t collapseDepth, size_t skip = 1);
     static void Setup();
@@ -43,6 +44,7 @@ public:
 
     void CoarseToFunctionsStart();
 
+    void Skip(size_t size);
     void ShrinkBySize(size_t size);
     void ShrinkByPtr(void* ptr);
     std::string Describe() const;
@@ -53,10 +55,9 @@ public:
 
 private:
     void UnwindStacktrace(size_t capacity, size_t collapseDepth, size_t skip);
-    void SqueezeRecursion(size_t depth);
 
 private:
-    void* m_data[MaxUnwindDepth];
+    std::array<void*, MaxUnwindDepth> m_data; // don't initialise memory
     size_t m_size{};
     size_t m_skip{};
 };

@@ -2,10 +2,7 @@
 
 #include <cstdint>
 
-namespace memhawk
-{
-
-namespace bit_packing
+namespace memhawk::bit_packing
 {
 
 enum class SizeBits : uint32_t
@@ -40,8 +37,8 @@ inline uint32_t shift_right(uint32_t value, uint32_t count)
 
 inline void ClearBits(uint32_t& value, uint32_t from, uint32_t to)
 {
-    uint32_t upper = value & shift_left(ValueBitsMask, from);
-    uint32_t lower = upper & shift_right(ValueBitsMask, (ValueBitsSize - to));
+    const uint32_t upper = value & shift_left(ValueBitsMask, from);
+    const uint32_t lower = upper & shift_right(ValueBitsMask, (ValueBitsSize - to));
     value &= ~lower; 
 }
 
@@ -93,61 +90,67 @@ void DecodeBits(ConstBitIterator& iter, uint32_t bitCount, uint32_t& value)
 }
 
 // ABSL_ATTRIBUTE_ALWAYS_INLINE 
-void Encode(MutBitIterator& iter, uint32_t value)
+void Encode(MutBitIterator& controlIter, MutBitIterator& dataIter, uint32_t value)
 {
+    uint32_t bitCount = 0;
     if (value == 0) {
-        EncodeBits(iter, 2, static_cast<uint32_t>(SizeBits::Zero));
-    } else if (value <= (1ul << 16)) {
-        EncodeBits(iter, 2, static_cast<uint32_t>(SizeBits::TwoBytes));
-        EncodeBits(iter, 16, value);
-    } else if (value <= (1ul << 24)) {
-        EncodeBits(iter, 2, static_cast<uint32_t>(SizeBits::ThreeBytes));
-        EncodeBits(iter, 24, value);
+        EncodeBits(controlIter, 2, static_cast<uint32_t>(SizeBits::Zero));
+    } else if (value < (1UL << 16)) {
+        EncodeBits(controlIter, 2, static_cast<uint32_t>(SizeBits::TwoBytes));
+        bitCount = 16;
+    } else if (value < (1UL << 24)) {
+        EncodeBits(controlIter, 2, static_cast<uint32_t>(SizeBits::ThreeBytes));
+        bitCount = 24;
     } else {
-        EncodeBits(iter, 2, static_cast<uint32_t>(SizeBits::FourBytes));
-        EncodeBits(iter, 32, value);
+        EncodeBits(controlIter, 2, static_cast<uint32_t>(SizeBits::FourBytes));
+        bitCount = 32;
+    }
+    if (bitCount) {
+        EncodeBits(dataIter, bitCount, value);
     }
 }
 
 // ABSL_ATTRIBUTE_ALWAYS_INLINE 
-void Decode(ConstBitIterator& iter, uint32_t& value)
+void Decode(ConstBitIterator& controlIter, ConstBitIterator& dataIter, uint32_t& value)
 {
     value = 0;
     uint32_t sizeBits = 0;
-    DecodeBits(iter, 2, sizeBits);
+    DecodeBits(controlIter, 2, sizeBits);
     switch (static_cast<SizeBits>(sizeBits)) {
     case SizeBits::Zero:
         break;
     case SizeBits::TwoBytes:
-        DecodeBits(iter, 16, value);
+        DecodeBits(dataIter, 16, value);
         break;
     case SizeBits::ThreeBytes:
-        DecodeBits(iter, 24, value);
+        DecodeBits(dataIter, 24, value);
         break;
     case SizeBits::FourBytes:
-        DecodeBits(iter, 32, value);
+        DecodeBits(dataIter, 32, value);
         break;
     default:
         ABSL_UNREACHABLE();
     }
 }
 
-size_t CalculateControlBlockSize(absl::Span<const uint64_t> in)
+size_t CalculateControlBlockSize(size_t size)
 {
-    size_t blockSizeBits = in.size() * 2 * 3;
+    const size_t blockSizeBits = size * 2 * 3;
     return (blockSizeBits + ValueBitsSize - 1) / ValueBitsSize;
 }
 
 size_t CalculateMaxExpectedSize(absl::Span<const uint64_t> in)
 {
-    return 1 + in.size() * 2 + CalculateControlBlockSize(in);
+    return 1 + in.size() * 2 + CalculateControlBlockSize(in.size());
 }
 
 size_t Compress(const absl::Span<const uint64_t> in, uint32_t* out)
 {
     out[0] = static_cast<uint32_t>(in.size());
-    MutBitIterator iter{out};
-    iter.AdvanceBytes(1);
+    MutBitIterator controlBlockIter{out};
+    controlBlockIter.AdvanceBytes(1);
+    MutBitIterator dataIter{out};
+    dataIter.AdvanceBytes(1 + CalculateControlBlockSize(in.size()));
 
     uint64_t prev = 0;
     uint64_t cur = 0;
@@ -163,16 +166,19 @@ size_t Compress(const absl::Span<const uint64_t> in, uint32_t* out)
 
         diff = cur - prev;
 
-        uint32_t high = static_cast<uint32_t>(diff >> 32);
-        uint32_t low = static_cast<uint32_t>(diff);
+        const auto high = static_cast<uint32_t>(diff >> 32);
+        const auto low = static_cast<uint32_t>(diff);
 
-        EncodeBits(iter, 1, isSigned);
-        Encode(iter, low);
-        Encode(iter, high);
+        EncodeBits(controlBlockIter, 1, isSigned);
+        Encode(controlBlockIter, dataIter, low);
+        Encode(controlBlockIter, dataIter, high);
 
         prev = in[i];
     }
-    return iter.valuePos;
+    if (dataIter.bitIndex == 0) {
+        return dataIter.valuePos;
+    }
+    return dataIter.valuePos + 1; // because last word is also used
 }
 
 void Compress(absl::Span<const uint64_t> in, std::vector<uint32_t>& out)
@@ -186,7 +192,7 @@ void Compress(absl::Span<const uint64_t> in, std::vector<uint32_t>& out)
 
 void Decompress(absl::Span<const uint32_t> in, std::vector<uint64_t>& out)
 {
-    size_t total = in[0];
+    const size_t total = in[0];
     out.clear();
     out.resize(total);
     Decompress(in, out.data());
@@ -194,9 +200,11 @@ void Decompress(absl::Span<const uint32_t> in, std::vector<uint64_t>& out)
 
 size_t Decompress(absl::Span<const uint32_t> in, uint64_t* out)
 {
-    size_t total = in[0];
-    ConstBitIterator iter{in};
-    iter.AdvanceBytes(1);
+    const size_t total = in[0];
+    ConstBitIterator controlBlockIter{in};
+    controlBlockIter.AdvanceBytes(1);
+    ConstBitIterator dataIter{in};
+    dataIter.AdvanceBytes(1 + CalculateControlBlockSize(total));
 
     uint64_t prev = 0;
     uint64_t cur = 0;
@@ -207,10 +215,10 @@ size_t Decompress(absl::Span<const uint32_t> in, uint64_t* out)
     uint32_t isSigned = 0;
 
     for (size_t i = 0; i < total; i++) {
-        DecodeBits(iter, 1, isSigned);
+        DecodeBits(controlBlockIter, 1, isSigned);
 
-        Decode(iter, low);
-        Decode(iter, high);
+        Decode(controlBlockIter, dataIter, low);
+        Decode(controlBlockIter, dataIter, high);
 
         diff = (static_cast<uint64_t>(high) << 32) | low;
 
@@ -226,5 +234,5 @@ size_t Decompress(absl::Span<const uint32_t> in, uint64_t* out)
     return total;
 }
 
-} // namespace bit_packing
-} // namespace memhawk
+} // namespace memhawk::bit_packing
+

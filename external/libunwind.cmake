@@ -32,12 +32,17 @@ else()
 endif()
 
 list(APPEND LIBUNWIND_OPTIONS "--prefix=${UNWIND_INSTALL_DIR}")
+set(FLAGS "-O3 -fno-omit-frame-pointer")
 
+
+message(NOTICE "Enabling `libunwind` dependency")
 ExternalProject_Add(
     libunwind_src
     GIT_REPOSITORY https://github.com/libunwind/libunwind.git
     GIT_TAG v1.8.1
-    CONFIGURE_COMMAND autoreconf -i && ./configure ${LIBUNWIND_OPTIONS}
+    CONFIGURE_COMMAND 
+        autoreconf -i && 
+        ${CMAKE_COMMAND} -E env CFLAGS=${FLAGS} CXXFLAGS=${FLAGS} ./configure ${LIBUNWIND_OPTIONS}
     BUILD_COMMAND make
     INSTALL_COMMAND make install
     BUILD_IN_SOURCE ON

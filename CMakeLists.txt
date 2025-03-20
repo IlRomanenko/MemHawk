@@ -4,17 +4,35 @@ project(alloc_tracker VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
+
+option(MEMHAWK_BUILD_TESTING "Build memhawk tests" OFF)
+option(MEMHAWK_ZLIB "Enable zlib support in libunwind" OFF)
+option(MEMHAWK_LZMA "Enable lzma support in libunwind" OFF)
+option(MEMHAWK_MSABI "Enable ms-abi support in libunwind" OFF)
+option(MEMHAWK_THINLTO "Clang-specific link time optimization" OFF)
+option(MEMHAWK_USE_CLANG_TIDY "Enable clang-tidy build" OFF)
+
 set(CMAKE_INSTALL_RPATH "$ORIGIN")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 set(CMAKE_BUILD_RPATH_USE_ORIGIN OFF)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -flto=auto -fPIC -pthread -fno-omit-frame-pointer")
-# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprefetch-loop-arrays -funroll-loops")
+set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -fPIC -pthread -fno-omit-frame-pointer")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -pthread -fno-omit-frame-pointer -std=c++17")
 
-option(MEMHAWK_BUILD_TESTING OFF) # build tests
-option(MEMHAWK_ZLIB "enable zlib support in libunwind" OFF)
-option(MEMHAWK_LZMA "enable lzma support in libunwind" OFF)
-option(MEMHAWK_MSABI "enable ms-abi support in libunwind" OFF)
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
+set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O3")
+
+if (MEMHAWK_THINLTO)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=thin")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto=thin")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -flto=thin")
+else()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=auto")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto=auto")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -flto=auto")
+endif()
 
 set(MEMHAWK_LIB_VERSION 1.0.00)
 set(MEMHAWK_LIB_SOVERSION 1)
@@ -31,6 +49,7 @@ endif()
 
 include(cmake/Sanitize.cmake)
 include(cmake/DevBuild.cmake)
+include(cmake/ClangTidy.cmake)
 
 add_subdirectory(external)
 add_subdirectory(source)

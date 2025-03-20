@@ -20,7 +20,7 @@ struct RecursionGuard
         level--;
     }
 
-    explicit operator bool()
+    explicit operator bool() const
     {
         return level == 1;
     }
@@ -38,6 +38,10 @@ struct AllocTag
 };
 
 struct InnerAllocTag
+{
+};
+
+struct RetPtrTag
 {
 };
 

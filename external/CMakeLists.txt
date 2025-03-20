@@ -1,5 +1,6 @@
 include(FetchContent)
 
+message(NOTICE "Enabling `fmt` dependency")
 FetchContent_Declare(
     fmt
     GIT_REPOSITORY https://github.com/fmtlib/fmt.git
@@ -14,6 +15,7 @@ set(ABSL_ENABLE_INSTALL ON CACHE BOOL "" FORCE)
 set(ABSL_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(ABSL_PROPAGATE_CXX_STD ON CACHE BOOL "" FORCE)
 
+message(NOTICE "Enabling `absl` dependency")
 FetchContent_Declare(
     absl
     GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
@@ -24,6 +26,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(absl)
 
 if(${MEMHAWK_BUILD_TESTING})
+
+    message(NOTICE "Enabling `googletest` dependency")
     FetchContent_Declare(
         googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
@@ -33,6 +37,8 @@ if(${MEMHAWK_BUILD_TESTING})
     )
     FetchContent_MakeAvailable(googletest)
 
+
+    message(NOTICE "Enabling `benchmark` dependency")
     set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(
         benchmark

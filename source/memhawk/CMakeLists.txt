@@ -9,14 +9,15 @@ list(FILTER HEADERS_IMPL INCLUDE REGEX ".*/impl/.*")
 list(FILTER SOURCES EXCLUDE REGEX ".*/impl/.*")
 list(FILTER SOURCES_IMPL INCLUDE REGEX ".*/impl/.*")
 
-message(NOTICE ${SOURCES})
-message(NOTICE ${SOURCES_IMPL})
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wshadow -Werror=undef -Werror=return-type")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wsign-conversion -Wunused  -Wold-style-cast -Wcast-align")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Woverloaded-virtual -Wnon-virtual-dtor -Wsuggest-override")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wmisleading-indentation -Wstrict-aliasing -Warray-bounds -Wimplicit-fallthrough")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wuninitialized")
+
+if (MEMHAWK_USE_CLANG_TIDY)
+    set (CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_PATH}")
+endif ()
 
 # Add static library with all sources except preload part
 add_library(${PROJECT_NAME}_impl STATIC ${HEADERS_IMPL} ${SOURCES_IMPL})

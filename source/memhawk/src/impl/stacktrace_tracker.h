@@ -17,8 +17,8 @@ namespace memhawk
 class StacktraceTracker : public IStacktraceTracker
 {
 public:
-    StacktraceTracker(bool dump = false);
-    ~StacktraceTracker();
+    explicit StacktraceTracker(bool dump = false);
+    ~StacktraceTracker() override;
 
     void PostponedConstruct();
 
@@ -47,6 +47,8 @@ private:
         absl::flat_hash_map<std::pair<uint32_t, void*>, uint32_t> edges;
         std::vector<uint32_t> leafsId;
     };
+
+    Stacktrace GetStacktrace(uint32_t traceId);
 
 private:
     absl::Mutex m_mt;
