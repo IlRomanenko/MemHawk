@@ -61,10 +61,12 @@ TEST_F(StaticStacktraceTrackerFixture, AddRandomTraces_ExpectAllFound)
     std::uniform_int_distribution<> dist;
 
 
-    for (size_t i = 0; i < Count; i++) {
+    for (size_t i = 0; i < Count; i++)
+    {
         std::vector<uint64_t> trace;
         trace.reserve(StaticStacktraceTracker::MaxStacktraceLength);
-        for (size_t j = 0; j < StaticStacktraceTracker::MaxStacktraceLength; j++) {
+        for (size_t j = 0; j < StaticStacktraceTracker::MaxStacktraceLength; j++)
+        {
             trace.emplace_back(dist(rng));
         }
         testData.emplace_back(trace); // copy trace
@@ -72,7 +74,8 @@ TEST_F(StaticStacktraceTrackerFixture, AddRandomTraces_ExpectAllFound)
         EXPECT_EQ(traceId, GetFixedSizeTraceId(i));
     }
 
-    for (size_t i = 0; i < Count; i++) {
+    for (size_t i = 0; i < Count; i++)
+    {
         const auto foundTrace = m_tracker.GetStacktraceFromId(GetFixedSizeTraceId(i));
         EXPECT_TRUE(foundTrace);
         EXPECT_EQ(ConvertStacktrace(foundTrace.value()), testData[i]);

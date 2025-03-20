@@ -24,7 +24,8 @@ namespace memhawk
 
 bool CompressedStacktrace::operator==(const CompressedStacktrace& other) const
 {
-    if (hash != other.hash) {
+    if (hash != other.hash)
+    {
         return false;
     }
     return data == other.data;
@@ -32,7 +33,8 @@ bool CompressedStacktrace::operator==(const CompressedStacktrace& other) const
 
 bool CompressedStacktrace::operator<(const CompressedStacktrace& other) const
 {
-    if (hash == other.hash) {
+    if (hash == other.hash)
+    {
         return data < other.data;
     }
     return hash < other.hash;
@@ -63,11 +65,13 @@ inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t collapseDepth, 
 {
     const size_t size = std::min(capacity, MaxUnwindDepth);
     auto resultSize = unw_backtrace(m_data.data(), static_cast<int>(size));
-    while (resultSize > 0 && m_data[static_cast<size_t>(resultSize - 1)] == nullptr) {
+    while (resultSize > 0 && m_data[static_cast<size_t>(resultSize - 1)] == nullptr)
+    {
         resultSize--;
     }
 
-    if (resultSize <= 0 || static_cast<size_t>(resultSize) < skip) {
+    if (resultSize <= 0 || static_cast<size_t>(resultSize) < skip)
+    {
         LogWarning("Failed to unwind, got empty stacktrace");
         return;
     }
@@ -90,17 +94,20 @@ void Stacktrace::Compress(CompressedStacktrace& result) const
 
 void Stacktrace::Setup()
 {
-    if (unw_set_caching_policy(unw_local_addr_space, UNW_CACHE_PER_THREAD)) {
+    if (unw_set_caching_policy(unw_local_addr_space, UNW_CACHE_PER_THREAD))
+    {
         LogWarning("Failed to enable per-thread libunwind caching");
     }
-    if (unw_set_cache_size(unw_local_addr_space, 1024, 0)) {
+    if (unw_set_cache_size(unw_local_addr_space, 1024, 0))
+    {
         LogWarning("Failed to set libunwind cache size");
     }
 }
 
 void Stacktrace::ShrinkBySize(size_t size)
 {
-    if (m_skip + size >= m_size) {
+    if (m_skip + size >= m_size)
+    {
         // trace already has smaller length
         return;
     }
@@ -110,7 +117,8 @@ void Stacktrace::ShrinkBySize(size_t size)
 void Stacktrace::Skip(size_t size)
 {
     m_skip += size;
-    if (m_skip > m_size) {
+    if (m_skip > m_size)
+    {
         m_skip = m_size;
     }
 }
@@ -118,8 +126,10 @@ void Stacktrace::Skip(size_t size)
 void Stacktrace::ShrinkByPtr(void* ptr)
 {
     const auto span = GetTrace();
-    for (size_t i = 2; i < span.size(); i++) {
-        if (span[i] == ptr) {
+    for (size_t i = 2; i < span.size(); i++)
+    {
+        if (span[i] == ptr)
+        {
             // don't included matched pointer
             ShrinkBySize(i);
             return;
@@ -130,7 +140,8 @@ void Stacktrace::ShrinkByPtr(void* ptr)
 void Stacktrace::CoarseToFunctionsStart()
 {
     auto span = GetTrace();
-    for (auto& ip : span) {
+    for (auto& ip : span)
+    {
         unw_proc_info_t info{};
         unw_get_proc_info_by_ip(unw_local_addr_space, reinterpret_cast<unw_word_t>(ip), &info, nullptr);
         ip = reinterpret_cast<void*>(info.start_ip);
@@ -153,7 +164,8 @@ std::string Stacktrace::Describe() const
     char elfName[512];
     auto span = GetTrace();
     std::stringstream stream;
-    for (const auto& ip : span) {
+    for (const auto& ip : span)
+    {
         unw_get_proc_name_by_ip(unw_local_addr_space, reinterpret_cast<unw_word_t>(ip), buf, 512, nullptr, nullptr);
 
         unw_word_t offset{};

@@ -37,12 +37,14 @@ StacktraceTracker::StacktraceTracker(bool dump) : m_dump(dump)
 
 StacktraceTracker::~StacktraceTracker()
 {
-    if (!m_dump) {
+    if (!m_dump)
+    {
         return;
     }
     std::ofstream result(GetProcessLogName("inner_stacktraces", gl_config), std::ios_base::out | std::ios_base::trunc);
     result << "Inner stacktraces:" << "\n";
-    for (const auto& traceId : m_storage->leafsId) {
+    for (const auto& traceId : m_storage->leafsId)
+    {
         const auto stacktrace = GetStacktrace(traceId);
         const auto traceStr = stacktrace.Describe();
         result << "traceId: " << traceId << "\n" << traceStr << "\n\n";
@@ -59,9 +61,11 @@ uint32_t StacktraceTracker::InsertStacktrace(Stacktrace&& trace)
     const auto reversed = boost::adaptors::reverse(span);
 
     uint32_t nodeId = 0;
-    for (const auto& ptr : reversed) {
+    for (const auto& ptr : reversed)
+    {
         auto nextNodeIt = m_storage->edges.find({nodeId, ptr});
-        if (nextNodeIt == m_storage->edges.end()) {
+        if (nextNodeIt == m_storage->edges.end())
+        {
             const uint32_t nextNodeId = m_storage->nodes.size();
             m_storage->nodes.push_back(TraceNode{ptr, nodeId, false});
             nextNodeIt = m_storage->edges.insert({{nodeId, ptr}, nextNodeId}).first;
@@ -69,7 +73,8 @@ uint32_t StacktraceTracker::InsertStacktrace(Stacktrace&& trace)
         nodeId = nextNodeIt->second;
     }
     // check if wasn't marked previously
-    if (!m_storage->nodes[nodeId].leaf) {
+    if (!m_storage->nodes[nodeId].leaf)
+    {
         m_storage->nodes[nodeId].leaf = true;
         m_storage->leafsId.push_back(nodeId);
     }
@@ -79,10 +84,12 @@ uint32_t StacktraceTracker::InsertStacktrace(Stacktrace&& trace)
 std::optional<Stacktrace> StacktraceTracker::GetStacktraceFromId(uint32_t traceId)
 {
     const absl::MutexLock lock(&m_mt);
-    if (traceId >= m_storage->nodes.size()) {
+    if (traceId >= m_storage->nodes.size())
+    {
         return {};
     }
-    if (!m_storage->nodes[traceId].leaf) {
+    if (!m_storage->nodes[traceId].leaf)
+    {
         return {};
     }
     return GetStacktrace(traceId);
@@ -93,7 +100,8 @@ Stacktrace StacktraceTracker::GetStacktrace(uint32_t traceId)
     std::array<void*, MaxUnwindDepth> trace{};
     size_t traceIt = 0;
     auto nodeId = traceId;
-    while (nodeId != 0) {
+    while (nodeId != 0)
+    {
         const auto& node = m_storage->nodes[nodeId];
         trace[traceIt] = node.ptr;
         traceIt++;

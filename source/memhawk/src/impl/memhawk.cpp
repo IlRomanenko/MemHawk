@@ -54,7 +54,8 @@ MemHawk::~MemHawk()
         m_stopped = true;
         m_cv.notify_all();
     }
-    if (m_worker.joinable()) {
+    if (m_worker.joinable())
+    {
         m_worker.join();
     }
     LogInfo("Total trackers: " fSzt ", empty: " fSzt ", max postponed: " fSzt, m_thTrackers.size(),
@@ -62,17 +63,21 @@ MemHawk::~MemHawk()
     LogInfo("Inner traces: (" fSzt ", " fSzt "), external: " fSzt, m_innerBtTracker.StacktracesCount(),
             m_innerBtTracker.GetStorageSize(), m_btTracker.StacktracesCount());
 
-    for (const auto& tracker : m_thTrackers) {
+    for (const auto& tracker : m_thTrackers)
+    {
         PrintTracker(tracker.get());
     }
     LogInfo("InnerTracker");
     PrintTracker(m_innerTracker.get());
     LogInfo("WorkerData.index");
-    for (const auto& elem : m_workerData->index) {
-        if (elem.summary.active == 0) {
+    for (const auto& elem : m_workerData->index)
+    {
+        if (elem.summary.active == 0)
+        {
             continue;
         }
-        if (!IsFixedTrackerId(elem.traceId)) {
+        if (!IsFixedTrackerId(elem.traceId))
+        {
             continue;
         }
         LogInfo("TraceId: " fU32 ", active: " fI64 ", size: " fI64 ", overhead: " fI64 ", total: " fI64, elem.traceId,
@@ -91,7 +96,8 @@ void MemHawk::PostponedConstruct()
     m_btTracker.PostponedConstruct();
     m_workerData = std::make_unique<WorkerData>();
     RegisterThread();
-    if (gl_config.StartTrackingWorker) {
+    if (gl_config.StartTrackingWorker)
+    {
         m_worker = std::thread([this]() { TrackingWorker(); });
     }
     LogDebug("end");
@@ -100,7 +106,8 @@ void MemHawk::PostponedConstruct()
 
 void MemHawk::RegisterThread()
 {
-    if (unlikely(gtl_tracker != nullptr)) {
+    if (unlikely(gtl_tracker != nullptr))
+    {
         const auto trace = Stacktrace::Unwind(32, 0).Describe();
         LogError("Trying to register already registered thread, stacktrace:\n" fStr, trace.c_str());
         return;
@@ -108,17 +115,22 @@ void MemHawk::RegisterThread()
     const RecursionGuard<AllocTag> guard;
 
     const absl::MutexLock lock(&m_thTrackersMt);
-    for (auto it = m_finishPromises.begin(); it != m_finishPromises.end();) {
-        if (it->wait_for(std::chrono::seconds{0}) == std::future_status::ready) {
+    for (auto it = m_finishPromises.begin(); it != m_finishPromises.end();)
+    {
+        if (it->wait_for(std::chrono::seconds{0}) == std::future_status::ready)
+        {
             const auto trackerId = it->get();
             LogDebug("Finished tracker: " fU32, trackerId);
             m_finishedTrackers.push_back(trackerId);
             it = m_finishPromises.erase(it);
-        } else {
+        }
+        else
+        {
             it++;
         }
     }
-    if (!m_finishedTrackers.empty()) {
+    if (!m_finishedTrackers.empty())
+    {
         auto trackerId = m_finishedTrackers.back();
         m_finishedTrackers.pop_back();
         gtl_tracker = m_thTrackers[trackerId].get();
@@ -143,25 +155,31 @@ void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
     const RecursionGuard<RetPtrTag> retPtrGuard;
     const auto span = trace.GetTrace();
     const auto level = retPtrGuard.Level();
-    if (likely(span.size() > 1)) {
+    if (likely(span.size() > 1))
+    {
         gtl_retPtrs[level] = span[1];
     }
     const absl::Cleanup retCleanup = [level]() { gtl_retPtrs[level] = nullptr; };
 
     const RecursionGuard<AllocTag> guard;
-    if (guard) {
+    if (guard)
+    {
         // external allocation
-        if (unlikely(gtl_tracker == nullptr)) {
+        if (unlikely(gtl_tracker == nullptr))
+        {
             RegisterThread();
         }
         gtl_tracker->SaveTraceId(info, std::move(trace));
         gtl_tracker->TrackAlloc(info);
-    } else {
+    }
+    else
+    {
         // internal allocation of memhawk
         const RecursionGuard<InnerAllocTag> innerGuard;
         // track only inner memhawk's stacktraces in order to reduce index size
         trace.ShrinkByPtr(gtl_retPtrs[level - 1]); // level can't be less than 1
-        if (level > 1 && !trace.GetTrace().empty()) {
+        if (level > 1 && !trace.GetTrace().empty())
+        {
             // don't interested in previous memhawk call
             // malloc->trace->malloc and free->trace->malloc will be squashed into trace->malloc
             trace.ShrinkBySize(trace.GetTrace().size() - 1);
@@ -169,10 +187,13 @@ void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
         // set trace id manually, otherwise there can be malloc recursion upon inserting into tracker caches
         info.traceId = m_innerBtTracker.InsertStacktrace(std::move(trace));
 
-        if (innerGuard) {
+        if (innerGuard)
+        {
             ProcessPostponed();
             m_innerTracker->TrackAlloc(info);
-        } else {
+        }
+        else
+        {
             PostponeAlloc(info);
         }
     }
@@ -183,25 +204,33 @@ void MemHawk::TrackDealloc(AllocInfo& info, const Stacktrace& trace)
     const RecursionGuard<RetPtrTag> retPtrGuard;
     const auto span = trace.GetTrace();
     const auto level = retPtrGuard.Level();
-    if (likely(span.size() > 1)) {
+    if (likely(span.size() > 1))
+    {
         gtl_retPtrs[level] = span[1];
     }
     const absl::Cleanup retCleanup = [level]() { gtl_retPtrs[level] = nullptr; };
 
     const RecursionGuard<AllocTag> guard;
-    if (guard) {
+    if (guard)
+    {
         // external deallocation
-        if (unlikely(gtl_tracker == nullptr)) {
+        if (unlikely(gtl_tracker == nullptr))
+        {
             RegisterThread();
         }
         gtl_tracker->TrackDealloc(info);
-    } else {
+    }
+    else
+    {
         // internal deallocation of memhawk
         const RecursionGuard<InnerAllocTag> innerGuard;
-        if (innerGuard) {
+        if (innerGuard)
+        {
             ProcessPostponed();
             m_innerTracker->TrackDealloc(info);
-        } else {
+        }
+        else
+        {
             PostponeDealloc(info);
         }
     }
@@ -209,20 +238,25 @@ void MemHawk::TrackDealloc(AllocInfo& info, const Stacktrace& trace)
 
 void MemHawk::ProcessPostponed()
 {
-    do {
+    do
+    {
         Postponed delayed{};
         {
             const absl::MutexLock lock(&m_postponedMt);
-            if (m_postponed.empty()) {
+            if (m_postponed.empty())
+            {
                 return;
             }
             delayed = std::move(m_postponed.front());
             m_postponed.pop_front();
         }
         LogDebug("processing: [size: " fU32 ", op: " fI32 "]", delayed.info.size, static_cast<int>(delayed.op));
-        if (delayed.op == Postponed::Operation::Alloc) {
+        if (delayed.op == Postponed::Operation::Alloc)
+        {
             m_innerTracker->TrackAlloc(delayed.info);
-        } else {
+        }
+        else
+        {
             m_innerTracker->TrackDealloc(delayed.info);
         }
     } while (true);
@@ -230,7 +264,8 @@ void MemHawk::ProcessPostponed()
 
 void MemHawk::PostponeAlloc(const AllocInfo& info)
 {
-    if (m_postponed.size() >= m_postponedCapacity) {
+    if (m_postponed.size() >= m_postponedCapacity)
+    {
         LogWarning("Skipped postponed alloc due to exhausting capacity");
         return;
     }
@@ -241,7 +276,8 @@ void MemHawk::PostponeAlloc(const AllocInfo& info)
 
 void MemHawk::PostponeDealloc(const AllocInfo& info)
 {
-    if (m_postponed.size() >= m_postponedCapacity) {
+    if (m_postponed.size() >= m_postponedCapacity)
+    {
         LogWarning("Skipped postponed alloc due to exhausting capacity");
         return;
     }
@@ -265,7 +301,8 @@ void MemHawk::TrackingWorker()
     m_workerData->stacktracesFile =
         std::ofstream(GetProcessLogName("stacktraces", gl_config), std::ios_base::out | std::ios_base::trunc);
 
-    while (!m_stopped) {
+    while (!m_stopped)
+    {
         {
             std::unique_lock lock(m_mt);
             m_cv.wait_for(lock, std::chrono::milliseconds{gl_config.TrackerDumpingPeriodMs},
@@ -285,12 +322,16 @@ void MemHawk::WorkerUpdateData()
     const absl::MutexLock lock(&m_thTrackersMt);
     m_workerData->updatedTraces = 0;
 
-    for (const auto& tracker : m_thTrackers) {
-        if (tracker->trackerId == gtl_tracker->trackerId) {
+    for (const auto& tracker : m_thTrackers)
+    {
+        if (tracker->trackerId == gtl_tracker->trackerId)
+        {
             // add tag in order not to deadlock
             const RecursionGuard<AllocTag> guard;
             WorkerAccountThreadTracker(*tracker);
-        } else {
+        }
+        else
+        {
             WorkerAccountThreadTracker(*tracker);
         }
     }
@@ -307,9 +348,11 @@ void MemHawk::WorkerAccountThreadTracker(ThreadTracker& tracker)
     const absl::MutexLock trackerLock(&tracker.mt);
 
     auto& byTraceIdIndex = m_workerData->index.get<WorkerData::ByTraceId>();
-    for (const auto& [traceId, summary] : tracker.allocSummaries) {
+    for (const auto& [traceId, summary] : tracker.allocSummaries)
+    {
         auto statIt = byTraceIdIndex.find(traceId);
-        if (statIt == byTraceIdIndex.end()) {
+        if (statIt == byTraceIdIndex.end())
+        {
             statIt = byTraceIdIndex.insert(WorkerData::IndexValue{traceId}).first;
         }
         const auto& localSummary = summary; // can be directly captured in lambda since c++20 only
@@ -344,12 +387,15 @@ void MemHawk::WorkerPrintData()
                        m_workerData->updatedTraces);
 
     str << "ByActiveSize" << "\n";
-    for (const auto& value : bySizeRange) {
-        if (value.summary.active == 0) {
+    for (const auto& value : bySizeRange)
+    {
+        if (value.summary.active == 0)
+        {
             continue;
         }
         const auto it = m_workerData->writtenStacktraces.insert(value.traceId);
-        if (it.second) {
+        if (it.second)
+        {
             newStacktraces.insert(value.traceId);
         }
         const auto average = value.summary.active == 0
@@ -361,9 +407,11 @@ void MemHawk::WorkerPrintData()
     }
     str << "\n";
     str << "ByTotalCount" << "\n";
-    for (const auto& value : byCountRange) {
+    for (const auto& value : byCountRange)
+    {
         const auto it = m_workerData->writtenStacktraces.insert(value.traceId);
-        if (it.second) {
+        if (it.second)
+        {
             newStacktraces.insert(value.traceId);
         }
         const auto average = value.summary.active == 0
@@ -376,13 +424,16 @@ void MemHawk::WorkerPrintData()
     str << "\n\n";
     m_workerData->summaryFile << str.str();
 
-    for (const auto& traceId : newStacktraces) {
+    for (const auto& traceId : newStacktraces)
+    {
         auto trace = m_btTracker.GetStacktraceFromId(traceId);
-        if (unlikely(!trace.has_value())) {
+        if (unlikely(!trace.has_value()))
+        {
             trace = m_innerBtTracker.GetStacktraceFromId(traceId);
         }
 
-        if (!trace.has_value()) {
+        if (!trace.has_value())
+        {
             LogWarning("Missed stacktrace: " fU32, traceId);
             continue;
         }

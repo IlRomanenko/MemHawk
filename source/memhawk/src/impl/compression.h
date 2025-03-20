@@ -1,8 +1,8 @@
 #pragma once
 
 
-#include <absl/types/span.h>
 #include <absl/base/attributes.h>
+#include <absl/types/span.h>
 
 #include <cstdint>
 #include <limits>
@@ -10,7 +10,7 @@
 namespace memhawk::bit_packing
 {
 
-template<typename ValueType>
+template <typename ValueType>
 struct BitIterator
 {
     ValueType* value{};
@@ -22,9 +22,11 @@ struct BitIterator
     explicit BitIterator(const absl::Span<ValueType>& data) : value(data.data())
     {
     }
+
     explicit BitIterator(ValueType* data) : value(data)
     {
     }
+
     void AdvanceBytes(uint32_t cnt)
     {
         value += cnt;
@@ -50,4 +52,3 @@ size_t Decompress(absl::Span<const uint32_t> in, uint64_t* out);
 void Decompress(absl::Span<const uint32_t> in, std::vector<uint64_t>& out);
 
 } // namespace memhawk::bit_packing
-

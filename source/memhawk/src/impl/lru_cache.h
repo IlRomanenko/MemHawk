@@ -26,7 +26,8 @@ public:
     std::optional<Key> Insert(Key key, Value value)
     {
         auto& byKey = m_index.template get<TagByKey>();
-        if (m_index.size() >= m_capacity) {
+        if (m_index.size() >= m_capacity)
+        {
             auto& byOrder = m_index.template get<TagByOrder>();
             const auto it = m_index.template project<TagByKey>(byOrder.begin());
             m_index.modify(it, [&key, &value](auto& node) {
@@ -45,7 +46,8 @@ public:
     {
         const auto& byKey = m_index.template get<TagByKey>();
         const auto it = byKey.find(key);
-        if (it != byKey.end()) {
+        if (it != byKey.end())
+        {
             Relocate(it);
             return it->value;
         }

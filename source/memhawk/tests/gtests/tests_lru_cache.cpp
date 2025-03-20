@@ -70,15 +70,18 @@ TEST(LruCache, AddMultipleKeys_ExpectLastFound)
 {
     constexpr size_t Capacity = 3;
     memhawk::LruCache<MovableKey, size_t> cache(Capacity);
-    for (size_t i = 0; i < Capacity; i++) {
+    for (size_t i = 0; i < Capacity; i++)
+    {
         EXPECT_FALSE(cache.Insert(MovableKey{i}, i));
     }
-    for (size_t i = Capacity; i < Capacity * 2; i++) {
+    for (size_t i = Capacity; i < Capacity * 2; i++)
+    {
         auto elem = cache.Insert(MovableKey{i}, i);
         ASSERT_TRUE(elem);
         EXPECT_EQ(elem->id, i - Capacity); // NOLINT(bugprone-unchecked-optional-access)
     }
-    for (size_t i = Capacity; i < Capacity * 2; i++) {
+    for (size_t i = Capacity; i < Capacity * 2; i++)
+    {
         EXPECT_TRUE(cache.Touch(MovableKey{i}));
     }
 }
@@ -87,10 +90,12 @@ TEST(LruCache, AddKeysAndTouch_ExpectTouchedPreserved)
 {
     constexpr size_t Capacity = 10;
     memhawk::LruCache<MovableKey, size_t> cache(Capacity);
-    for (size_t i = 0; i < Capacity; i++) {
+    for (size_t i = 0; i < Capacity; i++)
+    {
         EXPECT_FALSE(cache.Insert(MovableKey{i}, i));
     }
-    for (size_t i = Capacity; i < Capacity * 10; i++) {
+    for (size_t i = Capacity; i < Capacity * 10; i++)
+    {
         EXPECT_TRUE(cache.Touch(MovableKey{0}));
         EXPECT_TRUE(cache.Touch(MovableKey{1}));
         auto elem = cache.Insert(MovableKey{i}, i);

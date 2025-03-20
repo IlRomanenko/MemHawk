@@ -19,8 +19,10 @@ void LogDeinit();
 void LogPrint(const char* fmt, ...);
 
 #define LogEx(level, format, ...)                                                                                      \
-    do {                                                                                                               \
-        if (memhawk::LogLevel::level >= memhawk::gl_config.LoggingLevel) {                                             \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if (memhawk::LogLevel::level >= memhawk::gl_config.LoggingLevel)                                               \
+        {                                                                                                              \
             memhawk::LogPrint("[%s]:%s :: " format "\n", #level, __func__, ##__VA_ARGS__);                             \
         }                                                                                                              \
     } while (0)

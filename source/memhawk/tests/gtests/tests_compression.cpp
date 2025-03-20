@@ -52,13 +52,15 @@ TEST_F(CompressionFixture, BitEncode_BetweenTwoBytes_ExpectOk)
     MutBitIterator iter{absl::MakeSpan(m_data)};
 
     const size_t BitCount = 24;
-    for (size_t i = 0; i < Size; i++) {
+    for (size_t i = 0; i < Size; i++)
+    {
         EncodeBits(iter, BitCount, i);
     }
 
     ConstBitIterator constIter{m_data};
 
-    for (size_t i = 0; i < Size; i++) {
+    for (size_t i = 0; i < Size; i++)
+    {
         uint32_t value{};
         DecodeBits(constIter, BitCount, value);
         EXPECT_EQ(value, i);
@@ -70,14 +72,17 @@ TEST_F(CompressionFixture, BitEncode_SeveralBytes_ExpectOk)
     constexpr size_t Size = 32;
     m_data.resize(Size, TestValue);
 
-    for (size_t bitCount = 5; bitCount <= 32; bitCount++) {
+    for (size_t bitCount = 5; bitCount <= 32; bitCount++)
+    {
         MutBitIterator mutIter{absl::MakeSpan(m_data)};
-        for (size_t i = 0; i < Size; i++) {
+        for (size_t i = 0; i < Size; i++)
+        {
             EncodeBits(mutIter, bitCount, i);
         }
         ConstBitIterator constIter{m_data};
 
-        for (size_t i = 0; i < Size; i++) {
+        for (size_t i = 0; i < Size; i++)
+        {
             uint32_t value{};
             DecodeBits(constIter, bitCount, value);
             EXPECT_EQ(value, i);
@@ -119,7 +124,8 @@ TEST_F(CompressionFixture, Compress_BoundaryValues_ExpectOk)
 {
     std::vector<uint64_t> testData;
     testData.emplace_back(0);
-    for (const auto bitCount : {8, 16, 24, 32, 40, 48, 56, 63}) {
+    for (const auto bitCount : {8, 16, 24, 32, 40, 48, 56, 63})
+    {
         uint64_t value = 1ULL << bitCount;
         testData.emplace_back(value - 1);
         testData.emplace_back(value);
@@ -152,8 +158,10 @@ TEST_F(CompressionFixture, Compress_SmallDiffs_ExpectOk)
     const std::vector<int64_t> TestDiffs = {1, 1LL << 16, 10, (1LL << 16) + 5, -10, 1LL << 25};
     std::vector<uint64_t> testData;
     testData.emplace_back(TestValue);
-    for (size_t cnt = 0; cnt < 2; cnt++) {
-        for (const auto& elem : TestDiffs) {
+    for (size_t cnt = 0; cnt < 2; cnt++)
+    {
+        for (const auto& elem : TestDiffs)
+        {
             const auto value = static_cast<int64_t>(testData.back()) + elem;
             testData.emplace_back(static_cast<uint64_t>(value));
         }
@@ -173,11 +181,14 @@ TEST_F(CompressionFixture, Compress_IterativeDiffs_ExpectOk)
     constexpr size_t MaxDiff = 1UL << 25;
     std::vector<uint64_t> testData;
     testData.emplace_back(TestValue);
-    for (size_t cnt = 0; cnt < 2; cnt++) {
-        for (size_t i = 0; i < MaxDiff; i++) {
+    for (size_t cnt = 0; cnt < 2; cnt++)
+    {
+        for (size_t i = 0; i < MaxDiff; i++)
+        {
             testData.emplace_back(testData.back() + i);
         }
-        for (size_t i = 0; i < MaxDiff; i++) {
+        for (size_t i = 0; i < MaxDiff; i++)
+        {
             testData.emplace_back(testData.back() - i);
         }
     }
@@ -195,13 +206,18 @@ TEST_F(CompressionFixture, Compress_SignIterativeDiffs_ExpectOk)
     constexpr size_t MaxDiff = 1UL << 25;
     std::vector<uint64_t> testData;
     testData.emplace_back(TestValue);
-    for (size_t cnt = 0; cnt < 2; cnt++) {
-        for (size_t i = 0; i < MaxDiff; i++) {
-            if ((i + cnt) & 1) {
+    for (size_t cnt = 0; cnt < 2; cnt++)
+    {
+        for (size_t i = 0; i < MaxDiff; i++)
+        {
+            if ((i + cnt) & 1)
+            {
                 testData.emplace_back(testData.back() + i);
-            } else {
+            }
+            else
+            {
                 testData.emplace_back(testData.back() - i);
-            }   
+            }
         }
     }
 
@@ -215,10 +231,9 @@ TEST_F(CompressionFixture, Compress_SignIterativeDiffs_ExpectOk)
 
 TEST_F(CompressionFixture, Compress_SomePtrs_ExpectOk)
 {
-    const std::vector<uint64_t> testData ={
-        0x7514af7f7063, 0x7514af839744, 0x7514af8049eb, 0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4
-    };
-    
+    const std::vector<uint64_t> testData = {0x7514af7f7063, 0x7514af839744, 0x7514af8049eb,
+                                            0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4};
+
     Compress(absl::MakeConstSpan(testData), m_data);
 
     std::vector<uint64_t> result;
@@ -236,7 +251,8 @@ TEST_F(CompressionFixture, Compress_RandomData_ExpectOk)
     std::vector<uint64_t> testData;
     testData.reserve(Size);
 
-    for (size_t i = 0; i < Size; i++) {
+    for (size_t i = 0; i < Size; i++)
+    {
         testData.emplace_back(dist(rng));
     }
 

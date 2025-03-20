@@ -3,25 +3,28 @@
 
 #include <absl/types/span.h>
 #include <gtest/gtest-param-test.h>
+
 #include <cstdint>
 
 namespace memhawk
 {
 
-class CollapseRecursionFixture : public testing::TestWithParam<size_t(*)(absl::Span<void*>, size_t)>
+class CollapseRecursionFixture : public testing::TestWithParam<size_t (*)(absl::Span<void*>, size_t)>
 {
 public:
     template <typename T>
     void SetUpData(std::vector<T> data)
     {
-        for (const auto& elem: data) {
+        for (const auto& elem : data)
+        {
             m_data.push_back(static_cast<void*>(elem));
         }
     }
 
     void SetUpData(const std::string& data)
     {
-        for (const auto& elem: data) {
+        for (const auto& elem : data)
+        {
             m_data.push_back(reinterpret_cast<void*>(static_cast<uint64_t>(elem)));
         }
     }
@@ -29,7 +32,8 @@ public:
     std::string DecodeData(size_t size)
     {
         std::string result;
-        for (size_t i = 0; i < size; i++) {
+        for (size_t i = 0; i < size; i++)
+        {
             result += static_cast<char>(reinterpret_cast<uint64_t>(m_data[i]));
         }
         return result;
@@ -142,7 +146,5 @@ TEST_P(CollapseRecursionFixture, Collapse_ZeroGroups_ExpectLeftSame)
     const auto result = DecodeData(newSize);
     EXPECT_EQ(result, Expected);
 }
-
-
 
 } // namespace memhawk

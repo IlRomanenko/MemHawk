@@ -21,9 +21,11 @@ ABSL_CONST_INIT int gl_logFile = STDERR_FILENO;
 
 void LogInit(const char* filename)
 {
-    if (gl_config.MainLogIntoFile) {
+    if (gl_config.MainLogIntoFile)
+    {
         gl_logFile = open(filename, O_WRONLY | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR);
-        if (gl_logFile < 0) {
+        if (gl_logFile < 0)
+        {
             const auto error = errno;
             gl_logFile = STDERR_FILENO;
             constexpr size_t BufSize = 512;
@@ -31,14 +33,17 @@ void LogInit(const char* filename)
             LogPrint("Failed to initialise logging: " fStr ", error: ", filename, strerror_r(error, buffer, 512));
             abort();
         }
-    } else {
+    }
+    else
+    {
         gl_logFile = STDERR_FILENO;
     }
 }
 
 void LogDeinit()
 {
-    if (gl_config.MainLogIntoFile) {
+    if (gl_config.MainLogIntoFile)
+    {
         close(gl_logFile);
     }
     gl_logFile = STDERR_FILENO;

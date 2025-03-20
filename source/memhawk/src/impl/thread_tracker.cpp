@@ -13,12 +13,16 @@ void ThreadTracker::SaveTraceId(AllocInfo& info, Stacktrace&& trace)
     const absl::MutexLock lock(&mt);
     trace.Compress(localCompressed);
     auto traceId = lruStacktraces.Touch(localCompressed);
-    if (!traceId) {
+    if (!traceId)
+    {
         traceId = btTracker.InsertStacktrace(std::move(trace));
         auto evicted = lruStacktraces.Insert(std::move(localCompressed), *traceId);
-        if (evicted.has_value()) {
+        if (evicted.has_value())
+        {
             localCompressed = std::move(evicted).value();
-        } else {
+        }
+        else
+        {
             localCompressed = {};
         }
     }
@@ -31,7 +35,8 @@ void ThreadTracker::TrackAlloc(const AllocInfo& info)
     totalAllocs++;
 
     auto summaryIt = allocSummaries.find(info.traceId);
-    if (summaryIt == allocSummaries.end()) {
+    if (summaryIt == allocSummaries.end())
+    {
         summaryIt = allocSummaries.insert({info.traceId, AllocSummary{}}).first;
     }
     auto& stats = summaryIt->second;
@@ -45,7 +50,8 @@ void ThreadTracker::TrackDealloc(const AllocInfo& info)
     totalDeallocs++;
 
     auto summaryIt = allocSummaries.find(info.traceId);
-    if (summaryIt == allocSummaries.end()) {
+    if (summaryIt == allocSummaries.end())
+    {
         summaryIt = allocSummaries.insert({info.traceId, AllocSummary{}}).first;
     }
     auto& stats = summaryIt->second;

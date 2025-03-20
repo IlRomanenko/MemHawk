@@ -16,30 +16,39 @@ size_t CollapseRecursionNaive(absl::Span<void*> data, size_t depth)
     size_t left = 0;
     size_t cur = left + 1;
     size_t end = data.size();
-    while (cur < end) {
+    while (cur < end)
+    {
         size_t cycleSize = 0;
 
         //  begin         left    cur    end
         // [  |    ....    |   ... | .... | ]
-        for (size_t spanSize = 1; spanSize <= depth && cur + spanSize <= end; spanSize++) {
+        for (size_t spanSize = 1; spanSize <= depth && cur + spanSize <= end; spanSize++)
+        {
             bool matched = true;
-            if (begin + spanSize > left + 1) {
+            if (begin + spanSize > left + 1)
+            {
                 break;
             }
-            for (size_t p = 0; p < spanSize; p++) {
-                if (data[cur + p] != data[left - spanSize + p + 1]) {
+            for (size_t p = 0; p < spanSize; p++)
+            {
+                if (data[cur + p] != data[left - spanSize + p + 1])
+                {
                     matched = false;
                     break;
                 }
             }
-            if (matched) {
+            if (matched)
+            {
                 cycleSize = spanSize;
                 break;
             }
         }
-        if (cycleSize > 0) {
+        if (cycleSize > 0)
+        {
             cur += cycleSize;
-        } else {
+        }
+        else
+        {
             left++;
             data[left] = data[cur];
             cur++;
@@ -51,10 +60,12 @@ size_t CollapseRecursionNaive(absl::Span<void*> data, size_t depth)
 
 size_t CollapseRecursion(absl::Span<void*> data, size_t depth)
 {
-    if (depth == 0) {
+    if (depth == 0)
+    {
         return data.size();
     }
-    if (depth > MaxCollapseDepth) {
+    if (depth > MaxCollapseDepth)
+    {
         depth = MaxCollapseDepth;
     }
     std::array<uint32_t, MaxCollapseDepth> dp{};
@@ -68,17 +79,24 @@ size_t CollapseRecursion(absl::Span<void*> data, size_t depth)
     // should be always data[cur - 1]
     const void* prevValue = data[left];
 
-    while (cur < end) {
-        for (size_t i = 0; i < depth && i + cur < end; i++) {
+    while (cur < end)
+    {
+        for (size_t i = 0; i < depth && i + cur < end; i++)
+        {
             const auto curValue = data[cur + i];
-            if (prevValue != curValue) {
+            if (prevValue != curValue)
+            {
                 dp[i] = 0;
-            } else {
+            }
+            else
+            {
                 dp[i] += 1;
                 //  l 01 -> got match , also check that cycle is not processing
                 // ab ab, dp = 2, i = 1
-                if (dp[i] == i + 1) {
-                    if (!cycleSize) {
+                if (dp[i] == i + 1)
+                {
+                    if (!cycleSize)
+                    {
                         cycleSize = i + 1;
                     }
                     // first element will be evicted, decrease match length
@@ -89,10 +107,13 @@ size_t CollapseRecursion(absl::Span<void*> data, size_t depth)
         // swap cur, prev
         prevValue = data[cur];
 
-        if (!cycleSize) {
+        if (!cycleSize)
+        {
             left++;
             data[left] = data[cur];
-        } else {
+        }
+        else
+        {
             cycleSize--;
         }
         cur++;

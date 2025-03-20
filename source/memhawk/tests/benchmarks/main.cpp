@@ -7,18 +7,20 @@
 #include <libunwind.h>
 #include <list>
 
-
 static void BM_MT_ListAllocs(benchmark::State& state)
 {
     std::list<int> dq;
     // Perform setup here
-    for (auto value : state) {
+    for (auto value : state)
+    {
         boost::ignore_unused_variable_warning(value);
         // This code gets timed
-        for (auto i = 0; i < state.range(); i++) {
+        for (auto i = 0; i < state.range(); i++)
+        {
             dq.emplace_back(i);
         }
-        for (auto i = 0; i < state.range(); i++) {
+        for (auto i = 0; i < state.range(); i++)
+        {
             dq.pop_front();
         }
     }
@@ -40,17 +42,22 @@ void* unwindArray[kMaxStackDepth];
 
 ABSL_ATTRIBUTE_NOINLINE void unwind_stacktrace(benchmark::State& state, int64_t x, int64_t depth, bool abslUnwinder)
 {
-    if (x <= 0) {
+    if (x <= 0)
+    {
         // Touch a significant amount of memory so that the stack is likely to be
         // not cached in the L1 cache.
         state.PauseTiming();
-        for (int i = 0; i < kCacheSize; ++i) {
+        for (int i = 0; i < kCacheSize; ++i)
+        {
             benchmark::DoNotOptimize(cacheArray[i] = 100);
         }
         state.ResumeTiming();
-        if (abslUnwinder) {
+        if (abslUnwinder)
+        {
             benchmark::DoNotOptimize(absl::GetStackTrace(unwindArray, kMaxStackDepth, 0));
-        } else {
+        }
+        else
+        {
             benchmark::DoNotOptimize(unw_backtrace(unwindArray, kMaxStackDepth));
         }
         return;
@@ -62,7 +69,8 @@ ABSL_ATTRIBUTE_NOINLINE void unwind_stacktrace(benchmark::State& state, int64_t 
 static void BM_absl_StackTrace(benchmark::State& state)
 {
     const auto depth = state.range(0);
-    for (auto value : state) {
+    for (auto value : state)
+    {
         boost::ignore_unused_variable_warning(value);
         unwind_stacktrace(state, depth, depth, true);
     }
@@ -71,7 +79,8 @@ static void BM_absl_StackTrace(benchmark::State& state)
 static void BM_libunwind_StackTrace(benchmark::State& state)
 {
     const auto depth = state.range(0);
-    for (auto value : state) {
+    for (auto value : state)
+    {
         boost::ignore_unused_variable_warning(value);
         unwind_stacktrace(state, depth, depth, false);
     }

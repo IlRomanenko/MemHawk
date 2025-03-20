@@ -5,7 +5,6 @@
 
 #include <list>
 
-
 // std::vector<std::vector<uintptr_t>> PrepareTestdata()
 // {
 //     std::vector<std::vector<uintptr_t>> result;
@@ -28,13 +27,16 @@ void BM_MT_ListAllocs(benchmark::State& state)
 {
     std::list<int> dq;
     // Perform setup here
-    for (auto value : state) {
+    for (auto value : state)
+    {
         boost::ignore_unused_variable_warning(value);
         // This code gets timed
-        for (auto i = 0; i < state.range(); i++) {
+        for (auto i = 0; i < state.range(); i++)
+        {
             dq.emplace_back(i);
         }
-        for (auto i = 0; i < state.range(); i++) {
+        for (auto i = 0; i < state.range(); i++)
+        {
             dq.pop_front();
         }
     }

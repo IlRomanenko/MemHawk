@@ -18,4 +18,4 @@ int hawk_posix_memalign(void** memptr, size_t alignment, size_t size);
 // also replace some routines
 size_t hawk_malloc_usable_size(void* ptr);
 
-}
+} // namespace memhawk

@@ -29,7 +29,7 @@ struct Config
     uint64_t TrackerDumpingPeriodMs = 1000;
     size_t TrackerBySizeCount = 25;
     size_t TrackerByTotalCount = 10;
-    
+
 
     std::string_view LogDir = "./";
 };

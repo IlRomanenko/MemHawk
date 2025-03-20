@@ -33,12 +33,14 @@ StaticStacktraceTracker::StaticStacktraceTracker(bool dump) : m_dump(dump)
 
 StaticStacktraceTracker::~StaticStacktraceTracker()
 {
-    if (!m_dump) {
+    if (!m_dump)
+    {
         return;
     }
     std::ofstream result(GetProcessLogName("inner_stacktraces", gl_config), std::ios_base::out | std::ios_base::trunc);
     result << "Inner stacktraces:" << "\n";
-    for (size_t i = 0; i < m_size; i++) {
+    for (size_t i = 0; i < m_size; i++)
+    {
         const auto stacktrace = GetStacktrace(i);
         const auto traceStr = stacktrace.Describe();
         result << "traceId: " << i << "\n" << traceStr << "\n\n";
@@ -69,7 +71,8 @@ uint32_t StaticStacktraceTracker::InsertStacktrace(Stacktrace&& trace)
 
 bool StaticStacktraceTracker::TraceElement::operator==(const TraceElement& rhs) const
 {
-    if (hash != rhs.hash) {
+    if (hash != rhs.hash)
+    {
         return false;
     }
     return trace == rhs.trace;
@@ -88,14 +91,18 @@ uint32_t StaticStacktraceTracker::InsertStacktraceUnlocked(Stacktrace&& trace)
 
     const auto elementsSpan = absl::MakeConstSpan(m_elements.begin(), m_size);
     const auto curIt = boost::range::find(elementsSpan, cur);
-    if (curIt == elementsSpan.end()) {
-        if (m_storageSize + compressedSize < StorageSize && m_size + 1 < ElementsCount) {
+    if (curIt == elementsSpan.end())
+    {
+        if (m_storageSize + compressedSize < StorageSize && m_size + 1 < ElementsCount)
+        {
             m_elements[m_size] = TraceElement{
                 .hash = hash, .trace = absl::MakeConstSpan(m_storage.data() + m_storageSize, compressedSize)};
             memcpy(m_storage.data() + m_storageSize, compressedSpan.data(), compressedSize * sizeof(uint32_t));
             m_storageSize += compressedSize;
             m_size++;
-        } else {
+        }
+        else
+        {
             return std::numeric_limits<uint32_t>::max();
         }
     }
@@ -106,11 +113,13 @@ uint32_t StaticStacktraceTracker::InsertStacktraceUnlocked(Stacktrace&& trace)
 std::optional<Stacktrace> StaticStacktraceTracker::GetStacktraceFromId(uint32_t traceId)
 {
     const absl::MutexLock lock(&m_mt);
-    if (!IsFixedTrackerId(traceId)) {
+    if (!IsFixedTrackerId(traceId))
+    {
         return {};
     }
     traceId ^= FixedTrackerIdFlag;
-    if (traceId >= m_size) {
+    if (traceId >= m_size)
+    {
         return {};
     }
     return GetStacktrace(traceId);

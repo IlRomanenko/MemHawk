@@ -21,7 +21,8 @@ enum class SignBit : uint32_t
 
 inline uint32_t shift_left(uint32_t value, uint32_t count)
 {
-    if (count >= ValueBitsSize) {
+    if (count >= ValueBitsSize)
+    {
         return 0;
     }
     return value << count;
@@ -29,7 +30,8 @@ inline uint32_t shift_left(uint32_t value, uint32_t count)
 
 inline uint32_t shift_right(uint32_t value, uint32_t count)
 {
-    if (count >= ValueBitsSize) {
+    if (count >= ValueBitsSize)
+    {
         return 0;
     }
     return value >> count;
@@ -39,13 +41,14 @@ inline void ClearBits(uint32_t& value, uint32_t from, uint32_t to)
 {
     const uint32_t upper = value & shift_left(ValueBitsMask, from);
     const uint32_t lower = upper & shift_right(ValueBitsMask, (ValueBitsSize - to));
-    value &= ~lower; 
+    value &= ~lower;
 }
 
-// ABSL_ATTRIBUTE_ALWAYS_INLINE 
+// ABSL_ATTRIBUTE_ALWAYS_INLINE
 void EncodeBits(MutBitIterator& iter, uint32_t bitCount, uint32_t value)
 {
-    while (bitCount > 0) {
+    while (bitCount > 0)
+    {
         const uint32_t maxBitDiff = ValueBitsSize - iter.bitIndex;
         const uint32_t curBitsCount = maxBitDiff >= bitCount ? bitCount : maxBitDiff;
 
@@ -57,7 +60,8 @@ void EncodeBits(MutBitIterator& iter, uint32_t bitCount, uint32_t value)
 
         bitCount -= curBitsCount;
         iter.bitIndex += curBitsCount;
-        if (iter.bitIndex >= ValueBitsSize) {
+        if (iter.bitIndex >= ValueBitsSize)
+        {
             iter.bitIndex = 0;
             iter.value++;
             iter.valuePos++;
@@ -70,7 +74,8 @@ void DecodeBits(ConstBitIterator& iter, uint32_t bitCount, uint32_t& value)
 {
     value = 0;
     uint32_t decodedBits = 0;
-    while (bitCount > 0) {
+    while (bitCount > 0)
+    {
         const uint32_t maxBitDiff = ValueBitsSize - iter.bitIndex;
         const uint32_t curBitsCount = maxBitDiff >= bitCount ? bitCount : maxBitDiff;
 
@@ -81,7 +86,8 @@ void DecodeBits(ConstBitIterator& iter, uint32_t bitCount, uint32_t& value)
         decodedBits += curBitsCount;
         bitCount -= curBitsCount;
         iter.bitIndex += curBitsCount;
-        if (iter.bitIndex >= ValueBitsSize) {
+        if (iter.bitIndex >= ValueBitsSize)
+        {
             iter.bitIndex = 0;
             iter.value++;
             iter.valuePos++;
@@ -89,34 +95,43 @@ void DecodeBits(ConstBitIterator& iter, uint32_t bitCount, uint32_t& value)
     }
 }
 
-// ABSL_ATTRIBUTE_ALWAYS_INLINE 
+// ABSL_ATTRIBUTE_ALWAYS_INLINE
 void Encode(MutBitIterator& controlIter, MutBitIterator& dataIter, uint32_t value)
 {
     uint32_t bitCount = 0;
-    if (value == 0) {
+    if (value == 0)
+    {
         EncodeBits(controlIter, 2, static_cast<uint32_t>(SizeBits::Zero));
-    } else if (value < (1UL << 16)) {
+    }
+    else if (value < (1UL << 16))
+    {
         EncodeBits(controlIter, 2, static_cast<uint32_t>(SizeBits::TwoBytes));
         bitCount = 16;
-    } else if (value < (1UL << 24)) {
+    }
+    else if (value < (1UL << 24))
+    {
         EncodeBits(controlIter, 2, static_cast<uint32_t>(SizeBits::ThreeBytes));
         bitCount = 24;
-    } else {
+    }
+    else
+    {
         EncodeBits(controlIter, 2, static_cast<uint32_t>(SizeBits::FourBytes));
         bitCount = 32;
     }
-    if (bitCount) {
+    if (bitCount)
+    {
         EncodeBits(dataIter, bitCount, value);
     }
 }
 
-// ABSL_ATTRIBUTE_ALWAYS_INLINE 
+// ABSL_ATTRIBUTE_ALWAYS_INLINE
 void Decode(ConstBitIterator& controlIter, ConstBitIterator& dataIter, uint32_t& value)
 {
     value = 0;
     uint32_t sizeBits = 0;
     DecodeBits(controlIter, 2, sizeBits);
-    switch (static_cast<SizeBits>(sizeBits)) {
+    switch (static_cast<SizeBits>(sizeBits))
+    {
     case SizeBits::Zero:
         break;
     case SizeBits::TwoBytes:
@@ -156,10 +171,12 @@ size_t Compress(const absl::Span<const uint64_t> in, uint32_t* out)
     uint64_t cur = 0;
     uint64_t diff = 0;
 
-    for (size_t i = 0; i < in.size(); i++) {
+    for (size_t i = 0; i < in.size(); i++)
+    {
         uint32_t isSigned = 0;
         cur = in[i];
-        if (cur < prev) {
+        if (cur < prev)
+        {
             isSigned = 1;
             std::swap(cur, prev);
         }
@@ -175,7 +192,8 @@ size_t Compress(const absl::Span<const uint64_t> in, uint32_t* out)
 
         prev = in[i];
     }
-    if (dataIter.bitIndex == 0) {
+    if (dataIter.bitIndex == 0)
+    {
         return dataIter.valuePos;
     }
     return dataIter.valuePos + 1; // because last word is also used
@@ -188,7 +206,6 @@ void Compress(absl::Span<const uint64_t> in, std::vector<uint32_t>& out)
     auto size = Compress(in, out.data());
     out.resize(size);
 }
-
 
 void Decompress(absl::Span<const uint32_t> in, std::vector<uint64_t>& out)
 {
@@ -214,7 +231,8 @@ size_t Decompress(absl::Span<const uint32_t> in, uint64_t* out)
     uint32_t low = 0;
     uint32_t isSigned = 0;
 
-    for (size_t i = 0; i < total; i++) {
+    for (size_t i = 0; i < total; i++)
+    {
         DecodeBits(controlBlockIter, 1, isSigned);
 
         Decode(controlBlockIter, dataIter, low);
@@ -222,9 +240,12 @@ size_t Decompress(absl::Span<const uint32_t> in, uint64_t* out)
 
         diff = (static_cast<uint64_t>(high) << 32) | low;
 
-        if (isSigned) {
+        if (isSigned)
+        {
             cur = prev - diff;
-        } else {
+        }
+        else
+        {
             cur = prev + diff;
         }
 
@@ -235,4 +256,3 @@ size_t Decompress(absl::Span<const uint32_t> in, uint64_t* out)
 }
 
 } // namespace memhawk::bit_packing
-

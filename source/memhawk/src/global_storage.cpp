@@ -35,7 +35,8 @@ void GlobalStorage::Construct()
 
 GlobalStorage* GlobalStorage::GetGlobalStorage()
 {
-    if (glInitialised) {
+    if (glInitialised)
+    {
         return m_global.get();
     }
     return nullptr;
