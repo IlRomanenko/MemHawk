@@ -35,3 +35,6 @@ echo
 print_colored "jemalloc.so + heap sampling"
 MALLOC_CONF="prof:true,prof_prefix:/tmp/jeprof.out,prof_active:true" LD_PRELOAD=/usr/lib/libjemalloc.so ./bench_allocs
 echo
+
+echo "lscpu:"
+lscpu

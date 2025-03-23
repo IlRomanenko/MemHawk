@@ -4,6 +4,7 @@
 #include <iostream>
 #include <list>
 #include <thread>
+#include <vector>
 
 std::atomic_bool gl_start = {false};
 std::atomic_uint32_t gl_finishedWorkers = 0;
