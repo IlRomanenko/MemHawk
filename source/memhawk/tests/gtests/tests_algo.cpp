@@ -45,14 +45,24 @@ protected:
 };
 
 INSTANTIATE_TEST_SUITE_P(CollapseRecursion, CollapseRecursionFixture,
-                         testing::Values(CollapseRecursionNaive, CollapseRecursion));
+                         testing::Values(CollapseRecursionNaive, CollapseRecursion, CollapseRecursionOpt));
 
 TEST_P(CollapseRecursionFixture, Collapse_Depth0_ExpectNotCollapsed)
 {
     constexpr const char* TestData = "ccdabacabababacafaaaf";
     constexpr const char* Expected = TestData;
     SetUpData(TestData);
-    size_t newSize = GetParam()(absl::MakeSpan(m_data), 0);
+    const size_t newSize = GetParam()(absl::MakeSpan(m_data), 0);
+    const auto result = DecodeData(newSize);
+    EXPECT_EQ(result, Expected);
+}
+
+TEST_P(CollapseRecursionFixture, Collapse_AllEqualDepth1_ThreeChars_ExpectOneLeft)
+{
+    constexpr const char* TestData = "aaa";
+    constexpr const char* Expected = "a";
+    SetUpData(TestData);
+    const size_t newSize = GetParam()(absl::MakeSpan(m_data), 1);
     const auto result = DecodeData(newSize);
     EXPECT_EQ(result, Expected);
 }
@@ -62,7 +72,7 @@ TEST_P(CollapseRecursionFixture, Collapse_AllEqualDepth1_ExpectOneLeft)
     constexpr const char* TestData = "aaaaaaa";
     constexpr const char* Expected = "a";
     SetUpData(TestData);
-    size_t newSize = GetParam()(absl::MakeSpan(m_data), 1);
+    const size_t newSize = GetParam()(absl::MakeSpan(m_data), 1);
     const auto result = DecodeData(newSize);
     EXPECT_EQ(result, Expected);
 }
@@ -72,7 +82,7 @@ TEST_P(CollapseRecursionFixture, Collapse_OneGroup_Size_2_Depth_2_ExpectOneLeft)
     constexpr const char* TestData = "ababababababababab";
     constexpr const char* Expected = "ab";
     SetUpData(TestData);
-    size_t newSize = GetParam()(absl::MakeSpan(m_data), 2);
+    const size_t newSize = GetParam()(absl::MakeSpan(m_data), 2);
     const auto result = DecodeData(newSize);
     EXPECT_EQ(result, Expected);
 }
@@ -82,7 +92,7 @@ TEST_P(CollapseRecursionFixture, Collapse_OneGroup_Size_2_Depth_Max_ExpectOneLef
     constexpr const char* TestData = "ababababababababab";
     constexpr const char* Expected = "ab";
     SetUpData(TestData);
-    size_t newSize = GetParam()(absl::MakeSpan(m_data), MaxCollapseDepth);
+    const size_t newSize = GetParam()(absl::MakeSpan(m_data), MaxCollapseDepth);
     const auto result = DecodeData(newSize);
     EXPECT_EQ(result, Expected);
 }
@@ -92,7 +102,7 @@ TEST_P(CollapseRecursionFixture, Collapse_OneGroup_Size_4_Depth_Max_ExpectOneLef
     constexpr const char* TestData = "abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd";
     constexpr const char* Expected = "abcd";
     SetUpData(TestData);
-    size_t newSize = GetParam()(absl::MakeSpan(m_data), MaxCollapseDepth);
+    const size_t newSize = GetParam()(absl::MakeSpan(m_data), MaxCollapseDepth);
     const auto result = DecodeData(newSize);
     EXPECT_EQ(result, Expected);
 }
@@ -102,7 +112,7 @@ TEST_P(CollapseRecursionFixture, Collapse_Depth1_ExpectSingleCharCollapsed)
     constexpr const char* TestData = "ccdabacabababacafaaaf";
     constexpr const char* Expected = "cdabacabababacafaf"; // collapse 'c', 'a' groups
     SetUpData(TestData);
-    size_t newSize = GetParam()(absl::MakeSpan(m_data), 1);
+    const size_t newSize = GetParam()(absl::MakeSpan(m_data), 1);
     const auto result = DecodeData(newSize);
     EXPECT_EQ(result, Expected);
 }
@@ -112,7 +122,7 @@ TEST_P(CollapseRecursionFixture, Collapse_ExpectOk)
     constexpr const char* TestData = "ccdabacabababacafaaaf";
     constexpr const char* Expected = "cdabacabacafaf"; // collapse 'c', 'ab', 'a' groups
     SetUpData(TestData);
-    size_t newSize = GetParam()(absl::MakeSpan(m_data), 4);
+    const size_t newSize = GetParam()(absl::MakeSpan(m_data), 4);
     const auto result = DecodeData(newSize);
     EXPECT_EQ(result, Expected);
 }
@@ -122,7 +132,7 @@ TEST_P(CollapseRecursionFixture, Collapse_MaxDepth_ExpectOk)
     constexpr const char* TestData = "ccdabacabababacafaaaf";
     constexpr const char* Expected = "cdabacabacafaf"; // collapse 'c', 'a' groups
     SetUpData(TestData);
-    size_t newSize = GetParam()(absl::MakeSpan(m_data), MaxCollapseDepth);
+    const size_t newSize = GetParam()(absl::MakeSpan(m_data), MaxCollapseDepth);
     const auto result = DecodeData(newSize);
     EXPECT_EQ(result, Expected);
 }
@@ -132,7 +142,7 @@ TEST_P(CollapseRecursionFixture, Collapse_BracedAllEqual_ExpectOneLeftInside)
     constexpr const char* TestData = "faaaaaaaaaaaaaaaaaaaaaaaaaad";
     constexpr const char* Expected = "fad"; // collapse 'a' groups
     SetUpData(TestData);
-    size_t newSize = GetParam()(absl::MakeSpan(m_data), MaxCollapseDepth);
+    const size_t newSize = GetParam()(absl::MakeSpan(m_data), MaxCollapseDepth);
     const auto result = DecodeData(newSize);
     EXPECT_EQ(result, Expected);
 }
@@ -142,7 +152,7 @@ TEST_P(CollapseRecursionFixture, Collapse_ZeroGroups_ExpectLeftSame)
     constexpr const char* TestData = "abacaba";
     constexpr const char* Expected = TestData; // nothing to compress
     SetUpData(TestData);
-    size_t newSize = GetParam()(absl::MakeSpan(m_data), 4);
+    const size_t newSize = GetParam()(absl::MakeSpan(m_data), 4);
     const auto result = DecodeData(newSize);
     EXPECT_EQ(result, Expected);
 }

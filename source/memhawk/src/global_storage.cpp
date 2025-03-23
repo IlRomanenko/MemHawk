@@ -6,54 +6,53 @@
 
 #include <absl/base/attributes.h>
 
+#include <memory>
+
 namespace memhawk
 {
 
-ABSL_CONST_INIT static bool glInitialised = false;
-ABSL_CONST_INIT std::unique_ptr<GlobalStorage> GlobalStorage::m_global = {};
-
-struct OnConstruct
-{
-    OnConstruct()
-    {
-        Stacktrace::Setup();
-        GlobalStorage::Construct();
-    }
-
-    ~OnConstruct() = default;
-};
-
-static OnConstruct glOnConstruct{};
+ABSL_CONST_INIT bool gl_storageReady = false;
+ABSL_CONST_INIT std::unique_ptr<GlobalStorage> GlobalStorage::m_storage = {};
 
 void GlobalStorage::Construct()
 {
-    LogDebug("begin");
-    m_global = std::unique_ptr<GlobalStorage>(new GlobalStorage());
-    m_global->GetMemHawk()->PostponedConstruct();
-    LogDebug("end");
+    m_storage = std::unique_ptr<GlobalStorage>(new GlobalStorage());
+    gl_storageReady = true;
+}
+
+void GlobalStorage::Destroy()
+{
+    gl_storageReady = false;
+    m_storage.reset();
 }
 
 GlobalStorage* GlobalStorage::GetGlobalStorage()
 {
-    if (glInitialised)
+    if (gl_storageReady)
     {
-        return m_global.get();
+        return m_storage.get();
     }
     return nullptr;
+}
+
+void GlobalStorage::PostponedConstruct()
+{
+    LogDebug("begin");
+    m_memHawk->PostponedConstruct();
+    LogDebug("end");
 }
 
 GlobalStorage::GlobalStorage()
 {
     LogDebug("begin");
     m_memHawk = std::make_unique<MemHawk>();
-    glInitialised = true;
     LogDebug("end");
 }
 
 GlobalStorage::~GlobalStorage()
 {
     LogDebug("begin");
-    glInitialised = false;
+    gl_storageReady = false;
     m_memHawk.reset();
     LogDebug("end");
 }

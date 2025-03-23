@@ -17,13 +17,7 @@ Checks: [
   '-cppcoreguidelines-rvalue-reference-param-not-moved',
   '-cppcoreguidelines-non-private-member-variables-in-classes',
 
-  # '-cppcoreguidelines-*', # impractical in a codebase as large as ClickHouse, also slow
-
-
   '-concurrency-mt-unsafe',
-
-
-  # '-abseil-string-find-str-contains', # disabled to avoid a misleading suggestion (obsolete absl::StrContains() instead of C++23 std::string::contains())
 
   '-altera-*',
 
@@ -38,14 +32,7 @@ Checks: [
   '-bugprone-easily-swappable-parameters',
   '-bugprone-crtp-constructor-accessibility',
   '-bugprone-reserved-identifier',
-  # '-bugprone-assignment-in-if-condition',
-  # '-bugprone-branch-clone',
-  # '-bugprone-exception-escape',
-  # '-bugprone-implicit-widening-of-multiplication-result',
-  # '-bugprone-multi-level-implicit-pointer-conversion',
-  # '-bugprone-narrowing-conversions',
-  # '-bugprone-unchecked-optional-access',
-  # '-bugprone-not-null-terminated-result',
+  '-bugprone-assignment-in-if-condition',
 
   '-cert-dcl16-c',
   '-cert-err58-cpp',
@@ -62,7 +49,7 @@ Checks: [
   '-google-readability-function-size',
   '-google-readability-namespace-comments',
   '-google-readability-todo',
-  
+  '-google-objc-global-variable-declaration',
   '-google-readability-avoid-underscore-in-googletest-name',
 
   '-hicpp-avoid-c-arrays',
@@ -99,19 +86,12 @@ Checks: [
   '-modernize-use-nodiscard',
   '-modernize-loop-convert',
   '-modernize-use-trailing-return-type',
-  # '-modernize-concat-nested-namespaces',
-  # '-modernize-pass-by-value',
-  # '-modernize-return-braced-init-list',
-  # '-modernize-use-ranges',
-  # '-modernize-use-designated-initializers',
+  '-modernize-use-designated-initializers',
 
   '-performance-avoid-endl',
   '-performance-enum-size',
   '-performance-no-int-to-ptr',
   '-performance-move-const-arg',
-  # '-performance-unnecessary-value-param',
-  # '-performance-inefficient-string-concatenation',
-  # '-performance-inefficient-vector-operation',
 
 
   '-readability-redundant-access-specifiers',
@@ -125,23 +105,6 @@ Checks: [
   '-readability-magic-numbers',
   '-readability-named-parameter',
   '-readability-math-missing-parentheses',
-  # '-readability-avoid-nested-conditional-operator',
-  # '-readability-avoid-unconditional-preprocessor-if',
-  # '-readability-braces-around-statements',
-  # '-readability-convert-member-functions-to-static',
-  # '-readability-else-after-return',
-  # '-readability-redundant-declaration',
-  # '-readability-redundant-inline-specifier', # useful but incompatible with __attribute((always_inline))__ (aka. ALWAYS_INLINE, base/base/defines.h).
-  #       # ALWAYS_INLINE only has an effect if combined with `inline`: https://godbolt.org/z/Eefd74qdM
-  # '-readability-redundant-member-init', # Useful but triggers another problem. Imagine a struct S with multiple String members. Structs are often instantiated via designated
-  #       # initializer S s{.s1 = [...], .s2 = [...], [...]}. In this case, compiler warning `missing-field-initializers` requires to specify all members which are not in-struct
-  #       # initialized (example: s1 in struct S { String s1; String s2{};}; is not in-struct initialized, therefore it must be specified at instantiation time). As explicitly
-  #       # specifying all members is tedious for large structs, `missing-field-initializers` makes programmers initialize as many members as possible in-struct. Clang-tidy
-  #       # warning `readability-redundant-member-init` does the opposite thing, both are not compatible with each other.
-  # '-readability-simplify-boolean-expr',
-  # '-readability-suspicious-call-argument',
-  # '-readability-uppercase-literal-suffix',
-  # '-readability-use-anyofallof',
 
   # '-zircon-*'
 ]

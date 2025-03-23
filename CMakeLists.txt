@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25.0)
 project(alloc_tracker VERSION 0.1.0 LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
 
@@ -17,7 +17,7 @@ set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 set(CMAKE_BUILD_RPATH_USE_ORIGIN OFF)
 
 set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -fPIC -pthread -fno-omit-frame-pointer")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -pthread -fno-omit-frame-pointer -std=c++17")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -pthread -fno-omit-frame-pointer -std=c++20")
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3")
@@ -53,4 +53,6 @@ include(cmake/ClangTidy.cmake)
 
 add_subdirectory(external)
 add_subdirectory(source)
-add_subdirectory(tests)
+if (MEMHAWK_BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

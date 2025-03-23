@@ -7,6 +7,7 @@
 #include "log_name.h"
 #include "macros.h"
 #include "recursion_guard.h"
+#include "scoped_sigmask.h"
 #include "stacktrace.h"
 #include "thread_tracker.h"
 
@@ -21,7 +22,6 @@
 #include <cstdint>
 #include <cstring>
 #include <future>
-#include <mutex>
 #include <pthread.h>
 #include <sstream>
 #include <unistd.h>
@@ -29,12 +29,14 @@
 namespace memhawk
 {
 
-thread_local ThreadTracker* gtl_tracker = nullptr;
+ABSL_CONST_INIT thread_local ThreadTracker* gtl_tracker = nullptr;
 ABSL_CONST_INIT thread_local void* gtl_retPtrs[8] = {
     nullptr,
 }; // only first element
 
-MemHawk::MemHawk() : m_postponedCapacity(gl_config.MaxPostponed), m_postponed(gl_config.MaxPostponed)
+MemHawk::MemHawk()
+    : m_btTracker(gl_config.DumpAllExternalStacktraces), m_postponedCapacity(gl_config.MaxPostponed),
+      m_postponed(gl_config.MaxPostponed), m_innerBtTracker(gl_config.DumpAllInnerStacktraces)
 {
     LogInfo("Start MemHawk()");
 }
@@ -108,13 +110,13 @@ void MemHawk::RegisterThread()
 {
     if (unlikely(gtl_tracker != nullptr))
     {
-        const auto trace = Stacktrace::Unwind(32, 0).Describe();
+        const auto trace = Stacktrace::Unwind(32, 0, false).Describe();
         LogError("Trying to register already registered thread, stacktrace:\n" fStr, trace.c_str());
         return;
     }
     const RecursionGuard<AllocTag> guard;
 
-    const absl::MutexLock lock(&m_thTrackersMt);
+    const absl::base_internal::SpinLockHolder lock(&m_thTrackersMt);
     for (auto it = m_finishPromises.begin(); it != m_finishPromises.end();)
     {
         if (it->wait_for(std::chrono::seconds{0}) == std::future_status::ready)
@@ -169,6 +171,7 @@ void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
         {
             RegisterThread();
         }
+        const auto trackerLock = gtl_tracker->AcquireLock();
         gtl_tracker->SaveTraceId(info, std::move(trace));
         gtl_tracker->TrackAlloc(info);
     }
@@ -190,6 +193,8 @@ void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
         if (innerGuard)
         {
             ProcessPostponed();
+            
+            const auto trackerLock = m_innerTracker->AcquireLock();
             m_innerTracker->TrackAlloc(info);
         }
         else
@@ -218,6 +223,7 @@ void MemHawk::TrackDealloc(AllocInfo& info, const Stacktrace& trace)
         {
             RegisterThread();
         }
+        const auto trackerLock = gtl_tracker->AcquireLock();
         gtl_tracker->TrackDealloc(info);
     }
     else
@@ -227,6 +233,7 @@ void MemHawk::TrackDealloc(AllocInfo& info, const Stacktrace& trace)
         if (innerGuard)
         {
             ProcessPostponed();
+            const auto trackerLock = m_innerTracker->AcquireLock();
             m_innerTracker->TrackDealloc(info);
         }
         else
@@ -242,7 +249,7 @@ void MemHawk::ProcessPostponed()
     {
         Postponed delayed{};
         {
-            const absl::MutexLock lock(&m_postponedMt);
+            const absl::base_internal::SpinLockHolder lock(&m_postponedMt);
             if (m_postponed.empty())
             {
                 return;
@@ -251,6 +258,8 @@ void MemHawk::ProcessPostponed()
             m_postponed.pop_front();
         }
         LogDebug("processing: [size: " fU32 ", op: " fI32 "]", delayed.info.size, static_cast<int>(delayed.op));
+
+        const auto trackerLock = m_innerTracker->AcquireLock();
         if (delayed.op == Postponed::Operation::Alloc)
         {
             m_innerTracker->TrackAlloc(delayed.info);
@@ -290,9 +299,7 @@ void MemHawk::TrackingWorker()
 {
     RegisterThread();
     pthread_setname_np(pthread_self(), "MemHawkTh");
-    sigset_t mask{};
-    sigfillset(&mask); // Block all signals
-    pthread_sigmask(SIG_BLOCK, &mask, nullptr);
+    const ScopedSignalBlocker signalBlocker{};
 
     LogInfo("Tracking worker started");
 
@@ -319,7 +326,7 @@ void MemHawk::TrackingWorker()
 
 void MemHawk::WorkerUpdateData()
 {
-    const absl::MutexLock lock(&m_thTrackersMt);
+    const absl::base_internal::SpinLockHolder lock(&m_thTrackersMt);
     m_workerData->updatedTraces = 0;
 
     for (const auto& tracker : m_thTrackers)
@@ -345,10 +352,15 @@ void MemHawk::WorkerUpdateData()
 
 void MemHawk::WorkerAccountThreadTracker(ThreadTracker& tracker)
 {
-    const absl::MutexLock trackerLock(&tracker.mt);
+    {
+        const auto trackerLock = tracker.AcquireLock();
+        m_workerData->summary += tracker.total.ConsumeDiff();
+        m_workerData->updatedTraces += tracker.allocSummaries.size();
+        tracker.allocSummaries.swap(m_workerData->localSummaries);
+    }
 
     auto& byTraceIdIndex = m_workerData->index.get<WorkerData::ByTraceId>();
-    for (const auto& [traceId, summary] : tracker.allocSummaries)
+    for (const auto& [traceId, summary] : m_workerData->localSummaries)
     {
         auto statIt = byTraceIdIndex.find(traceId);
         if (statIt == byTraceIdIndex.end())
@@ -359,10 +371,7 @@ void MemHawk::WorkerAccountThreadTracker(ThreadTracker& tracker)
         byTraceIdIndex.modify(statIt,
                               [&localSummary](WorkerData::IndexValue& value) { value.summary += localSummary; });
     }
-    // ConsumeDiff should be the last call and be called once
-    m_workerData->summary += tracker.total.ConsumeDiff();
-    m_workerData->updatedTraces += tracker.allocSummaries.size();
-    tracker.Clear();
+    m_workerData->localSummaries.clear();
 }
 
 void MemHawk::WorkerPrintData()

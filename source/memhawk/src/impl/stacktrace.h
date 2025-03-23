@@ -37,7 +37,7 @@ public:
     Stacktrace();
     Stacktrace(void* const* data, size_t size);
 
-    static Stacktrace Unwind(size_t capacity, size_t collapseDepth, size_t skip = 1);
+    static Stacktrace Unwind(size_t capacity, size_t collapseDepth, bool useAbsl, size_t skip = 1);
     static void Setup();
 
     void Compress(CompressedStacktrace& result) const;
@@ -54,10 +54,10 @@ public:
     bool operator==(const Stacktrace& rhs) const;
 
 private:
-    void UnwindStacktrace(size_t capacity, size_t collapseDepth, size_t skip);
+    inline void UnwindStacktrace(size_t capacity, size_t collapseDepth, bool useAbsl, size_t skip);
 
 private:
-    std::array<void*, MaxUnwindDepth> m_data; // don't initialise memory
+    alignas(64) void* m_data[MaxUnwindDepth]; // don't initialise memory
     size_t m_size{};
     size_t m_skip{};
 };

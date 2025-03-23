@@ -5,6 +5,7 @@
 #include "log.h"
 
 #include <absl/base/attributes.h>
+#include <absl/debugging/stacktrace.h>
 #include <absl/types/span.h>
 #include <fmt/format.h>
 
@@ -51,20 +52,31 @@ Stacktrace::Stacktrace(void* const* data, size_t size) // NOLINT(cppcoreguidelin
 {
     m_skip = 0;
     m_size = std::min(MaxUnwindDepth, size);
-    memcpy(reinterpret_cast<void*>(m_data.data()), reinterpret_cast<const void*>(data), m_size * sizeof(void*));
+    memcpy(reinterpret_cast<void*>(m_data), reinterpret_cast<const void*>(data), m_size * sizeof(void*));
 }
 
-Stacktrace Stacktrace::Unwind(size_t capacity, size_t collapseDepth, size_t skip)
+Stacktrace Stacktrace::Unwind(size_t capacity, size_t collapseDepth, bool useAbsl, size_t skip)
 {
     Stacktrace trace{};
-    trace.UnwindStacktrace(capacity, collapseDepth, skip);
+    trace.UnwindStacktrace(capacity, collapseDepth, useAbsl, skip);
     return trace;
 }
 
-inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t collapseDepth, size_t skip)
+ABSL_ATTRIBUTE_ALWAYS_INLINE
+inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t collapseDepth, bool useAbsl, size_t skip)
 {
     const size_t size = std::min(capacity, MaxUnwindDepth);
-    auto resultSize = unw_backtrace(m_data.data(), static_cast<int>(size));
+    int resultSize = 0;
+    if (useAbsl)
+    {
+        // unwind by frame-pointer
+        resultSize = absl::GetStackTrace(m_data, static_cast<int>(size), 0);
+    }
+    else
+    {
+        // unwind by dwarf
+        resultSize = unw_backtrace(m_data, static_cast<int>(size));
+    }
     while (resultSize > 0 && m_data[static_cast<size_t>(resultSize - 1)] == nullptr)
     {
         resultSize--;
@@ -150,19 +162,19 @@ void Stacktrace::CoarseToFunctionsStart()
 
 absl::Span<void*> Stacktrace::GetTrace()
 {
-    return absl::MakeSpan(m_data.data() + m_skip, m_size - m_skip);
+    return absl::MakeSpan(m_data + m_skip, m_size - m_skip);
 }
 
 absl::Span<void* const> Stacktrace::GetTrace() const
 {
-    return absl::MakeConstSpan(m_data.data() + m_skip, m_size - m_skip);
+    return absl::MakeConstSpan(m_data + m_skip, m_size - m_skip);
 }
 
 std::string Stacktrace::Describe() const
 {
     char buf[512];
     char elfName[512];
-    auto span = GetTrace();
+    const auto span = GetTrace();
     std::stringstream stream;
     for (const auto& ip : span)
     {

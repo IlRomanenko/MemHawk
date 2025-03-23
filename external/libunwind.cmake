@@ -42,7 +42,9 @@ ExternalProject_Add(
     GIT_TAG v1.8.1
     CONFIGURE_COMMAND 
         autoreconf -i && 
-        ${CMAKE_COMMAND} -E env CFLAGS=${FLAGS} CXXFLAGS=${FLAGS} ./configure ${LIBUNWIND_OPTIONS}
+        ${CMAKE_COMMAND} -E env 
+            CC=${CMAKE_C_COMPILER} CXX=${cmake_CXX_COMPILER} CFLAGS=${FLAGS} CXXFLAGS=${FLAGS} 
+            ./configure ${LIBUNWIND_OPTIONS}
     BUILD_COMMAND make
     INSTALL_COMMAND make install
     BUILD_IN_SOURCE ON

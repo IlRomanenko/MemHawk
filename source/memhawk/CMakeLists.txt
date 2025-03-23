@@ -32,6 +32,7 @@ PUBLIC
     absl::time
     absl::span
     absl::cleanup
+    absl::stacktrace
     atomic
     dl
 )

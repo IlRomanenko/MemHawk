@@ -14,7 +14,7 @@ enum class LogLevel : uint8_t
     Off = 4
 };
 
-void LogInit(const char* filename);
+void LogInit();
 void LogDeinit();
 void LogPrint(const char* fmt, ...);
 

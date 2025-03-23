@@ -1,6 +1,7 @@
 #include "log.h"
 
 #include "config.h"
+#include "log_name.h"
 
 #include <absl/base/attributes.h>
 
@@ -19,18 +20,20 @@ namespace
 ABSL_CONST_INIT int gl_logFile = STDERR_FILENO;
 } // namespace
 
-void LogInit(const char* filename)
+void LogInit()
 {
     if (gl_config.MainLogIntoFile)
     {
-        gl_logFile = open(filename, O_WRONLY | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR);
+        const auto filename = GetProcessLogName("main_log", gl_config);
+        gl_logFile = open(filename.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR);
         if (gl_logFile < 0)
         {
             const auto error = errno;
             gl_logFile = STDERR_FILENO;
             constexpr size_t BufSize = 512;
             char buffer[BufSize];
-            LogPrint("Failed to initialise logging: " fStr ", error: ", filename, strerror_r(error, buffer, 512));
+            LogPrint("Failed to initialise logging: " fStr ", error: ", filename.c_str(),
+                     strerror_r(error, buffer, 512));
             abort();
         }
     }
@@ -44,6 +47,7 @@ void LogDeinit()
 {
     if (gl_config.MainLogIntoFile)
     {
+        fsync(gl_logFile);
         close(gl_logFile);
     }
     gl_logFile = STDERR_FILENO;

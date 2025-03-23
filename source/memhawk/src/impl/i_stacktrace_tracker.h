@@ -3,9 +3,12 @@
 #include "stacktrace.h"
 
 #include <cstdint>
+#include <limits>
 
 namespace memhawk
 {
+
+constexpr uint32_t InvalidTraceId = std::numeric_limits<uint32_t>::max();
 
 class IStacktraceTracker
 {

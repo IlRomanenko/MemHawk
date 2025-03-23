@@ -5,9 +5,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Install GCC 9 and other dependencies
 RUN apt-get update -y
 RUN apt-get install -y \
-    build-essential \
-    gcc-9 g++-9 \
-    cmake git ccache \
+    clang-18 \
+    git ccache \
     libtool autoconf unzip wget \
     libboost-container-dev \
     software-properties-common lsb-release
@@ -18,10 +17,6 @@ RUN apt-add-repository "deb https://apt.kitware.com/ubuntu/ $(lsb_release -cs) m
 RUN apt update -y && \
     apt install -y cmake
 
-# Set GCC 9 as default compiler
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 100 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 100
-
 # Set the working directory
 WORKDIR /workspace
 
@@ -31,6 +26,6 @@ COPY . .
 # Create a build directory and compile project
 RUN mkdir build && \
     cd build && \
-    cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=/artifacts .. && \
+    cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_INSTALL_PREFIX=/artifacts .. && \
     make -j $(nproc) && \
     make install

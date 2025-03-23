@@ -5,6 +5,7 @@
 #include "log_name.h"
 #include "stacktrace.h"
 
+#include <absl/base/internal/spinlock.h>
 #include <absl/types/span.h>
 #include <boost/range/algorithm/find.hpp>
 #include <fmt/format.h>
@@ -13,18 +14,16 @@
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
-#include <limits>
 #include <optional>
 #include <xxhash.h>
 
 namespace memhawk
 {
 
-constexpr uint32_t FixedTrackerIdFlag = 1UL << (std::numeric_limits<uint32_t>::digits - 1);
 
 bool IsFixedTrackerId(uint32_t traceId)
 {
-    return traceId & FixedTrackerIdFlag;
+    return traceId & StaticStacktraceTracker::FixedTrackerIdFlag;
 }
 
 StaticStacktraceTracker::StaticStacktraceTracker(bool dump) : m_dump(dump)
@@ -51,19 +50,19 @@ StaticStacktraceTracker::~StaticStacktraceTracker()
 
 size_t StaticStacktraceTracker::StacktracesCount()
 {
-    const absl::MutexLock lock(&m_mt);
+    const absl::base_internal::SpinLockHolder lock(&m_mt);
     return m_size;
 }
 
 size_t StaticStacktraceTracker::GetStorageSize()
 {
-    const absl::MutexLock lock(&m_mt);
+    const absl::base_internal::SpinLockHolder lock(&m_mt);
     return m_storageSize;
 }
 
 uint32_t StaticStacktraceTracker::InsertStacktrace(Stacktrace&& trace)
 {
-    const absl::MutexLock lock(&m_mt);
+    const absl::base_internal::SpinLockHolder lock(&m_mt);
     trace.ShrinkBySize(MaxStacktraceLength);
     auto traceId = InsertStacktraceUnlocked(std::move(trace));
     return traceId ^ FixedTrackerIdFlag;
@@ -103,7 +102,8 @@ uint32_t StaticStacktraceTracker::InsertStacktraceUnlocked(Stacktrace&& trace)
         }
         else
         {
-            return std::numeric_limits<uint32_t>::max();
+            // todo: refactor
+            return UnknownTraceId ^ FixedTrackerIdFlag;
         }
     }
 
@@ -112,7 +112,7 @@ uint32_t StaticStacktraceTracker::InsertStacktraceUnlocked(Stacktrace&& trace)
 
 std::optional<Stacktrace> StaticStacktraceTracker::GetStacktraceFromId(uint32_t traceId)
 {
-    const absl::MutexLock lock(&m_mt);
+    const absl::base_internal::SpinLockHolder lock(&m_mt);
     if (!IsFixedTrackerId(traceId))
     {
         return {};

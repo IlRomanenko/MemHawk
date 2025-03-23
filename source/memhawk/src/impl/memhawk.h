@@ -6,6 +6,7 @@
 #include "stacktrace_tracker_static.h"
 #include "thread_tracker.h"
 
+#include <absl/base/internal/spinlock.h>
 #include <absl/container/flat_hash_set.h>
 #include <absl/synchronization/mutex.h>
 #include <boost/circular_buffer.hpp>
@@ -25,6 +26,7 @@
 #include <future>
 #include <memory>
 #include <thread>
+#include <mutex>
 
 namespace memhawk
 {
@@ -51,6 +53,8 @@ private:
         absl::flat_hash_set<uint32_t> writtenStacktraces;
         AllocSummary summary{};
         size_t updatedTraces{};
+
+        absl::flat_hash_map<uint32_t, AllocSummary> localSummaries;
 
         struct IndexValue
         {
@@ -134,15 +138,15 @@ private:
 
 
     // Trackers
-    absl::Mutex m_thTrackersMt;
+    absl::base_internal::SpinLock m_thTrackersMt;
     std::deque<std::unique_ptr<ThreadTracker>> m_thTrackers;
     std::deque<uint32_t> m_finishedTrackers;
     std::list<std::future<uint32_t>> m_finishPromises;
 
-    StacktraceTracker m_btTracker{false};
+    StacktraceTracker m_btTracker;
 
     // Postponed and inner tracking
-    absl::Mutex m_postponedMt;
+    absl::base_internal::SpinLock m_postponedMt;
     size_t m_postponedCapacity{};
     size_t m_maxPostponedSize{};
     // fixed size buffer for postponed operations

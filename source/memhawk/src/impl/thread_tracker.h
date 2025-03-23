@@ -6,9 +6,9 @@
 #include "lru_cache.h"
 #include "stacktrace.h"
 
+#include <absl/base/internal/spinlock.h>
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
-#include <absl/synchronization/mutex.h>
 
 #include <cstdint>
 
@@ -17,8 +17,7 @@ namespace memhawk
 
 struct ThreadTracker
 {
-    // works as spinlock in fast path
-    absl::Mutex mt;
+    absl::base_internal::SpinLock mt;
 
     uint32_t trackerId{};
 
@@ -46,6 +45,8 @@ struct ThreadTracker
 
     void TrackAlloc(const AllocInfo& info);
     void TrackDealloc(const AllocInfo& info);
+
+    absl::base_internal::SpinLockHolder AcquireLock();
 
     void Clear();
 };

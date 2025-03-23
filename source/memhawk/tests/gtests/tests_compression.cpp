@@ -110,8 +110,7 @@ TEST_F(CompressionFixture, Compress_Zeros_ExpectOk)
 
     Compress(absl::MakeConstSpan(testData), m_data);
 
-    constexpr const size_t ExpectedSize = ((Size * (1 + 2 + 2)) + 31) / 32 + 1 + 1;
-    EXPECT_EQ(ExpectedSize, 7);
+    constexpr const size_t ExpectedSize = ((Size * (2 + 2)) + 31) / 32 + 1;
     EXPECT_EQ(m_data.size(), ExpectedSize);
 
     std::vector<uint64_t> result;
@@ -126,13 +125,11 @@ TEST_F(CompressionFixture, Compress_BoundaryValues_ExpectOk)
     testData.emplace_back(0);
     for (const auto bitCount : {8, 16, 24, 32, 40, 48, 56, 63})
     {
-        uint64_t value = 1ULL << bitCount;
+        const uint64_t value = 1ULL << bitCount;
         testData.emplace_back(value - 1);
         testData.emplace_back(value);
         testData.emplace_back(value + 1);
     }
-
-    MutBitIterator iter{absl::MakeSpan(m_data)};
     Compress(absl::MakeConstSpan(testData), m_data);
 
     std::vector<uint64_t> result;

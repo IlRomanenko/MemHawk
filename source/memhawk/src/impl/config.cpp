@@ -1,7 +1,5 @@
 #include "config.h"
 
-#include "log.h"
-
 #include <absl/base/attributes.h>
 #include <boost/algorithm/string/finder.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -10,12 +8,11 @@
 #include <charconv>
 #include <cstdlib>
 #include <string_view>
+#include <unistd.h>
 #include <utility>
 
 namespace memhawk
 {
-
-ABSL_CONST_INIT Config gl_config = {};
 
 constexpr const char* OptionsEnvName = "MEMHAWK_OPTS";
 
@@ -33,12 +30,17 @@ constexpr const char* LogDirName = "log_dir";
 constexpr const char* TrackingWorkerName = "tracking_worker";
 constexpr const char* TrackerBySizeCountName = "tracker_by_size_count";
 constexpr const char* TrackerByTotalCountName = "tracker_by_total_count";
+constexpr const char* DumpAllInternalStacktracesName = "tracker_internal_dump";
+constexpr const char* DumpAllExternalStacktracesName = "tracker_external_dump";
+constexpr const char* UseAbslStacktracesName = "absl_stacktrace";
+constexpr const char* PrognameRegexName = "regex";
+
 
 template <typename... Args>
 void PrintError(fmt::format_string<Args...> fmt, Args... args)
 {
     const auto str = fmt::format(fmt, std::forward<Args>(args)...);
-    LogError(fStr, str.c_str());
+    dprintf(STDERR_FILENO, fStr, str.c_str());
 }
 
 void ParseValue(std::string_view key, std::string_view valueStr, size_t& result)
@@ -139,6 +141,29 @@ void InitConfig()
         else if (key == TrackerByTotalCountName)
         {
             ParseValue(key, valueStr, gl_config.TrackerByTotalCount);
+        }
+        else if (key == DumpAllInternalStacktracesName)
+        {
+            size_t value{};
+            ParseValue(key, valueStr, value);
+            gl_config.DumpAllInnerStacktraces = value > 0;
+        }
+        else if (key == DumpAllExternalStacktracesName)
+        {
+            size_t value{};
+            ParseValue(key, valueStr, value);
+            gl_config.DumpAllExternalStacktraces = value > 0;
+        }
+        else if (key == UseAbslStacktracesName)
+        {
+            size_t value{};
+            ParseValue(key, valueStr, value);
+            gl_config.UseAbslStacktraces = value > 0;
+        }
+
+        else if (key == PrognameRegexName)
+        {
+            gl_config.PrognameRegex = valueStr;
         }
         else
         {

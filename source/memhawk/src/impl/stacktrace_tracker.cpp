@@ -1,10 +1,10 @@
 #include "stacktrace_tracker.h"
 
 #include "config.h"
-#include "log.h"
 #include "log_name.h"
 #include "stacktrace.h"
 
+#include <absl/base/internal/spinlock.h>
 #include <boost/range/adaptor/reversed.hpp>
 #include <boost/range/adaptors.hpp>
 #include <fmt/format.h>
@@ -27,7 +27,7 @@ void StacktraceTracker::PostponedConstruct()
 
 size_t StacktraceTracker::StacktracesCount()
 {
-    const absl::MutexLock lock(&m_mt);
+    const absl::base_internal::SpinLockHolder lock(&m_mt);
     return m_storage->leafsId.size();
 }
 
@@ -55,7 +55,7 @@ StacktraceTracker::~StacktraceTracker()
 
 uint32_t StacktraceTracker::InsertStacktrace(Stacktrace&& trace)
 {
-    const absl::MutexLock lock(&m_mt);
+    const absl::base_internal::SpinLockHolder lock(&m_mt);
 
     const auto span = trace.GetTrace();
     const auto reversed = boost::adaptors::reverse(span);
@@ -83,7 +83,7 @@ uint32_t StacktraceTracker::InsertStacktrace(Stacktrace&& trace)
 
 std::optional<Stacktrace> StacktraceTracker::GetStacktraceFromId(uint32_t traceId)
 {
-    const absl::MutexLock lock(&m_mt);
+    const absl::base_internal::SpinLockHolder lock(&m_mt);
     if (traceId >= m_storage->nodes.size())
     {
         return {};

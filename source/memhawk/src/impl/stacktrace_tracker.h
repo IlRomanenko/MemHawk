@@ -3,9 +3,8 @@
 #include "i_stacktrace_tracker.h"
 #include "stacktrace.h"
 
+#include <absl/base/internal/spinlock.h>
 #include <absl/container/flat_hash_map.h>
-#include <absl/synchronization/mutex.h>
-// #include <boost/container/devector.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -51,7 +50,7 @@ private:
     Stacktrace GetStacktrace(uint32_t traceId);
 
 private:
-    absl::Mutex m_mt;
+    absl::base_internal::SpinLock m_mt;
     bool m_dump{false};
     std::unique_ptr<Storage> m_storage;
 };

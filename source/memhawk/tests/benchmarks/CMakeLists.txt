@@ -1,27 +1,13 @@
+project(benchmark_impl)
 
-add_executable(benchmark_memhawk
-    main.cpp
-)
+collect_sources(HEADERS SOURCES ${PROJECT_SOURCE_DIR})
 
-target_link_libraries(benchmark_memhawk
+add_executable(${PROJECT_NAME} ${HEADERS} ${SOURCES})
+
+target_link_libraries(${PROJECT_NAME}
 PRIVATE
     benchmark::benchmark
-    unwind_static
-    absl::stacktrace
 )
-embed_library(benchmark_memhawk memhawk_impl)
+embed_library(${PROJECT_NAME} memhawk_impl)
 
-memhawk_build(benchmark_memhawk)
-
-
-add_executable(benchmark_compression
-    compression_benchmark.cpp
-)
-
-target_link_libraries(benchmark_compression
-PRIVATE
-    benchmark::benchmark
-    unwind_static
-    absl::stacktrace
-)
-memhawk_build(benchmark_compression)
+memhawk_build(${PROJECT_NAME})

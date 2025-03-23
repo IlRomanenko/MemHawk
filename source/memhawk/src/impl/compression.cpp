@@ -13,12 +13,6 @@ enum class SizeBits : uint32_t
     FourBytes = 3
 };
 
-enum class SignBit : uint32_t
-{
-    Unsigned = 0,
-    Signed = 1
-};
-
 inline uint32_t shift_left(uint32_t value, uint32_t count)
 {
     if (count >= ValueBitsSize)
@@ -150,7 +144,7 @@ void Decode(ConstBitIterator& controlIter, ConstBitIterator& dataIter, uint32_t&
 
 size_t CalculateControlBlockSize(size_t size)
 {
-    const size_t blockSizeBits = size * 2 * 3;
+    const size_t blockSizeBits = size * 2 * 2;
     return (blockSizeBits + ValueBitsSize - 1) / ValueBitsSize;
 }
 
@@ -173,20 +167,13 @@ size_t Compress(const absl::Span<const uint64_t> in, uint32_t* out)
 
     for (size_t i = 0; i < in.size(); i++)
     {
-        uint32_t isSigned = 0;
         cur = in[i];
-        if (cur < prev)
-        {
-            isSigned = 1;
-            std::swap(cur, prev);
-        }
 
         diff = cur - prev;
 
         const auto high = static_cast<uint32_t>(diff >> 32);
         const auto low = static_cast<uint32_t>(diff);
 
-        EncodeBits(controlBlockIter, 1, isSigned);
         Encode(controlBlockIter, dataIter, low);
         Encode(controlBlockIter, dataIter, high);
 
@@ -229,26 +216,16 @@ size_t Decompress(absl::Span<const uint32_t> in, uint64_t* out)
 
     uint32_t high = 0;
     uint32_t low = 0;
-    uint32_t isSigned = 0;
 
     for (size_t i = 0; i < total; i++)
     {
-        DecodeBits(controlBlockIter, 1, isSigned);
-
         Decode(controlBlockIter, dataIter, low);
         Decode(controlBlockIter, dataIter, high);
 
         diff = (static_cast<uint64_t>(high) << 32) | low;
 
-        if (isSigned)
-        {
-            cur = prev - diff;
-        }
-        else
-        {
-            cur = prev + diff;
-        }
-
+        cur = prev + diff;
+        
         out[i] = cur;
         prev = cur;
     }
