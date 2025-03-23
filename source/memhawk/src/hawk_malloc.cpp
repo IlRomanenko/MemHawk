@@ -1,12 +1,12 @@
 
 #include "hawk_malloc.h"
 
-#include "global_storage.h"
 #include "impl/alloc_info.h"
 #include "impl/config.h"
 #include "impl/i_stacktrace_tracker.h"
 #include "impl/log.h"
 #include "impl/macros.h"
+#include "impl/memhawk.h"
 #include "impl/stacktrace.h"
 
 #include <absl/base/attributes.h>
@@ -83,7 +83,17 @@ HOOK(aligned_alloc, HookType::Optional);
 #undef HOOK
 
 ABSL_CONST_INIT bool gl_initialised = false;
-ABSL_CONST_INIT bool gl_logDeinitInitialised = false;
+ABSL_CONST_INIT bool gl_memhawkReady = false;
+ABSL_CONST_INIT MemHawk* gl_memhawk = nullptr;
+
+MemHawk* GetMemHawk()
+{
+    if (likely(gl_memhawkReady))
+    {
+        return gl_memhawk;
+    }
+    return nullptr;
+}
 
 void InitHooks()
 {
@@ -123,10 +133,12 @@ __attribute__((__constructor__)) void init_memhawk()
         Stacktrace::Setup();
 
         LogInfo("[" fI32 "]", getpid());
-        GlobalStorage::Construct();
+        gl_memhawk = new MemHawk();
+        gl_memhawkReady = true;
+
         // after that can save traces as postponed into memhawk
         gl_initialised = true;
-        GlobalStorage::GetGlobalStorage()->PostponedConstruct();
+        gl_memhawk->PostponedConstruct();
     }
     else
     {
@@ -138,7 +150,11 @@ __attribute__((__constructor__)) void init_memhawk()
 
 __attribute__((__destructor__)) void deinit_memhawk()
 {
-    GlobalStorage::Destroy();
+    if (gl_memhawk)
+    {
+        gl_memhawkReady = false;
+        delete gl_memhawk;
+    }
     LogDeinit();
 }
 
@@ -190,7 +206,7 @@ void* hawk_malloc(size_t size)
     {
         return mmap_malloc(size);
     }
-    LogDebug("requested: " fSzt, size);
+    LogTrace("requested: " fSzt, size);
 
     auto totalSize = size + AdditionalSize;
     void* ptr = hooks::malloc(totalSize);
@@ -199,11 +215,10 @@ void* hawk_malloc(size_t size)
     *info = AllocInfo{size, AdditionalSize};
     ptr = reinterpret_cast<char*>(ptr) + AdditionalSize;
 
-    LogDebug("result: " fPtr, ptr);
+    LogTrace("result: " fPtr, ptr);
 
-    if (auto storage = GlobalStorage::GetGlobalStorage(); likely(storage))
+    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
-        auto memhawk = storage->GetMemHawk();
         auto trace =
             Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth, gl_config.UseAbslStacktraces);
         memhawk->TrackAlloc(*info, std::move(trace));
@@ -219,7 +234,7 @@ void* hawk_valloc(size_t size)
         LogError("valloc is not supported yet on statics initialisation");
         abort();
     }
-    LogDebug("requested: " fSzt, size);
+    LogTrace("requested: " fSzt, size);
 
     auto totalSize = size + AdditionalSize;
     void* ptr = hooks::valloc(totalSize);
@@ -227,11 +242,10 @@ void* hawk_valloc(size_t size)
     *info = AllocInfo{size, AdditionalSize};
     ptr = reinterpret_cast<char*>(ptr) + AdditionalSize;
 
-    LogDebug("result: " fPtr, ptr);
+    LogTrace("result: " fPtr, ptr);
 
-    if (auto storage = GlobalStorage::GetGlobalStorage(); likely(storage))
+    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
-        auto memhawk = storage->GetMemHawk();
         auto trace =
             Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth, gl_config.UseAbslStacktraces);
         memhawk->TrackAlloc(*info, std::move(trace));
@@ -247,7 +261,7 @@ void* hawk_aligned_alloc(size_t align, size_t size)
         LogError("aligned_alloc is not supported yet on statics initialisation");
         abort();
     }
-    LogDebug("requested: " fSzt, size);
+    LogTrace("requested: " fSzt, size);
 
     auto alignedSize = (AdditionalSize + align - 1) / align * align;
     void* ptr = hooks::aligned_alloc(align, (size + alignedSize));
@@ -255,11 +269,10 @@ void* hawk_aligned_alloc(size_t align, size_t size)
     *info = AllocInfo{size, static_cast<uint32_t>(alignedSize)};
     ptr = reinterpret_cast<char*>(ptr) + alignedSize;
 
-    LogDebug("result: " fPtr, ptr);
+    LogTrace("result: " fPtr, ptr);
 
-    if (auto storage = GlobalStorage::GetGlobalStorage(); likely(storage))
+    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
-        auto memhawk = storage->GetMemHawk();
         auto trace =
             Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth, gl_config.UseAbslStacktraces);
         memhawk->TrackAlloc(*info, std::move(trace));
@@ -275,11 +288,11 @@ int hawk_posix_memalign(void** memptr, size_t alignment, size_t size)
         LogError("posix_memalign is not supported yet on statics initialisation");
         abort();
     }
-    LogDebug("requested: " fSzt, size);
+    LogTrace("requested: " fSzt, size);
 
     auto alignedSize = (AdditionalSize + alignment - 1) / alignment * alignment;
     const auto res = hooks::posix_memalign(memptr, alignment, size + alignedSize);
-    LogDebug("result: " fPtr, *memptr);
+    LogTrace("result: " fPtr, *memptr);
     if (res != 0)
     {
         return res;
@@ -289,9 +302,8 @@ int hawk_posix_memalign(void** memptr, size_t alignment, size_t size)
     *info = AllocInfo{size, static_cast<uint32_t>(alignedSize)};
     *memptr = reinterpret_cast<char*>(*memptr) + alignedSize;
 
-    if (auto storage = GlobalStorage::GetGlobalStorage(); likely(storage))
+    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
-        auto memhawk = storage->GetMemHawk();
         auto trace =
             Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth, gl_config.UseAbslStacktraces);
         memhawk->TrackAlloc(*info, std::move(trace));
@@ -305,7 +317,7 @@ void* hawk_calloc(size_t nm, size_t size)
     {
         return mmap_malloc(nm * size);
     }
-    LogDebug("requested: " fSzt " " fSzt, nm, size);
+    LogTrace("requested: " fSzt " " fSzt, nm, size);
 
     const size_t totalSize = nm * size + AdditionalSize;
     void* ptr = hooks::calloc(1UL, totalSize);
@@ -317,11 +329,10 @@ void* hawk_calloc(size_t nm, size_t size)
     AllocInfo* info = reinterpret_cast<AllocInfo*>(ptr);
     *info = AllocInfo{nm * size, AdditionalSize};
     ptr = reinterpret_cast<char*>(ptr) + AdditionalSize;
-    LogDebug("result: " fPtr, ptr);
+    LogTrace("result: " fPtr, ptr);
 
-    if (auto storage = GlobalStorage::GetGlobalStorage(); likely(storage))
+    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
-        auto memhawk = storage->GetMemHawk();
         auto trace =
             Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth, gl_config.UseAbslStacktraces);
         memhawk->TrackAlloc(*info, std::move(trace));
@@ -335,7 +346,7 @@ void* hawk_realloc(void* ptr, size_t size)
     {
         return mmap_realloc(ptr, size);
     }
-    LogDebug("requested: " fPtr " " fSzt, ptr, size);
+    LogTrace("requested: " fPtr " " fSzt, ptr, size);
 
     auto trace =
         Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth, gl_config.UseAbslStacktraces);
@@ -361,9 +372,8 @@ void* hawk_realloc(void* ptr, size_t size)
             return clearPtr;
         }
 
-        if (auto storage = GlobalStorage::GetGlobalStorage(); likely(storage))
+        if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
         {
-            auto memhawk = storage->GetMemHawk();
             memhawk->TrackDealloc(*info, trace);
         }
     }
@@ -376,11 +386,10 @@ void* hawk_realloc(void* ptr, size_t size)
     AllocInfo* info = reinterpret_cast<AllocInfo*>(realloced);
     *info = AllocInfo{size, AdditionalSize};
     realloced = reinterpret_cast<char*>(realloced) + AdditionalSize;
-    LogDebug("result: " fPtr, realloced);
+    LogTrace("result: " fPtr, realloced);
 
-    if (auto storage = GlobalStorage::GetGlobalStorage(); likely(storage))
+    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
-        auto memhawk = storage->GetMemHawk();
         memhawk->TrackAlloc(*info, std::move(trace));
     }
     return realloced;
@@ -418,11 +427,10 @@ void hawk_free(void* ptr)
         abort();
     }
 
-    LogDebug("requested: " fPtr, ptr);
+    LogTrace("requested: " fPtr, ptr);
 
-    if (auto storage = GlobalStorage::GetGlobalStorage(); likely(storage))
+    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
-        auto memhawk = storage->GetMemHawk();
         auto trace = Stacktrace::Unwind(MinUnwindDepth, gl_config.CollapseRecursionDepth, gl_config.UseAbslStacktraces);
         memhawk->TrackDealloc(*info, trace);
     }

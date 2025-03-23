@@ -16,6 +16,7 @@ Checks: [
   '-cppcoreguidelines-pro-bounds-pointer-arithmetic',
   '-cppcoreguidelines-rvalue-reference-param-not-moved',
   '-cppcoreguidelines-non-private-member-variables-in-classes',
+  '-cppcoreguidelines-owning-memory',
 
   '-concurrency-mt-unsafe',
 

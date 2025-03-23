@@ -18,7 +18,7 @@ MemHawk traces all memory allocations and summaries them by stack traces. It hel
 
 **Definitely.** And the difference in speed will become more noticeable as the number of cores and threads increases. Performance was tested on `Intel(R) Core(TM) i9-9900KF CPU @ 3.60GHz`.  Benchmark is located on `tests/run_benchmark.sh`.
 
-**N.B.** Jemalloc is the fastest option, but it can't unwind dwarf and perform probabilistic sampling instead of full profiling.
+**N.B.** Jemalloc is the fastest option, but it performs probabilistic sampling instead of full profiling and omits information about total allocation count on given trace.
 
 | Allocator                       | Workers | Time    |
 |---------------------------------|---------|---------|
@@ -37,6 +37,8 @@ MemHawk traces all memory allocations and summaries them by stack traces. It hel
 A C++ compiler with C++17 (or later) support.
 
 CMake 3.25 or newer.
+
+Boost: libboost-container-dev or similar package.
 
 ## Building MemHawk
 

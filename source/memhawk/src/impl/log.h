@@ -32,6 +32,12 @@ void LogPrint(const char* fmt, ...);
 #define LogInfo(format, ...) LogEx(Info, format, ##__VA_ARGS__)
 #define LogDebug(format, ...) LogEx(Debug, format, ##__VA_ARGS__)
 
+#ifdef VERBOSE_DEBUG
+#define LogTrace(format, ...) LogEx(Debug, format, ##__VA_ARGS__)
+#else
+#define LogTrace(...)
+#endif
+
 // define our own version of specifiers, perhaps they can be replaced with PRI*
 #define fU32 "%u"
 #define fU64 "%lu"
