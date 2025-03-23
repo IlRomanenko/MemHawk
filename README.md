@@ -1,18 +1,34 @@
-# MemHawk
+# MemHawk - a high performance memory profiler
 
-MemHawk is a high-performance C++ library designed for summarizing memory allocations extremely fast—without locking a global mutex. It helps you quickly identify the top-N memory allocation traces that are consuming the most memory — perfect for tracking down leaks in your application.
+MemHawk traces all memory allocations and summaries them by stack traces. It helps you quickly identify the top-N memory allocation traces that are consuming the most memory — perfect for tracking down leaks in your application.
 
 ## Features
 
-* Statically Linked & Zero External Dependencies:
-MemHawk is self-contained. It’s built for static linking, meaning you won’t have to worry about external libraries or dependency conflicts.
+* **Statically Linked & Zero External Dependencies:** MemHawk is self-contained. It’s built for static linking, meaning you won’t have to worry about external libraries or dependency conflicts.
 
-* Extremely Fast with Minimal Global Locks:
-MemHawk is designed to be incredibly efficient. Its minimal-lock design ensures that even in multi-threaded environments, the overhead is kept to a bare minimum.
+* **Supports unwinding by dwarf info and by frame pointer:** Speed can be increased for binaries built with `-fno-omit-frame-pointer`.
 
-* Top-N Trace Summaries: Instantly identify the top allocation traces by memory consumption. This focused insight makes it easier to locate and resolve memory leaks.
+* **Extremely Fast with Minimal Global Locks:** MemHawk is designed to be incredibly efficient. Its minimal-lock design ensures that even in multi-threaded environments, the overhead is kept to a bare minimum.
 
-* CMake Integration: The library is designed using modern CMake practices, making it straightforward to integrate into your existing projects.
+* **Top-N Trace Summaries:** Instantly identify the top allocation traces by memory consumption. This focused insight makes it easier to locate and resolve memory leaks.
+
+* **CMake Integration:** The library is designed using modern CMake practices, making it straightforward to integrate into your existing projects.
+
+## Is it actually fast?
+
+**Definitely.** And the difference in speed will become more noticeable as the number of cores and threads increases. Performance was tested on `Intel(R) Core(TM) i9-9900KF CPU @ 3.60GHz`.  Benchmark is located on `tests/run_benchmark.sh`.
+
+**N.B.** Jemalloc is the fastest option, but it can't unwind dwarf and perform probabilistic sampling instead of full profiling.
+
+| Allocator                       | Workers | Time    |
+|---------------------------------|---------|---------|
+| tcmalloc.so + heap profiling    | 16      | 50844ms |
+| heaptrack.so                    | 16      | 28137ms |
+| libmemhawk.so + dwarf unwinding | 16      | 2794ms  |
+| libmemhawk.so + frame unwinding | 16      | 2186ms  |
+| libmemhawk.so + frame unwinding + zero recursion collapsing | 16 | 1816ms |
+| system malloc                   | 16      | 582ms   |
+| jemalloc.so + heap sampling     | 16      | 336ms   |
 
 ## Getting Started
 
