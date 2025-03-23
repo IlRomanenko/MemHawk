@@ -1,6 +1,6 @@
 # MemHawk
 
-MemHawk is a high-performance C++ library designed for summarizing memory allocations extremely fast—without locking a global mutex. It helps you quickly identify the top-10 memory allocation traces that are consuming the most memory — perfect for tracking down leaks in your application.
+MemHawk is a high-performance C++ library designed for summarizing memory allocations extremely fast—without locking a global mutex. It helps you quickly identify the top-N memory allocation traces that are consuming the most memory — perfect for tracking down leaks in your application.
 
 ## Features
 
@@ -10,7 +10,7 @@ MemHawk is self-contained. It’s built for static linking, meaning you won’t 
 * Extremely Fast with Minimal Global Locks:
 MemHawk is designed to be incredibly efficient. Its minimal-lock design ensures that even in multi-threaded environments, the overhead is kept to a bare minimum.
 
-* Top-10 Trace Summaries: Instantly identify the top-10 allocation traces by memory consumption. This focused insight makes it easier to locate and resolve memory leaks.
+* Top-N Trace Summaries: Instantly identify the top allocation traces by memory consumption. This focused insight makes it easier to locate and resolve memory leaks.
 
 * CMake Integration: The library is designed using modern CMake practices, making it straightforward to integrate into your existing projects.
 
@@ -39,6 +39,15 @@ make -j$(nproc)
 
 ```(bash)
 LD_PRELOAD=/path/to/libmemhawk.so ./your_application
+```
+
+### Add as dependency via patchelf
+
+With patchelf memhawk can be injected even into binaries with suid/guid.
+
+```(bash)
+patchelf --add-needed /path/to/libmemhawk.so ./your_application
+./your_application <your app args>
 ```
 
 ### As a Linked Library
