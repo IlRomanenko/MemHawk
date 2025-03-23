@@ -17,6 +17,14 @@ function(memhawk_build target)
     copy_to_devbuild(${target})
 endfunction()
 
+function(memhawk_devbuild_file target filename)
+    if(DEFINED DIST_DEVBUILD_DIR)
+        add_custom_command(TARGET ${target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy ${filename} ${DIST_DEVBUILD_DIR}
+            COMMENT "copying ${filename} after build")
+    endif()
+endfunction()
+
 
 set(EMBEDED_PROPERTIES
     INCLUDE_DIRECTORIES
