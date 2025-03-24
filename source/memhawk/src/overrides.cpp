@@ -1,7 +1,10 @@
 #include "overrides.h"
 
 #include "hawk_malloc.h"
+#include "impl/macros.h"
 #include "overrides-libc.h" // IWYU pragma: export
+
+#include <new>
 
 extern "C" {
 
@@ -52,7 +55,12 @@ size_t hawk_malloc_usable_size(void* ptr)
 
 void* HawkInternalNew(size_t size) noexcept(false)
 {
-    return memhawk::hawk_malloc(size);
+    auto ptr = memhawk::hawk_malloc(size);
+    if (unlikely(!ptr))
+    {
+        throw std::bad_alloc{};
+    }
+    return ptr;
 }
 
 void HawkInternalDelete(void* p) noexcept
@@ -67,7 +75,13 @@ void HawkInternalDeleteSized(void* p, size_t /*size*/) noexcept
 
 void* HawkInternalNewArray(size_t size) noexcept(false)
 {
-    return memhawk::hawk_malloc(size);
+    auto ptr = memhawk::hawk_malloc(size);
+    ;
+    if (unlikely(!ptr))
+    {
+        throw std::bad_alloc{};
+    }
+    return ptr;
 }
 
 void HawkInternalDeleteArray(void* p) noexcept
@@ -102,7 +116,12 @@ void HawkInternalDeleteArrayNothrow(void* p, const std::nothrow_t& /*nt*/) noexc
 
 void* HawkInternalNewAligned(size_t size, std::align_val_t alignment) noexcept(false)
 {
-    return memhawk::hawk_aligned_alloc(static_cast<size_t>(alignment), size);
+    auto ptr = memhawk::hawk_aligned_alloc(static_cast<size_t>(alignment), size);
+    if (unlikely(!ptr))
+    {
+        throw std::bad_alloc{};
+    }
+    return ptr;
 }
 
 void* HawkInternalNewAlignedNothrow(size_t size, std::align_val_t alignment, const std::nothrow_t&) noexcept
@@ -127,7 +146,12 @@ void HawkInternalDeleteSizedAligned(void* p, size_t /*size*/, std::align_val_t /
 
 void* HawkInternalNewArrayAligned(size_t size, std::align_val_t alignment) noexcept(false)
 {
-    return memhawk::hawk_aligned_alloc(static_cast<size_t>(alignment), size);
+    auto ptr = memhawk::hawk_aligned_alloc(static_cast<size_t>(alignment), size);
+    if (unlikely(!ptr))
+    {
+        throw std::bad_alloc{};
+    }
+    return ptr;
 }
 
 void* HawkInternalNewArrayAlignedNothrow(size_t size, std::align_val_t alignment, const std::nothrow_t&) noexcept
