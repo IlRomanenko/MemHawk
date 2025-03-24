@@ -53,5 +53,9 @@ endif()
 find_package(Threads REQUIRED)
 find_package(Boost 1.70.0 REQUIRED NO_MODULE COMPONENTS container)
 
+# set flags for external dependencies
+set(CFLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+set(CXXFLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+
 include(libunwind.cmake)
 include(xxhash.cmake)

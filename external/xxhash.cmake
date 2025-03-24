@@ -7,8 +7,6 @@ set(XXHASH_INCLUDE_DIR ${XXHASH_INSTALL_DIR}/include)
 
 set(XXHASH_INSTALL_OPTIONS)
 list(APPEND XXHASH_INSTALL_OPTIONS "PREFIX=${XXHASH_INSTALL_DIR}")
-set(FLAGS "-O3 -fno-omit-frame-pointer")
-
 
 message(NOTICE "Enabling `xxhash` dependency")
 ExternalProject_Add(
@@ -19,8 +17,9 @@ ExternalProject_Add(
     BUILD_COMMAND make lib
     INSTALL_COMMAND 
         ${CMAKE_COMMAND} -E env
-        CC=${CMAKE_C_COMPILER} CXX=${cmake_CXX_COMPILER} CFLAGS=${FLAGS} CXXFLAGS=${FLAGS} 
-        PREFIX=${XXHASH_INSTALL_DIR} make install_libxxhash.a install_libxxhash.includes
+            CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
+            CFLAGS=${CFLAGS} CXXFLAGS=${CXXFLAGS}
+            PREFIX=${XXHASH_INSTALL_DIR} make install_libxxhash.a install_libxxhash.includes
     BUILD_IN_SOURCE ON
     UPDATE_DISCONNECTED 1
     INSTALL_BYPRODUCTS

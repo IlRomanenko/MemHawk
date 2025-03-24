@@ -32,8 +32,6 @@ else()
 endif()
 
 list(APPEND LIBUNWIND_OPTIONS "--prefix=${UNWIND_INSTALL_DIR}")
-set(FLAGS "-O3 -fno-omit-frame-pointer")
-
 
 message(NOTICE "Enabling `libunwind` dependency")
 ExternalProject_Add(
@@ -43,7 +41,8 @@ ExternalProject_Add(
     CONFIGURE_COMMAND 
         autoreconf -i && 
         ${CMAKE_COMMAND} -E env 
-            CC=${CMAKE_C_COMPILER} CXX=${cmake_CXX_COMPILER} CFLAGS=${FLAGS} CXXFLAGS=${FLAGS} 
+            CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
+            CFLAGS=${CFLAGS} CXXFLAGS=${CXXFLAGS}
             ./configure ${LIBUNWIND_OPTIONS}
     BUILD_COMMAND make
     INSTALL_COMMAND make install

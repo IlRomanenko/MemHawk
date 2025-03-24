@@ -76,7 +76,6 @@ void HawkInternalDeleteSized(void* p, size_t /*size*/) noexcept
 void* HawkInternalNewArray(size_t size) noexcept(false)
 {
     auto ptr = memhawk::hawk_malloc(size);
-    ;
     if (unlikely(!ptr))
     {
         throw std::bad_alloc{};

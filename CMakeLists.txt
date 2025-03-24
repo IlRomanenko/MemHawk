@@ -11,13 +11,19 @@ option(MEMHAWK_LZMA "Enable lzma support in libunwind" OFF)
 option(MEMHAWK_MSABI "Enable ms-abi support in libunwind" OFF)
 option(MEMHAWK_THINLTO "Clang-specific link time optimization" OFF)
 option(MEMHAWK_USE_CLANG_TIDY "Enable clang-tidy build" OFF)
+option(MEMHAWK_OPT_TLS "Enable optimized tls model" ON)
 
 set(CMAKE_INSTALL_RPATH "$ORIGIN")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 set(CMAKE_BUILD_RPATH_USE_ORIGIN OFF)
 
-set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -fPIC -pthread -fno-omit-frame-pointer")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -pthread -fno-omit-frame-pointer -std=c++20")
+set(MEMHAWK_COMMON_FLAGS "-fPIC -pthread -fno-omit-frame-pointer -fvisibility=hidden -funwind-tables")
+# enabled by default
+if(MEMHAWK_OPT_TLS)
+    set(MEMHAWK_COMMON_FLAGS "${MEMHAWK_COMMON_FLAGS} -ftls-model=initial-exec")
+endif()
+set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   ${MEMHAWK_COMMON_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${MEMHAWK_COMMON_FLAGS} -std=c++20")
 
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
 set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3")

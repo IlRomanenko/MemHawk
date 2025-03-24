@@ -26,6 +26,6 @@ COPY . .
 # Create a build directory and compile project
 RUN mkdir build && \
     cd build && \
-    cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_BUILD_TYPE=MinSizeRel -DCMAKE_INSTALL_PREFIX=/artifacts .. && \
+    cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_BUILD_TYPE=RelWithDebInfo -DMEMHAWK_THINLTO=true -DCMAKE_INSTALL_PREFIX=/artifacts .. && \
     make -j $(nproc) && \
     make install
