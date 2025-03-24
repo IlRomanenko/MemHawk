@@ -7,11 +7,12 @@ namespace memhawk
 
 enum class LogLevel : uint8_t
 {
-    Debug = 0,
-    Info = 1,
-    Warning = 2,
-    Error = 3,
-    Off = 4
+    Trace = 0,
+    Debug = 1,
+    Info = 2,
+    Warning = 3,
+    Error = 4,
+    Off = 5
 };
 
 void LogInit();
@@ -33,7 +34,7 @@ void LogPrint(const char* fmt, ...);
 #define LogDebug(format, ...) LogEx(Debug, format, ##__VA_ARGS__)
 
 #ifdef VERBOSE_DEBUG
-#define LogTrace(format, ...) LogEx(Debug, format, ##__VA_ARGS__)
+#define LogTrace(format, ...) LogEx(Trace, format, ##__VA_ARGS__)
 #else
 #define LogTrace(...)
 #endif
