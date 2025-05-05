@@ -13,7 +13,6 @@
 #include <absl/base/internal/direct_mmap.h>
 #include <sys/mman.h>
 
-#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -82,9 +81,9 @@ HOOK(aligned_alloc, HookType::Optional);
 #pragma GCC diagnostic pop
 #undef HOOK
 
-ABSL_CONST_INIT bool gl_initialised = false;
-ABSL_CONST_INIT bool gl_memhawkReady = false;
-ABSL_CONST_INIT MemHawk* gl_memhawk = nullptr;
+static ABSL_CONST_INIT bool gl_initialised = false;
+static ABSL_CONST_INIT bool gl_memhawkReady = false;
+static ABSL_CONST_INIT MemHawk* gl_memhawk = nullptr;
 
 MemHawk* GetMemHawk()
 {
@@ -211,33 +210,6 @@ void* hawk_malloc(size_t size)
     auto totalSize = size + AdditionalSize;
     void* ptr = hooks::malloc(totalSize);
 
-    AllocInfo* info = reinterpret_cast<AllocInfo*>(ptr);
-    *info = AllocInfo{size, AdditionalSize};
-    ptr = reinterpret_cast<char*>(ptr) + AdditionalSize;
-
-    LogTrace("result: " fPtr, ptr);
-
-    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
-    {
-        auto trace =
-            Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth, gl_config.UseAbslStacktraces);
-        memhawk->TrackAlloc(*info, std::move(trace));
-    }
-    return ptr;
-}
-
-void* hawk_valloc(size_t size)
-{
-    if (unlikely(!hooks::gl_initialised))
-    {
-        // will be printed into stderr
-        LogError("valloc is not supported yet on statics initialisation");
-        abort();
-    }
-    LogTrace("requested: " fSzt, size);
-
-    auto totalSize = size + AdditionalSize;
-    void* ptr = hooks::valloc(totalSize);
     AllocInfo* info = reinterpret_cast<AllocInfo*>(ptr);
     *info = AllocInfo{size, AdditionalSize};
     ptr = reinterpret_cast<char*>(ptr) + AdditionalSize;
@@ -395,10 +367,47 @@ void* hawk_realloc(void* ptr, size_t size)
     return realloced;
 }
 
-void* hawk_pvalloc(size_t /*size*/)
+void* hawk_valloc(size_t size)
 {
-    LogError("pvalloc is deprecated and wasn't implemented");
-    abort();
+    if (unlikely(!hooks::gl_initialised))
+    {
+        // will be printed into stderr
+        LogError("valloc is not supported yet on statics initialisation");
+        abort();
+    }
+    LogTrace("requested: " fSzt, size);
+
+    const auto pageSize = getpagesize();
+    if (pageSize <= 0)
+    {
+        // highly unlikely
+        LogError("incorrect page size from getpagesize(): " fI32, pageSize);
+        abort();
+    }
+    return hawk_aligned_alloc(static_cast<size_t>(pageSize), size);
+}
+
+void* hawk_pvalloc(size_t size)
+{
+    if (unlikely(!hooks::gl_initialised))
+    {
+        // will be printed into stderr
+        LogError("pvalloc is not supported yet on statics initialisation");
+        abort();
+    }
+    LogTrace("requested: " fSzt, size);
+
+    const auto pageSize = getpagesize();
+    if (pageSize <= 0)
+    {
+        // highly unlikely
+        LogError("incorrect page size from getpagesize(): " fI32, pageSize);
+        abort();
+    }
+    const auto szPageSize = static_cast<size_t>(pageSize);
+    // rounds the size of the allocation up to the next multiple of the system page size
+    size = (size + szPageSize - 1) / szPageSize * szPageSize;
+    return hawk_aligned_alloc(szPageSize, size);
 }
 
 void hawk_free(void* ptr)
