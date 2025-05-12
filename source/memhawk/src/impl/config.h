@@ -9,7 +9,7 @@
 namespace memhawk
 {
 
-constexpr size_t MinUnwindDepth = 8;
+constexpr size_t MinUnwindDepth = 3;
 constexpr size_t MaxUnwindDepth = 64;
 
 constexpr size_t MinPostponedSize = 64;

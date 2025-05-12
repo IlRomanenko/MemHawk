@@ -17,7 +17,6 @@ namespace memhawk
 
 size_t CollapseRecursionNaive(absl::Span<void*> data, size_t depth)
 {
-    const size_t begin = 0;
     size_t left = 0;
     size_t cur = left + 1;
     size_t end = data.size();
@@ -30,10 +29,12 @@ size_t CollapseRecursionNaive(absl::Span<void*> data, size_t depth)
         for (size_t spanSize = 1; spanSize <= depth && cur + spanSize <= end; spanSize++)
         {
             bool matched = true;
-            if (begin + spanSize > left + 1)
+            if (spanSize > left + 1)
             {
                 break;
             }
+
+            #pragma unroll(2) // unroll few steps
             for (size_t p = 0; p < spanSize; p++)
             {
                 if (data[cur + p] != data[left - spanSize + p + 1])

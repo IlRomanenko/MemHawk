@@ -51,18 +51,15 @@ void BM_CollapseRecursionOpt(benchmark::State& state)
 // clang-format off
 
 BENCHMARK(BM_CollapseRecursionNaive)
-    ->DenseRange(0, 4, 2)
-    // ->Arg(8)
+    ->DenseRange(0, 6, 2)
     ->UseRealTime();
 
 BENCHMARK(BM_CollapseRecursion)
-    ->DenseRange(0, 4, 2)
-    // ->Arg(8)
+    ->DenseRange(0, 6, 2)
     ->UseRealTime();
 
 BENCHMARK(BM_CollapseRecursionOpt)
-    ->DenseRange(0, 4, 2)
-    // ->Arg(8)
+    ->DenseRange(0, 6, 2)
     ->UseRealTime();
 
 // clang-format on

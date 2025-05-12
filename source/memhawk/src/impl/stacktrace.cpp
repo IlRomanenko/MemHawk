@@ -91,7 +91,7 @@ inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t collapseDepth, 
     m_size = static_cast<size_t>(resultSize);
     m_skip = skip;
     // remove duplicates -> not interested in recursion
-    const auto newSize = CollapseRecursion(GetTrace(), collapseDepth);
+    const auto newSize = CollapseRecursionNaive(GetTrace(), collapseDepth);
     ShrinkBySize(newSize);
 }
 
