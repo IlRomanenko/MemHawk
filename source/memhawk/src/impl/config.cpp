@@ -35,7 +35,6 @@ constexpr const char* DumpAllExternalStacktracesName = "tracker_external_dump";
 constexpr const char* UseAbslStacktracesName = "absl_stacktrace";
 constexpr const char* PrognameRegexName = "regex";
 
-
 template <typename... Args>
 void PrintError(fmt::format_string<Args...> fmt, Args... args)
 {

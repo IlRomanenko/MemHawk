@@ -25,8 +25,8 @@
 #include <functional>
 #include <future>
 #include <memory>
-#include <thread>
 #include <mutex>
+#include <thread>
 
 namespace memhawk
 {
@@ -36,11 +36,10 @@ namespace bmi = boost::multi_index;
 class MemHawk
 {
 public:
-    MemHawk();
+    explicit MemHawk(Config cfg);
     ~MemHawk();
 
     void PostponedConstruct();
-    void StartTrackingWorker();
 
     void TrackAlloc(AllocInfo& info, Stacktrace&& trace);
     void TrackDealloc(AllocInfo& info, const Stacktrace& trace);
@@ -129,6 +128,8 @@ private:
     void SetUpThreadFinishPromise(ThreadTracker* tracker);
 
 private:
+    Config m_cfg;
+
     // Inner worker
     std::mutex m_mt;
     std::condition_variable m_cv;

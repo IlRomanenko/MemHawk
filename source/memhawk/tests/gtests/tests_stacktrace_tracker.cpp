@@ -16,7 +16,6 @@ namespace memhawk::bit_packing
 class StacktraceTrackerFixture : public testing::Test
 {
 public:
-
     void SetUp() override
     {
         m_tracker.PostponedConstruct();
@@ -30,7 +29,6 @@ public:
     static absl::Span<const uint64_t> ConvertStacktrace(const Stacktrace& stacktrace)
     {
         const auto trace = stacktrace.GetTrace();
-        ;
         return absl::MakeConstSpan(reinterpret_cast<const uint64_t*>(trace.data()), trace.size());
     }
 

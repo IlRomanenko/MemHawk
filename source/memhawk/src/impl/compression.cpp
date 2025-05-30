@@ -225,7 +225,7 @@ size_t Decompress(absl::Span<const uint32_t> in, uint64_t* out)
         diff = (static_cast<uint64_t>(high) << 32) | low;
 
         cur = prev + diff;
-        
+
         out[i] = cur;
         prev = cur;
     }

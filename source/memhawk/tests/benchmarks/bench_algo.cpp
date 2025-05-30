@@ -3,6 +3,7 @@
 
 #include <absl/types/span.h>
 #include <benchmark/benchmark.h>
+
 #include <cstdint>
 #include <cstring>
 #include <string_view>
@@ -17,7 +18,7 @@ void SetUpData(std::string_view input, void** output)
 
 const std::string_view TestData = "abacabacffdghjkqweqwelabdfabdfqlabacabacffdghjkqweqwelabdfabdfq";
 
-void TestCollapseRecursion(benchmark::State& state, size_t(*func)(absl::Span<void*>, size_t))
+void TestCollapseRecursion(benchmark::State& state, size_t (*func)(absl::Span<void*>, size_t))
 {
     alignas(64) void* testData[memhawk::MaxUnwindDepth];
     alignas(64) void* input[memhawk::MaxUnwindDepth];

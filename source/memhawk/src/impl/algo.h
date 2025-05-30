@@ -17,6 +17,6 @@ size_t CollapseRecursionOpt(absl::Span<void*> data, size_t depth);
 
 #ifdef COMPILER_SUPPORTS_AVX512
 size_t CollapseRecursionAvx(absl::Span<void*> data, size_t depth);
-#endif 
+#endif
 
 } // namespace memhawk

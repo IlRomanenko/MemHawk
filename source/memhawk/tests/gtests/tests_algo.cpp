@@ -47,7 +47,8 @@ protected:
 INSTANTIATE_TEST_SUITE_P(CollapseRecursion, CollapseRecursionFixture,
                          testing::Values(CollapseRecursionNaive, CollapseRecursion, CollapseRecursionOpt
 #ifdef COMPILER_SUPPORTS_AVX512
-                                         ,CollapseRecursionAvx
+                                         ,
+                                         CollapseRecursionAvx
 #endif
                                          ));
 

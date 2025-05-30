@@ -18,7 +18,6 @@
 #include <fmt/format.h>
 
 #include <chrono>
-#include <csignal>
 #include <cstdint>
 #include <cstring>
 #include <future>
@@ -32,11 +31,14 @@ namespace memhawk
 ABSL_CONST_INIT thread_local ThreadTracker* gtl_tracker = nullptr;
 ABSL_CONST_INIT thread_local void* gtl_retPtrs[8] = {
     nullptr,
-}; // only first element
+}; // only first element is initialized
 
-MemHawk::MemHawk()
-    : m_btTracker(gl_config.DumpAllExternalStacktraces), m_postponedCapacity(gl_config.MaxPostponed),
-      m_postponed(gl_config.MaxPostponed), m_innerBtTracker(gl_config.DumpAllInnerStacktraces)
+MemHawk::MemHawk(Config cfg)
+    : m_cfg(std::move(cfg))
+    , m_btTracker(m_cfg.DumpAllExternalStacktraces)
+    , m_postponedCapacity(m_cfg.MaxPostponed)
+    , m_postponed(m_cfg.MaxPostponed)
+    , m_innerBtTracker(m_cfg.DumpAllInnerStacktraces)
 {
     LogInfo("Start MemHawk()");
 }
@@ -93,12 +95,12 @@ void MemHawk::PostponedConstruct()
     const RecursionGuard<AllocTag> guard;
     {
         const RecursionGuard<InnerAllocTag> innerGuard;
-        m_innerTracker = std::make_unique<ThreadTracker>(m_thTrackers.size(), gl_config.LruStackSize, m_innerBtTracker);
+        m_innerTracker = std::make_unique<ThreadTracker>(m_thTrackers.size(), m_cfg.LruStackSize, m_innerBtTracker);
     }
     m_btTracker.PostponedConstruct();
     m_workerData = std::make_unique<WorkerData>();
     RegisterThread();
-    if (gl_config.StartTrackingWorker)
+    if (m_cfg.StartTrackingWorker)
     {
         m_worker = std::thread([this]() { TrackingWorker(); });
     }
@@ -139,8 +141,7 @@ void MemHawk::RegisterThread()
         SetUpThreadFinishPromise(gtl_tracker);
         return;
     }
-    m_thTrackers.emplace_back(
-        std::make_unique<ThreadTracker>(m_thTrackers.size(), gl_config.LruStackSize, m_btTracker));
+    m_thTrackers.emplace_back(std::make_unique<ThreadTracker>(m_thTrackers.size(), m_cfg.LruStackSize, m_btTracker));
     gtl_tracker = m_thTrackers.back().get();
     SetUpThreadFinishPromise(gtl_tracker);
 }
@@ -193,7 +194,7 @@ void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
         if (innerGuard)
         {
             ProcessPostponed();
-            
+
             const auto trackerLock = m_innerTracker->AcquireLock();
             m_innerTracker->TrackAlloc(info);
         }
@@ -304,15 +305,15 @@ void MemHawk::TrackingWorker()
     LogInfo("Tracking worker started");
 
     m_workerData->summaryFile =
-        std::ofstream(GetProcessLogName("summary", gl_config), std::ios_base::out | std::ios_base::trunc);
+        std::ofstream(GetProcessLogName("summary", m_cfg), std::ios_base::out | std::ios_base::trunc);
     m_workerData->stacktracesFile =
-        std::ofstream(GetProcessLogName("stacktraces", gl_config), std::ios_base::out | std::ios_base::trunc);
+        std::ofstream(GetProcessLogName("stacktraces", m_cfg), std::ios_base::out | std::ios_base::trunc);
 
     while (!m_stopped)
     {
         {
             std::unique_lock lock(m_mt);
-            m_cv.wait_for(lock, std::chrono::milliseconds{gl_config.TrackerDumpingPeriodMs},
+            m_cv.wait_for(lock, std::chrono::milliseconds{m_cfg.TrackerDumpingPeriodMs},
                           [this]() { return !!m_stopped; });
         }
         WorkerUpdateData();
@@ -379,11 +380,11 @@ void MemHawk::WorkerPrintData()
     absl::flat_hash_set<uint32_t> newStacktraces;
 
     const auto& bySizeIndex = m_workerData->index.get<WorkerData::ByTotalSize>();
-    size_t topElementsCount = std::min(gl_config.TrackerBySizeCount, bySizeIndex.size());
+    size_t topElementsCount = std::min(m_cfg.TrackerBySizeCount, bySizeIndex.size());
     const auto bySizeRange = boost::make_iterator_range_n(bySizeIndex.begin(), topElementsCount);
 
     const auto& byCountIndex = m_workerData->index.get<WorkerData::ByTotalCount>();
-    topElementsCount = std::min(gl_config.TrackerByTotalCount, byCountIndex.size());
+    topElementsCount = std::min(m_cfg.TrackerByTotalCount, byCountIndex.size());
     const auto byCountRange = boost::make_iterator_range_n(byCountIndex.begin(), topElementsCount);
 
     std::stringstream str;

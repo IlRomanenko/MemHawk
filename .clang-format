@@ -51,6 +51,10 @@ BraceWrapping:
     IndentBraces: false
   
 AlwaysBreakTemplateDeclarations: Yes
-BreakConstructorInitializers: BeforeColon
-BreakBeforeInheritanceComma: true
 BreakTemplateDeclarations: Yes
+
+BreakConstructorInitializers: BeforeComma
+BreakInheritanceList: BeforeComma
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+ConstructorInitializerIndentWidth: 4
+BreakBeforeInheritanceComma: true

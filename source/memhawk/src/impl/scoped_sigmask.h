@@ -20,8 +20,8 @@ public:
         Setmask(SIG_SETMASK, &m_oldMask, nullptr);
     }
 
-    ScopedSignalBlocker(const ScopedSignalBlocker &) = delete;
-    ScopedSignalBlocker &operator=(const ScopedSignalBlocker &) = delete;
+    ScopedSignalBlocker(const ScopedSignalBlocker&) = delete;
+    ScopedSignalBlocker& operator=(const ScopedSignalBlocker&) = delete;
 
 private:
     static void Setmask(int how, sigset_t* set, sigset_t* old)

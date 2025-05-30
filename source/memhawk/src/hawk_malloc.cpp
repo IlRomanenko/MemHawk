@@ -132,7 +132,7 @@ __attribute__((__constructor__)) void init_memhawk()
         Stacktrace::Setup();
 
         LogInfo("[" fI32 "]", getpid());
-        gl_memhawk = new MemHawk();
+        gl_memhawk = new MemHawk(gl_config);
         gl_memhawkReady = true;
 
         // after that can save traces as postponed into memhawk
@@ -166,7 +166,6 @@ static_assert(alignof(max_align_t) == sizeof(AllocInfo));
 // Allocate memory via mmap before memhawk is initialised
 void* mmap_malloc(size_t size)
 {
-
     auto totalSize = size + AdditionalSize;
     auto ptr =
         absl::base_internal::DirectMmap(nullptr, totalSize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
