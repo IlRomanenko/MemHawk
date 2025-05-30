@@ -9,63 +9,72 @@ namespace memhawk
 {
 
 
-absl::base_internal::SpinLockHolder ThreadTracker::AcquireLock()
+ThreadTracker::LockedTracker ThreadTracker::LockTracker()
 {
-    return absl::base_internal::SpinLockHolder(&mt);
+    return ThreadTracker::LockedTracker(*this);
 }
 
-void ThreadTracker::SaveTraceId(AllocInfo& info, Stacktrace&& trace)
+void ThreadTracker::LockedTracker::PrintTracker()
 {
-    trace.Compress(localCompressed);
-    auto traceId = lruStacktraces.Touch(localCompressed);
+    LogInfo("TrackerId: " fU32 ", allocSummaries: (" fSzt "," fSzt "), lru: " fSzt, m_tracker.m_trackerId,
+            m_tracker.m_allocSummaries.size(), m_tracker.m_allocSummaries.capacity(),
+            m_tracker.m_lruStacktraces.Size());
+}
+
+void ThreadTracker::LockedTracker::SaveTraceId(AllocInfo& info, Stacktrace&& trace)
+{
+    trace.Compress(m_tracker.m_localCompressed);
+    auto traceId = m_tracker.m_lruStacktraces.Touch(m_tracker.m_localCompressed);
     if (!traceId)
     {
-        traceId = btTracker.InsertStacktrace(std::move(trace));
-        auto evicted = lruStacktraces.Insert(std::move(localCompressed), *traceId);
+        traceId = m_tracker.m_btTracker.InsertStacktrace(std::move(trace));
+        auto evicted = m_tracker.m_lruStacktraces.Insert(std::move(m_tracker.m_localCompressed), *traceId);
         if (evicted.has_value())
         {
-            localCompressed = std::move(evicted).value();
+            m_tracker.m_localCompressed = std::move(evicted).value();
         }
         else
         {
-            localCompressed = {};
+            m_tracker.m_localCompressed = {};
         }
     }
     info.traceId = *traceId;
 }
 
-void ThreadTracker::TrackAlloc(const AllocInfo& info)
+void ThreadTracker::LockedTracker::TrackAlloc(const AllocInfo& info)
 {
-    totalAllocs++;
+    m_tracker.m_totalAllocs++;
 
-    auto summaryIt = allocSummaries.find(info.traceId);
-    if (summaryIt == allocSummaries.end())
+    auto summaryIt = m_tracker.m_allocSummaries.find(info.traceId);
+    if (summaryIt == m_tracker.m_allocSummaries.end())
     {
-        summaryIt = allocSummaries.insert({info.traceId, AllocSummary{}}).first;
+        summaryIt = m_tracker.m_allocSummaries.insert({info.traceId, AllocSummary{}}).first;
     }
     auto& stats = summaryIt->second;
     stats += info;
-    total += info;
+    m_tracker.m_total += info;
 }
 
-void ThreadTracker::TrackDealloc(const AllocInfo& info)
+void ThreadTracker::LockedTracker::TrackDealloc(const AllocInfo& info)
 {
-    totalDeallocs++;
+    m_tracker.m_totalDeallocs++;
 
-    auto summaryIt = allocSummaries.find(info.traceId);
-    if (summaryIt == allocSummaries.end())
+    auto summaryIt = m_tracker.m_allocSummaries.find(info.traceId);
+    if (summaryIt == m_tracker.m_allocSummaries.end())
     {
-        summaryIt = allocSummaries.insert({info.traceId, AllocSummary{}}).first;
+        summaryIt = m_tracker.m_allocSummaries.insert({info.traceId, AllocSummary{}}).first;
     }
     auto& stats = summaryIt->second;
     stats -= info;
-    total -= info;
+    m_tracker.m_total -= info;
 }
 
-void ThreadTracker::Clear()
+void ThreadTracker::LockedTracker::ConsumeDiff(SummariesMap& summaries, AllocSummary& total)
 {
-    // allocSummaries.erase(allocSummaries.begin(), allocSummaries.end());
-    allocSummaries.clear();
+    m_tracker.m_allocSummaries.swap(summaries);
+    m_tracker.m_allocSummaries.erase(m_tracker.m_allocSummaries.begin(), m_tracker.m_allocSummaries.end());
+    total += m_tracker.m_total;
+    m_tracker.m_total = {};
 }
 
 } // namespace memhawk

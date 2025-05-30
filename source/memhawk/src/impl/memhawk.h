@@ -57,10 +57,11 @@ private:
 
         struct IndexValue
         {
+            bool changed{};
             uint32_t traceId{};
             mutable AllocSummary summary;
 
-            explicit IndexValue(uint32_t id) : traceId{id}
+            explicit IndexValue(uint32_t id) : changed{true}, traceId{id}
             {
             }
 
@@ -79,9 +80,15 @@ private:
         struct ByTraceId{};
         struct ByTotalSize{};
         struct ByTotalCount{};
+        struct ByChangedFlag{};
         bmi::multi_index_container<
             IndexValue,
             bmi::indexed_by<
+                bmi::ordered_non_unique<
+                    bmi::tag<ByChangedFlag>,
+                    bmi::member<IndexValue, bool, &IndexValue::changed>,
+                    std::greater<>
+                >,
                 bmi::hashed_unique<
                     bmi::tag<ByTraceId>,
                     bmi::member<IndexValue, uint32_t, &IndexValue::traceId>
@@ -116,7 +123,7 @@ private:
     void TrackingWorker();
     void WorkerUpdateData();
     void WorkerPrintData();
-    void WorkerAccountThreadTracker(ThreadTracker& tracker);
+    void WorkerAccountThreadTracker(ThreadTracker* tracker);
 
     // Postponed allocs handlers
     void PostponeAlloc(const AllocInfo& info);
@@ -125,7 +132,7 @@ private:
 
     // Threads registration
     void RegisterThread();
-    void SetUpThreadFinishPromise(ThreadTracker* tracker);
+    void SetUpThreadFinishPromise(uint32_t trackerId);
 
 private:
     Config m_cfg;

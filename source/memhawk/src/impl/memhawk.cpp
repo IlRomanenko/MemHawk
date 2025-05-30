@@ -43,12 +43,6 @@ MemHawk::MemHawk(Config cfg)
     LogInfo("Start MemHawk()");
 }
 
-void PrintTracker(ThreadTracker* tracker)
-{
-    LogInfo("TrackerId: " fU32 ", allocSummaries: (" fSzt "," fSzt "), lru: " fSzt, tracker->trackerId,
-            tracker->allocSummaries.size(), tracker->allocSummaries.capacity(), tracker->lruStacktraces.Size());
-}
-
 MemHawk::~MemHawk()
 {
     const RecursionGuard<AllocTag> guard;
@@ -69,10 +63,10 @@ MemHawk::~MemHawk()
 
     for (const auto& tracker : m_thTrackers)
     {
-        PrintTracker(tracker.get());
+        tracker->LockTracker().PrintTracker();
     }
     LogInfo("InnerTracker");
-    PrintTracker(m_innerTracker.get());
+    m_innerTracker->LockTracker().PrintTracker();
     LogInfo("WorkerData.index");
     for (const auto& elem : m_workerData->index)
     {
@@ -135,21 +129,22 @@ void MemHawk::RegisterThread()
     }
     if (!m_finishedTrackers.empty())
     {
-        auto trackerId = m_finishedTrackers.back();
+        const auto trackerId = m_finishedTrackers.back();
         m_finishedTrackers.pop_back();
         gtl_tracker = m_thTrackers[trackerId].get();
-        SetUpThreadFinishPromise(gtl_tracker);
+        SetUpThreadFinishPromise(trackerId);
         return;
     }
-    m_thTrackers.emplace_back(std::make_unique<ThreadTracker>(m_thTrackers.size(), m_cfg.LruStackSize, m_btTracker));
+    const auto trackerId = m_thTrackers.size();
+    m_thTrackers.emplace_back(std::make_unique<ThreadTracker>(trackerId, m_cfg.LruStackSize, m_btTracker));
     gtl_tracker = m_thTrackers.back().get();
-    SetUpThreadFinishPromise(gtl_tracker);
+    SetUpThreadFinishPromise(trackerId);
 }
 
-void MemHawk::SetUpThreadFinishPromise(ThreadTracker* tracker)
+void MemHawk::SetUpThreadFinishPromise(uint32_t trackerId)
 {
     std::promise<uint32_t> exitPromise;
-    exitPromise.set_value_at_thread_exit(tracker->trackerId);
+    exitPromise.set_value_at_thread_exit(trackerId);
     m_finishPromises.push_back(exitPromise.get_future());
 }
 
@@ -172,9 +167,9 @@ void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
         {
             RegisterThread();
         }
-        const auto trackerLock = gtl_tracker->AcquireLock();
-        gtl_tracker->SaveTraceId(info, std::move(trace));
-        gtl_tracker->TrackAlloc(info);
+        auto lockedTracker = gtl_tracker->LockTracker();
+        lockedTracker.SaveTraceId(info, std::move(trace));
+        lockedTracker.TrackAlloc(info);
     }
     else
     {
@@ -195,8 +190,8 @@ void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
         {
             ProcessPostponed();
 
-            const auto trackerLock = m_innerTracker->AcquireLock();
-            m_innerTracker->TrackAlloc(info);
+            auto lockedTracker = m_innerTracker->LockTracker();
+            lockedTracker.TrackAlloc(info);
         }
         else
         {
@@ -224,8 +219,8 @@ void MemHawk::TrackDealloc(AllocInfo& info, const Stacktrace& trace)
         {
             RegisterThread();
         }
-        const auto trackerLock = gtl_tracker->AcquireLock();
-        gtl_tracker->TrackDealloc(info);
+        auto lockedTracker = gtl_tracker->LockTracker();
+        lockedTracker.TrackDealloc(info);
     }
     else
     {
@@ -234,8 +229,8 @@ void MemHawk::TrackDealloc(AllocInfo& info, const Stacktrace& trace)
         if (innerGuard)
         {
             ProcessPostponed();
-            const auto trackerLock = m_innerTracker->AcquireLock();
-            m_innerTracker->TrackDealloc(info);
+            auto lockedTracker = m_innerTracker->LockTracker();
+            lockedTracker.TrackDealloc(info);
         }
         else
         {
@@ -260,14 +255,14 @@ void MemHawk::ProcessPostponed()
         }
         LogDebug("processing: [size: " fU32 ", op: " fI32 "]", delayed.info.size, static_cast<int>(delayed.op));
 
-        const auto trackerLock = m_innerTracker->AcquireLock();
+        auto lockedTracker = m_innerTracker->LockTracker();
         if (delayed.op == Postponed::Operation::Alloc)
         {
-            m_innerTracker->TrackAlloc(delayed.info);
+            lockedTracker.TrackAlloc(delayed.info);
         }
         else
         {
-            m_innerTracker->TrackDealloc(delayed.info);
+            lockedTracker.TrackDealloc(delayed.info);
         }
     } while (true);
 }
@@ -332,33 +327,32 @@ void MemHawk::WorkerUpdateData()
 
     for (const auto& tracker : m_thTrackers)
     {
-        if (tracker->trackerId == gtl_tracker->trackerId)
+        if (tracker.get() == gtl_tracker) // todo: change to checking trackerId
         {
             // add tag in order not to deadlock
             const RecursionGuard<AllocTag> guard;
-            WorkerAccountThreadTracker(*tracker);
+            WorkerAccountThreadTracker(tracker.get());
         }
         else
         {
-            WorkerAccountThreadTracker(*tracker);
+            WorkerAccountThreadTracker(tracker.get());
         }
     }
     {
         // add tags in order not to deadlock
         const RecursionGuard<AllocTag> guard;
         const RecursionGuard<InnerAllocTag> innerGuard;
-        WorkerAccountThreadTracker(*m_innerTracker);
+        WorkerAccountThreadTracker(m_innerTracker.get());
     }
 }
 
-void MemHawk::WorkerAccountThreadTracker(ThreadTracker& tracker)
+void MemHawk::WorkerAccountThreadTracker(ThreadTracker* tracker)
 {
     {
-        const auto trackerLock = tracker.AcquireLock();
-        m_workerData->summary += tracker.total.ConsumeDiff();
-        m_workerData->updatedTraces += tracker.allocSummaries.size();
-        tracker.allocSummaries.swap(m_workerData->localSummaries);
+        auto lockedTracker = tracker->LockTracker();
+        lockedTracker.ConsumeDiff(m_workerData->localSummaries, m_workerData->summary);
     }
+    m_workerData->updatedTraces += m_workerData->localSummaries.size();
 
     auto& byTraceIdIndex = m_workerData->index.get<WorkerData::ByTraceId>();
     for (const auto& [traceId, summary] : m_workerData->localSummaries)
@@ -368,9 +362,10 @@ void MemHawk::WorkerAccountThreadTracker(ThreadTracker& tracker)
         {
             statIt = byTraceIdIndex.insert(WorkerData::IndexValue{traceId}).first;
         }
-        const auto& localSummary = summary; // can be directly captured in lambda since c++20 only
-        byTraceIdIndex.modify(statIt,
-                              [&localSummary](WorkerData::IndexValue& value) { value.summary += localSummary; });
+        byTraceIdIndex.modify(statIt, [&summary](WorkerData::IndexValue& value) {
+            value.changed = true;
+            value.summary += summary;
+        });
     }
     m_workerData->localSummaries.clear();
 }
