@@ -51,7 +51,7 @@ private:
         std::ofstream summaryFile;
         std::ofstream stacktracesFile;
         absl::flat_hash_set<uint32_t> writtenStacktraces;
-        AllocSummary summary{};
+        AllocSummary summary;
         size_t updatedTraces{};
 
         absl::flat_hash_map<uint32_t, AllocSummary> localSummaries;
@@ -59,7 +59,7 @@ private:
         struct IndexValue
         {
             uint32_t traceId{};
-            mutable AllocSummary summary{};
+            mutable AllocSummary summary;
 
             explicit IndexValue(uint32_t id) : traceId{id}
             {

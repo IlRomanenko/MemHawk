@@ -3,9 +3,6 @@
 
 #include <memhawk/memhawk_api.h>
 
-#include <cerrno>
-#include <cstring>
-
 extern "C" {
 
 void SetLogLevel(unsigned int level)

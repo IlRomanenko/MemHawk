@@ -30,7 +30,10 @@ struct AllocSummary
     uint64_t totalCount{};
     uint64_t totalBytes{};
 
-    AllocSummary& operator+=(const AllocSummary& rhs)
+    AllocSummary() = default;
+    ~AllocSummary() = default;
+
+    AllocSummary& operator+=(const AllocSummary& rhs) noexcept
     {
         size += rhs.size;
         active += rhs.active;
@@ -40,7 +43,7 @@ struct AllocSummary
         return *this;
     }
 
-    AllocSummary& operator-=(const AllocSummary& rhs)
+    AllocSummary& operator-=(const AllocSummary& rhs) noexcept
     {
         size -= rhs.size;
         active -= rhs.active;
@@ -51,7 +54,7 @@ struct AllocSummary
         return *this;
     }
 
-    AllocSummary& operator+=(const AllocInfo& rhs)
+    AllocSummary& operator+=(const AllocInfo& rhs) noexcept
     {
         size += static_cast<int64_t>(rhs.size);
         overhead += static_cast<int64_t>(rhs.offset);
@@ -61,7 +64,7 @@ struct AllocSummary
         return *this;
     }
 
-    AllocSummary& operator-=(const AllocInfo& rhs)
+    AllocSummary& operator-=(const AllocInfo& rhs) noexcept
     {
         size -= static_cast<int64_t>(rhs.size);
         overhead -= static_cast<int64_t>(rhs.offset);
@@ -75,14 +78,14 @@ struct TracedAllocSummary
 {
     bool changed{false};
     uint32_t traceId{};
-    AllocSummary summary{};
-    AllocSummary diff{};
+    AllocSummary summary;
+    AllocSummary diff;
 
     explicit TracedAllocSummary(uint32_t ctrTraceId) : traceId(ctrTraceId)
     {
     }
 
-    TracedAllocSummary& operator+=(const TracedAllocSummary& rhs)
+    TracedAllocSummary& operator+=(const TracedAllocSummary& rhs) noexcept
     {
         changed = true;
         summary += rhs.summary;
@@ -90,7 +93,7 @@ struct TracedAllocSummary
         return *this;
     }
 
-    TracedAllocSummary& operator-=(const TracedAllocSummary& rhs)
+    TracedAllocSummary& operator-=(const TracedAllocSummary& rhs) noexcept
     {
         changed = true;
         summary -= rhs.summary;
@@ -98,7 +101,7 @@ struct TracedAllocSummary
         return *this;
     }
 
-    TracedAllocSummary& operator+=(const AllocInfo& rhs)
+    TracedAllocSummary& operator+=(const AllocInfo& rhs) noexcept
     {
         changed = true;
         summary += rhs;
@@ -106,7 +109,7 @@ struct TracedAllocSummary
         return *this;
     }
 
-    TracedAllocSummary& operator-=(const AllocInfo& rhs)
+    TracedAllocSummary& operator-=(const AllocInfo& rhs) noexcept
     {
         changed = true;
         summary -= rhs;
@@ -117,15 +120,9 @@ struct TracedAllocSummary
     AllocSummary ConsumeDiff()
     {
         changed = false;
-        AllocSummary tmp{};
+        AllocSummary tmp;
         std::swap(tmp, diff);
         return tmp;
-    }
-
-private:
-    TracedAllocSummary(uint32_t ctrTraceId, int64_t size, int64_t count)
-        : traceId(ctrTraceId), summary{size, count}, diff{size, count}
-    {
     }
 };
 

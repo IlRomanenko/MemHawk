@@ -1,6 +1,6 @@
 #pragma once
 
-#include <csignal>
+#include <csignal> // IWYU pragma: keep
 
 namespace memhawk
 {

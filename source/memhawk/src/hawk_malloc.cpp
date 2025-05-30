@@ -166,7 +166,7 @@ static_assert(alignof(max_align_t) == sizeof(AllocInfo));
 // Allocate memory via mmap before memhawk is initialised
 void* mmap_malloc(size_t size)
 {
-    
+
     auto totalSize = size + AdditionalSize;
     auto ptr =
         absl::base_internal::DirectMmap(nullptr, totalSize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);

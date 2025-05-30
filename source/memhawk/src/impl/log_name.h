@@ -4,7 +4,6 @@
 
 #include <fmt/format.h>
 
-#include <cerrno>
 #include <string>
 #include <unistd.h>
 
