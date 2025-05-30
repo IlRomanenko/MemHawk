@@ -47,19 +47,29 @@ void BM_CollapseRecursionOpt(benchmark::State& state)
     TestCollapseRecursion(state, memhawk::CollapseRecursionOpt);
 }
 
-
+#ifdef COMPILER_SUPPORTS_AVX512
+void BM_CollapseRecursionAvx(benchmark::State& state)
+{
+    TestCollapseRecursion(state, memhawk::CollapseRecursionAvx);
+}
+#endif
 // clang-format off
 
 BENCHMARK(BM_CollapseRecursionNaive)
-    ->DenseRange(0, 6, 2)
+    ->DenseRange(0, 6, 1)
     ->UseRealTime();
 
 BENCHMARK(BM_CollapseRecursion)
-    ->DenseRange(0, 6, 2)
+    ->DenseRange(0, 6, 1)
     ->UseRealTime();
 
 BENCHMARK(BM_CollapseRecursionOpt)
-    ->DenseRange(0, 6, 2)
+    ->DenseRange(0, 6, 1)
     ->UseRealTime();
 
+#ifdef COMPILER_SUPPORTS_AVX512
+BENCHMARK(BM_CollapseRecursionAvx)
+    ->DenseRange(0, 6, 1)
+    ->UseRealTime();
+#endif
 // clang-format on

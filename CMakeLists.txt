@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.25.0)
 project(alloc_tracker VERSION 0.1.0 LANGUAGES C CXX)
 
+include(CheckCXXCompilerFlag)
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
 
@@ -12,6 +14,7 @@ option(MEMHAWK_MSABI "Enable ms-abi support in libunwind" OFF)
 option(MEMHAWK_THINLTO "Clang-specific link time optimization" OFF)
 option(MEMHAWK_USE_CLANG_TIDY "Enable clang-tidy build" OFF)
 option(MEMHAWK_OPT_TLS "Enable optimized tls model" ON)
+option(MEMHAWK_AVX "Compile with avx support" ON)
 
 set(CMAKE_INSTALL_RPATH "$ORIGIN")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
@@ -22,6 +25,24 @@ set(MEMHAWK_COMMON_FLAGS "-fPIC -pthread -fno-omit-frame-pointer -fvisibility=hi
 if(MEMHAWK_OPT_TLS)
     set(MEMHAWK_COMMON_FLAGS "${MEMHAWK_COMMON_FLAGS} -ftls-model=initial-exec")
 endif()
+
+if(MEMHAWK_AVX)
+    check_cxx_compiler_flag("-mavx2" COMPILER_SUPPORTS_AVX2)
+    if(COMPILER_SUPPORTS_AVX2)
+        message(STATUS "AVX-256 is supported")
+        set(MEMHAWK_COMMON_FLAGS "${MEMHAWK_COMMON_FLAGS} -mavx2")
+    else()
+        message(WARNING "AVX-512 is not supported")
+    endif()
+    check_cxx_compiler_flag("-mavx512f" COMPILER_SUPPORTS_AVX512)
+    if(COMPILER_SUPPORTS_AVX512)
+        message(STATUS "AVX-512 is supported")
+        set(MEMHAWK_COMMON_FLAGS "${MEMHAWK_COMMON_FLAGS} -mavx512f")
+    else()
+        message(WARNING "AVX-512 is not supported")
+    endif()
+endif()
+
 set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   ${MEMHAWK_COMMON_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${MEMHAWK_COMMON_FLAGS} -std=c++20")
 

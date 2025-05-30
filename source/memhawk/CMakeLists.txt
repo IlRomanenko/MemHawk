@@ -22,6 +22,12 @@ endif ()
 # Add static library with all sources except preload part
 add_library(${PROJECT_NAME}_impl STATIC ${HEADERS_IMPL} ${SOURCES_IMPL})
 
+# Configure the header file
+configure_file(
+    ${PROJECT_SOURCE_DIR}/src/impl/config_defs.h.in
+    ${PROJECT_SOURCE_DIR}/src/impl/config_defs.h
+)
+
 target_link_libraries(${PROJECT_NAME}_impl
 PUBLIC
     xxhash_static

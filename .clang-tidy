@@ -88,6 +88,7 @@ Checks: [
   '-modernize-loop-convert',
   '-modernize-use-trailing-return-type',
   '-modernize-use-designated-initializers',
+  '-modernize-concat-nested-namespaces',
 
   '-performance-avoid-endl',
   '-performance-enum-size',
