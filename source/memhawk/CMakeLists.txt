@@ -46,6 +46,7 @@ PUBLIC
 target_include_directories(${PROJECT_NAME}_impl
 PUBLIC
     include/
+    ${PROJECT_SOURCE_DIR}/src/impl
 )
 
 add_library(${PROJECT_NAME} SHARED ${HEADERS} ${SOURCES})

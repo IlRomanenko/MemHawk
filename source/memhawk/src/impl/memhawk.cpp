@@ -4,25 +4,23 @@
 #include "alloc_info.h"
 #include "config.h"
 #include "log.h"
-#include "log_name.h"
 #include "macros.h"
 #include "recursion_guard.h"
 #include "scoped_sigmask.h"
 #include "stacktrace.h"
 #include "thread_tracker.h"
+#include "writers/text_writer.h"
 
 #include <absl/base/attributes.h>
 #include <absl/cleanup/cleanup.h>
 #include <absl/synchronization/mutex.h>
-#include <boost/range/iterator_range.hpp>
 #include <fmt/format.h>
 
 #include <chrono>
 #include <cstdint>
-#include <cstring>
 #include <future>
+#include <memory>
 #include <pthread.h>
-#include <sstream>
 #include <unistd.h>
 
 namespace memhawk
@@ -67,20 +65,6 @@ MemHawk::~MemHawk()
     }
     LogInfo("InnerTracker");
     m_innerTracker->LockTracker().PrintTracker();
-    LogInfo("WorkerData.index");
-    for (const auto& elem : m_workerData->index)
-    {
-        if (elem.summary.active == 0)
-        {
-            continue;
-        }
-        if (!IsFixedTrackerId(elem.traceId))
-        {
-            continue;
-        }
-        LogInfo("TraceId: " fU32 ", active: " fI64 ", size: " fI64 ", overhead: " fI64 ", total: " fI64, elem.traceId,
-                elem.summary.active, elem.summary.size, elem.summary.overhead, elem.summary.totalCount);
-    }
 }
 
 void MemHawk::PostponedConstruct()
@@ -92,7 +76,6 @@ void MemHawk::PostponedConstruct()
         m_innerTracker = std::make_unique<ThreadTracker>(m_thTrackers.size(), m_cfg.LruStackSize, m_innerBtTracker);
     }
     m_btTracker.PostponedConstruct();
-    m_workerData = std::make_unique<WorkerData>();
     RegisterThread();
     if (m_cfg.StartTrackingWorker)
     {
@@ -299,10 +282,8 @@ void MemHawk::TrackingWorker()
 
     LogInfo("Tracking worker started");
 
-    m_workerData->summaryFile =
-        std::ofstream(GetProcessLogName("summary", m_cfg), std::ios_base::out | std::ios_base::trunc);
-    m_workerData->stacktracesFile =
-        std::ofstream(GetProcessLogName("stacktraces", m_cfg), std::ios_base::out | std::ios_base::trunc);
+    m_writer = std::make_unique<TextWriter>(m_cfg, std::make_unique<InnerStacktraceFinder>(*this));
+    m_writer->PostponedConstruct();
 
     while (!m_stopped)
     {
@@ -314,8 +295,6 @@ void MemHawk::TrackingWorker()
         WorkerUpdateData();
         WorkerPrintData();
     }
-    m_workerData->summaryFile.close();
-    m_workerData->stacktracesFile.close();
 
     LogInfo("Tracking worker finished");
 }
@@ -323,7 +302,6 @@ void MemHawk::TrackingWorker()
 void MemHawk::WorkerUpdateData()
 {
     const absl::base_internal::SpinLockHolder lock(&m_thTrackersMt);
-    m_workerData->updatedTraces = 0;
 
     for (const auto& tracker : m_thTrackers)
     {
@@ -331,123 +309,24 @@ void MemHawk::WorkerUpdateData()
         {
             // add tag in order not to deadlock
             const RecursionGuard<AllocTag> guard;
-            WorkerAccountThreadTracker(tracker.get());
+            m_writer->AccountThreadTracker(tracker.get());
         }
         else
         {
-            WorkerAccountThreadTracker(tracker.get());
+            m_writer->AccountThreadTracker(tracker.get());
         }
     }
     {
         // add tags in order not to deadlock
         const RecursionGuard<AllocTag> guard;
         const RecursionGuard<InnerAllocTag> innerGuard;
-        WorkerAccountThreadTracker(m_innerTracker.get());
+        m_writer->AccountThreadTracker(m_innerTracker.get());
     }
-}
-
-void MemHawk::WorkerAccountThreadTracker(ThreadTracker* tracker)
-{
-    {
-        auto lockedTracker = tracker->LockTracker();
-        lockedTracker.ConsumeDiff(m_workerData->localSummaries, m_workerData->summary);
-    }
-    m_workerData->updatedTraces += m_workerData->localSummaries.size();
-
-    auto& byTraceIdIndex = m_workerData->index.get<WorkerData::ByTraceId>();
-    for (const auto& [traceId, summary] : m_workerData->localSummaries)
-    {
-        auto statIt = byTraceIdIndex.find(traceId);
-        if (statIt == byTraceIdIndex.end())
-        {
-            statIt = byTraceIdIndex.insert(WorkerData::IndexValue{traceId}).first;
-        }
-        byTraceIdIndex.modify(statIt, [&summary](WorkerData::IndexValue& value) {
-            value.changed = true;
-            value.summary += summary;
-        });
-    }
-    m_workerData->localSummaries.clear();
 }
 
 void MemHawk::WorkerPrintData()
 {
-    absl::flat_hash_set<uint32_t> newStacktraces;
-
-    const auto& bySizeIndex = m_workerData->index.get<WorkerData::ByTotalSize>();
-    size_t topElementsCount = std::min(m_cfg.TrackerBySizeCount, bySizeIndex.size());
-    const auto bySizeRange = boost::make_iterator_range_n(bySizeIndex.begin(), topElementsCount);
-
-    const auto& byCountIndex = m_workerData->index.get<WorkerData::ByTotalCount>();
-    topElementsCount = std::min(m_cfg.TrackerByTotalCount, byCountIndex.size());
-    const auto byCountRange = boost::make_iterator_range_n(byCountIndex.begin(), topElementsCount);
-
-    std::stringstream str;
-    str << absl::FormatTime(absl::Now()) << "\n";
-    str << fmt::format("Application heap: {:.3f}mb, active: {}, total: {}, memhawk overhead: {:.3f}mb\n",
-                       static_cast<double>(m_workerData->summary.size) / 1024 / 1024, m_workerData->summary.active,
-                       m_workerData->summary.totalCount,
-                       static_cast<double>(m_workerData->summary.overhead) / 1024 / 1024);
-    str << fmt::format("Total traces: {}, updated since last time: {}\n", m_workerData->index.size(),
-                       m_workerData->updatedTraces);
-
-    str << "ByActiveSize" << "\n";
-    for (const auto& value : bySizeRange)
-    {
-        if (value.summary.active == 0)
-        {
-            continue;
-        }
-        const auto it = m_workerData->writtenStacktraces.insert(value.traceId);
-        if (it.second)
-        {
-            newStacktraces.insert(value.traceId);
-        }
-        const auto average = value.summary.active == 0
-                                 ? 0.0
-                                 : static_cast<double>(value.summary.size) / static_cast<double>(value.summary.active);
-        const auto totalMb = static_cast<double>(value.summary.size) / 1024.0 / 1024;
-        str << fmt::format("TraceId: {}, active: {}, size: {:.3f}mb, average: {:.3f}b, total: {}\n", value.traceId,
-                           value.summary.active, totalMb, average, value.summary.totalCount);
-    }
-    str << "\n";
-    str << "ByTotalCount" << "\n";
-    for (const auto& value : byCountRange)
-    {
-        const auto it = m_workerData->writtenStacktraces.insert(value.traceId);
-        if (it.second)
-        {
-            newStacktraces.insert(value.traceId);
-        }
-        const auto average = value.summary.active == 0
-                                 ? 0.0
-                                 : static_cast<double>(value.summary.size) / static_cast<double>(value.summary.active);
-        const auto totalMb = static_cast<double>(value.summary.size) / 1024.0 / 1024;
-        str << fmt::format("TraceId: {}, active: {}, size: {:.3f}mb, average: {:.3f}b, total: {}\n", value.traceId,
-                           value.summary.active, totalMb, average, value.summary.totalCount);
-    }
-    str << "\n\n";
-    m_workerData->summaryFile << str.str();
-
-    for (const auto& traceId : newStacktraces)
-    {
-        auto trace = m_btTracker.GetStacktraceFromId(traceId);
-        if (unlikely(!trace.has_value()))
-        {
-            trace = m_innerBtTracker.GetStacktraceFromId(traceId);
-        }
-
-        if (!trace.has_value())
-        {
-            LogWarning("Missed stacktrace: " fU32, traceId);
-            continue;
-        }
-
-        auto traceStr = trace.value().Describe();
-        m_workerData->stacktracesFile << fmt::format("TraceId: {}\n{}\n", traceId, traceStr) << std::endl;
-    }
-    m_workerData->stacktracesFile.flush();
-    m_workerData->summaryFile.flush();
+    m_writer->FlushData();
 }
 
 } // namespace memhawk

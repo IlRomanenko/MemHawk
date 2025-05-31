@@ -1,7 +1,7 @@
 
 #include "impl/config.h"
 #include "impl/stacktrace.h"
-#include "impl/stacktrace_tracker.h"
+#include "impl/trackers/stacktrace_tracker.h"
 
 #include <absl/container/flat_hash_set.h>
 #include <absl/types/span.h>

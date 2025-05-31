@@ -1,6 +1,6 @@
 
 #include "impl/stacktrace.h"
-#include "impl/stacktrace_tracker_static.h"
+#include "impl/trackers/stacktrace_tracker_static.h"
 
 #include <absl/types/span.h>
 #include <gtest/gtest.h>

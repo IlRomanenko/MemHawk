@@ -8,7 +8,7 @@
 
 #include <libunwind.h>
 
-static constexpr int kMaxStackDepth = 100;
+static constexpr int kMaxStackDepth = 64;
 static constexpr int kCacheSize = (1 << 16);
 int cacheArray[kCacheSize];
 void* unwindArray[kMaxStackDepth];
@@ -39,7 +39,7 @@ ABSL_ATTRIBUTE_NOINLINE void unwind_stacktrace(benchmark::State& state, int64_t 
     unwind_stacktrace(state, --x, depth, abslUnwinder);
 }
 
-static void BM_absl_StackTrace(benchmark::State& state)
+static void BM_StackTrace_absl(benchmark::State& state)
 {
     const auto depth = state.range(0);
     for (auto value : state)
@@ -49,7 +49,7 @@ static void BM_absl_StackTrace(benchmark::State& state)
     }
 }
 
-static void BM_libunwind_StackTrace(benchmark::State& state)
+static void BM_StackTrace_libunwind(benchmark::State& state)
 {
     const auto depth = state.range(0);
     for (auto value : state)
@@ -59,5 +59,5 @@ static void BM_libunwind_StackTrace(benchmark::State& state)
     }
 }
 
-BENCHMARK(BM_absl_StackTrace)->DenseRange(10, kMaxStackDepth, 30);
-BENCHMARK(BM_libunwind_StackTrace)->DenseRange(10, kMaxStackDepth, 30);
+BENCHMARK(BM_StackTrace_absl)->DenseRange(10, kMaxStackDepth, 30);
+BENCHMARK(BM_StackTrace_libunwind)->DenseRange(10, kMaxStackDepth, 30);
