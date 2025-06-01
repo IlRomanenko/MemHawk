@@ -26,8 +26,8 @@
 namespace memhawk
 {
 
-ABSL_CONST_INIT thread_local ThreadTracker* gtl_tracker = nullptr;
-ABSL_CONST_INIT thread_local void* gtl_retPtrs[8] = {
+alignas(64) ABSL_CONST_INIT thread_local ThreadTracker* gtl_tracker = nullptr;
+alignas(64) ABSL_CONST_INIT thread_local void* gtl_retPtrs[8] = {
     nullptr,
 }; // only first element is initialized
 

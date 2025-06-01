@@ -4,9 +4,9 @@
 #include "alloc_info.h"
 #include "i_stacktrace_tracker.h"
 #include "lru_cache.h"
+#include "spinlock.h"
 #include "stacktrace.h"
 
-#include <absl/base/internal/spinlock.h>
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
 
@@ -36,12 +36,12 @@ public:
     private:
         friend class ThreadTracker;
 
-        explicit LockedTracker(ThreadTracker& tracker) : m_tracker(tracker), m_lock(&m_tracker.m_mt)
+        explicit LockedTracker(ThreadTracker& tracker) : m_tracker(tracker), m_lock(m_tracker.m_mt)
         {
         }
 
         ThreadTracker& m_tracker;
-        absl::base_internal::SpinLockHolder m_lock;
+        std::lock_guard<SpinLock> m_lock;
     };
 
 public:
@@ -58,7 +58,7 @@ public:
     }
 
 private:
-    absl::base_internal::SpinLock m_mt;
+    alignas(64) SpinLock m_mt;
 
     uint32_t m_trackerId{};
 

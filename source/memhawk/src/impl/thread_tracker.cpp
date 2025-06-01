@@ -3,8 +3,6 @@
 #include "alloc_info.h"
 #include "stacktrace.h"
 
-#include <absl/base/internal/spinlock.h>
-
 namespace memhawk
 {
 
