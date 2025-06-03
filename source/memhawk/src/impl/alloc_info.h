@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <emmintrin.h>
-#include <utility>
 
 namespace memhawk
 {
@@ -23,8 +22,8 @@ struct AllocSummary
     // signed integers, because we can track deallocation of pointer,
     // that was allocated in another thread
     int64_t size{};
-    int64_t active{};
     int64_t overhead{};
+    int64_t active{};
 
     // total allocations
     uint64_t totalCount{};
@@ -36,8 +35,8 @@ struct AllocSummary
     AllocSummary& operator+=(const AllocSummary& rhs) noexcept
     {
         size += rhs.size;
-        active += rhs.active;
         overhead += rhs.overhead;
+        active += rhs.active;
         totalBytes += rhs.totalBytes;
         totalCount += rhs.totalCount;
         return *this;
@@ -46,8 +45,8 @@ struct AllocSummary
     AllocSummary& operator-=(const AllocSummary& rhs) noexcept
     {
         size -= rhs.size;
-        active -= rhs.active;
         overhead -= rhs.overhead;
+        active -= rhs.active;
         // sum of all allocations
         totalBytes += rhs.totalBytes;
         totalCount += rhs.totalCount;
@@ -59,8 +58,8 @@ struct AllocSummary
         size += static_cast<int64_t>(rhs.size);
         overhead += static_cast<int64_t>(rhs.offset);
         active++;
-        totalBytes += rhs.size;
         totalCount++;
+        totalBytes += rhs.size;
         return *this;
     }
 
@@ -71,58 +70,6 @@ struct AllocSummary
         active--;
         // don't change total
         return *this;
-    }
-};
-
-struct TracedAllocSummary
-{
-    bool changed{false};
-    uint32_t traceId{};
-    AllocSummary summary;
-    AllocSummary diff;
-
-    explicit TracedAllocSummary(uint32_t ctrTraceId) : traceId(ctrTraceId)
-    {
-    }
-
-    TracedAllocSummary& operator+=(const TracedAllocSummary& rhs) noexcept
-    {
-        changed = true;
-        summary += rhs.summary;
-        diff += rhs.diff;
-        return *this;
-    }
-
-    TracedAllocSummary& operator-=(const TracedAllocSummary& rhs) noexcept
-    {
-        changed = true;
-        summary -= rhs.summary;
-        diff -= rhs.diff;
-        return *this;
-    }
-
-    TracedAllocSummary& operator+=(const AllocInfo& rhs) noexcept
-    {
-        changed = true;
-        summary += rhs;
-        diff += rhs;
-        return *this;
-    }
-
-    TracedAllocSummary& operator-=(const AllocInfo& rhs) noexcept
-    {
-        changed = true;
-        summary -= rhs;
-        diff -= rhs;
-        return *this;
-    }
-
-    AllocSummary ConsumeDiff()
-    {
-        changed = false;
-        AllocSummary tmp;
-        std::swap(tmp, diff);
-        return tmp;
     }
 };
 
