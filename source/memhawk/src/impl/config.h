@@ -64,6 +64,7 @@ struct MainConfig
     CONFIG_VAR_OPT(MemHawkConfig, MemHawk, "memhawk", {});
     CONFIG_VAR_OPT(LoggingConfig, Logging, "logging", {});
     CONFIG_VAR_OPT(UnwindConfig, Unwind, "unwind", {});
+    CONFIG_VAR_OPT(bool, Help, "help", false);
 };
 
 MainConfig ParseConfig();
@@ -77,4 +78,4 @@ BOOST_HANA_ADAPT_STRUCT(memhawk::MemHawkConfig, TrackingWorker, MaxPostponed, Tr
                         InnerTracker, ExternalTracker, Writers);
 BOOST_HANA_ADAPT_STRUCT(memhawk::LoggingConfig, MainLogIntoFile, LoggingLevel, LogDir);
 BOOST_HANA_ADAPT_STRUCT(memhawk::UnwindConfig, UseAbslStacktraces, TrackDepth, CollapseRecursionDepth);
-BOOST_HANA_ADAPT_STRUCT(memhawk::MainConfig, PrognameRegex, MemHawk, Logging, Unwind);
+BOOST_HANA_ADAPT_STRUCT(memhawk::MainConfig, PrognameRegex, MemHawk, Logging, Unwind, Help);

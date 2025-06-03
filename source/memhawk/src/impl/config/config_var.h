@@ -59,6 +59,11 @@ public:
         return Meta::ParamName;
     }
 
+    static constexpr const char* GetDefaultValue() 
+    {
+        return Meta::DefaultValue;
+    }
+
     bool IsValid() const noexcept
     {
         return m_set || !Meta::IsRequired;
@@ -81,6 +86,7 @@ private:
     struct MetaData_## name ##_t { \
         static constexpr const char* ParamName = key; \
         static constexpr bool IsRequired = required; \
+        static constexpr const char* DefaultValue = #defaultValue; \
     }; \
     memhawk::config::ConfigVar<type, MetaData_## name ##_t> name{defaultValue} // NOLINT(bugprone-macro-parentheses)
 

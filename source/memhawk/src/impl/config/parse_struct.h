@@ -166,6 +166,35 @@ inline bool ValidateStruct(T& object, const ErrorCallback& onError = nullptr, co
     return valid;
 }
 
+struct DescribeContext
+{
+    std::string_view key;
+    std::string_view field;
+    std::string_view defaultValue;
+};
+
+template <typename T>
+inline void DescribeStruct(T& object, std::function<void(const DescribeContext&)> onKey, const std::string& keyPath = "")
+{
+    boost::hana::for_each(boost::hana::accessors<T>(), [&](const auto& pair) {
+        auto& member = boost::hana::second(pair)(object);
+        const auto memberName = member.GetName();
+        auto fullPath = keyPath + OptionNestedDelim + memberName;
+        if (keyPath == "")
+        {
+            fullPath = memberName;
+        }
+        if constexpr (boost::hana::Struct<std::decay_t<decltype(*member)>>::value)
+        {
+            DescribeStruct(*member, onKey, fullPath);
+        }
+        else
+        {
+            onKey({.key = fullPath, .field = memberName, .defaultValue = member.GetDefaultValue()});
+        }
+    });
+}
+
 template <typename T>
 inline bool ParseStruct(const std::string& input, T& object, const ErrorCallback& onError = nullptr)
 {

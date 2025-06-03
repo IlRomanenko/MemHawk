@@ -21,7 +21,7 @@ namespace memhawk
 constexpr const char* OptionsEnvName = "MEMHAWK_OPTS";
 
 template <typename... Args>
-void PrintError(fmt::format_string<Args...> fmt, Args... args)
+void PrintMessage(fmt::format_string<Args...> fmt, Args... args)
 {
     const auto str = fmt::format(fmt, std::forward<Args>(args)...);
     dprintf(STDERR_FILENO, fStr, str.c_str());
@@ -35,18 +35,23 @@ void OnError(const config::ParseError& err)
     case config::ParseErrorType::Ok:
         break;
     case config::ParseErrorType::FieldNotFound:
-        PrintError("Failed to find field: {}, during parsing key: {}\n", err.field, err.key);
+        PrintMessage("Failed to find field: {}, during parsing key: {}\n", err.field, err.key);
         break;
     case config::ParseErrorType::ValueNotParsed:
-        PrintError("Failed to parse value: {}, field: {}, during parsing key: {}\n", err.value, err.field, err.key);
+        PrintMessage("Failed to parse value: {}, field: {}, during parsing key: {}\n", err.value, err.field, err.key);
         break;
     case config::ParseErrorType::ValueNotFound:
-        PrintError("Incorrect option format: {}, failed to find value\n", err.key);
+        PrintMessage("Incorrect option format: {}, failed to find value\n", err.key);
         break;
     case config::ParseErrorType::RequiredFieldMissed:
-        PrintError("Required filed missed, key: {}, field: {}\n", err.key, err.field);
+        PrintMessage("Required filed missed, key: {}, field: {}\n", err.key, err.field);
         break;
     }
+}
+
+void OnKey(const config::DescribeContext& ctx)
+{
+    PrintMessage("{} = {}\n", ctx.key, ctx.defaultValue);
 }
 
 bool ValidateConfig(MainConfig& cfg)
@@ -54,19 +59,19 @@ bool ValidateConfig(MainConfig& cfg)
     bool valid = true;
     if (*cfg.Unwind->TrackDepth > MaxUnwindDepth)
     {
-        PrintError("Can't set track depth more than: {}", MaxUnwindDepth);
+        PrintMessage("Can't set track depth more than: {}", MaxUnwindDepth);
         cfg.Unwind->TrackDepth = MaxUnwindDepth;
         valid = false;
     }
     if (*cfg.Unwind->TrackDepth < MinUnwindDepth)
     {
-        PrintError("Can't set track depth less than: {}", MinUnwindDepth);
+        PrintMessage("Can't set track depth less than: {}", MinUnwindDepth);
         cfg.Unwind->TrackDepth = MinUnwindDepth;
         valid = false;
     }
     if (*cfg.MemHawk->MaxPostponed < MinPostponedSize)
     {
-        PrintError("Can't set postponed size less than: {}", MinPostponedSize);
+        PrintMessage("Can't set postponed size less than: {}", MinPostponedSize);
         *cfg.MemHawk->MaxPostponed = MinPostponedSize;
         valid = false;
     }
@@ -88,6 +93,12 @@ MainConfig ParseConfig()
     if (!ValidateConfig(cfg))
     {
         exit(-1);
+    }
+    if(*cfg.Help)
+    {
+        PrintMessage("full set of fields in config:\n");
+        config::DescribeStruct(cfg, OnKey);
+        exit(0);
     }
     return cfg;
 }
