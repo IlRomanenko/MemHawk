@@ -1,7 +1,7 @@
 #include "stacktrace_tracker.h"
 
 #include "config.h"
-#include "log_name.h"
+#include "logging.h"
 #include "stacktrace.h"
 
 #include <absl/base/internal/spinlock.h>
@@ -31,17 +31,22 @@ size_t StacktraceTracker::StacktracesCount()
     return m_storage->leafsId.size();
 }
 
-StacktraceTracker::StacktraceTracker(bool dump) : m_dump(dump)
+StacktraceTracker::StacktraceTracker(StacktraceTrackerConfig cfg) : m_cfg{std::move(cfg)}
 {
 }
 
 StacktraceTracker::~StacktraceTracker()
 {
-    if (!m_dump)
+    if (!*m_cfg.DumpStacktraces)
     {
         return;
     }
-    std::ofstream result(GetProcessLogName("inner_stacktraces", gl_config), std::ios_base::out | std::ios_base::trunc);
+    auto filename = GetProcessLogName("inner_stacktraces");
+    if (m_cfg.Filename->has_value())
+    {
+        filename = m_cfg.Filename->value();
+    }
+    std::ofstream result(filename, std::ios_base::out | std::ios_base::trunc);
     result << "Inner stacktraces:" << "\n";
     for (const auto& traceId : m_storage->leafsId)
     {

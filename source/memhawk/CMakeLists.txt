@@ -58,7 +58,7 @@ target_link_libraries(${PROJECT_NAME}
 set_target_properties(${PROJECT_NAME} PROPERTIES
     VERSION ${MEMHAWK_LIB_VERSION}
     SOVERSION ${MEMHAWK_LIB_SOVERSION}
-    PUBLIC_HEADER "include/memhawk/memhawk_api.h"
+    # PUBLIC_HEADER "include/memhawk/memhawk_api.h"
 )
 
 install(TARGETS ${PROJECT_NAME}

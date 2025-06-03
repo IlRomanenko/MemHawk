@@ -4,7 +4,7 @@
 #include "impl/alloc_info.h"
 #include "impl/config.h"
 #include "impl/i_stacktrace_tracker.h"
-#include "impl/log.h"
+#include "impl/logging.h"
 #include "impl/macros.h"
 #include "impl/memhawk.h"
 #include "impl/stacktrace.h"
@@ -84,6 +84,7 @@ HOOK(aligned_alloc, HookType::Optional);
 static ABSL_CONST_INIT bool gl_initialised = false;
 static ABSL_CONST_INIT bool gl_memhawkReady = false;
 static ABSL_CONST_INIT MemHawk* gl_memhawk = nullptr;
+static ABSL_CONST_INIT UnwindConfig gl_unwind = {};
 
 MemHawk* GetMemHawk()
 {
@@ -106,14 +107,14 @@ void InitHooks()
     hooks::aligned_alloc.init();
 }
 
-bool CheckProgname()
+bool CheckProgname(std::string_view prognameRegex)
 try
 {
-    if (gl_config.PrognameRegex.empty())
+    if (prognameRegex.empty())
     {
         return true;
     }
-    const std::regex pattern(std::string{gl_config.PrognameRegex});
+    const std::regex pattern(std::string{prognameRegex});
     return std::regex_match(program_invocation_name, pattern);
 }
 catch (const std::exception& ex)
@@ -124,15 +125,16 @@ catch (const std::exception& ex)
 
 __attribute__((__constructor__)) void init_memhawk()
 {
-    InitConfig();
+    auto cfg = ParseConfig();
     InitHooks();
-    if (CheckProgname())
+    if (CheckProgname(*cfg.PrognameRegex))
     {
-        LogInit();
+        LogInit(*cfg.Logging);
+        gl_unwind = *cfg.Unwind;
         Stacktrace::Setup();
 
         LogInfo("[" fI32 "]", getpid());
-        gl_memhawk = new MemHawk(gl_config);
+        gl_memhawk = new MemHawk(*cfg.MemHawk);
         gl_memhawkReady = true;
 
         // after that can save traces as postponed into memhawk
@@ -143,7 +145,7 @@ __attribute__((__constructor__)) void init_memhawk()
     {
         // allow hooks usage
         gl_initialised = true;
-        gl_config.LoggingLevel = LogLevel::Off;
+        gl_loggingLevel = LogLevel::Off;
     }
 }
 
@@ -218,7 +220,7 @@ void* hawk_malloc(size_t size)
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
         auto trace =
-            Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth, gl_config.UseAbslStacktraces);
+            Stacktrace::Unwind(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.CollapseRecursionDepth, *hooks::gl_unwind.UseAbslStacktraces);
         memhawk->TrackAlloc(*info, std::move(trace));
     }
     return ptr;
@@ -245,7 +247,7 @@ void* hawk_aligned_alloc(size_t align, size_t size)
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
         auto trace =
-            Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth, gl_config.UseAbslStacktraces);
+            Stacktrace::Unwind(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.CollapseRecursionDepth, *hooks::gl_unwind.UseAbslStacktraces);
         memhawk->TrackAlloc(*info, std::move(trace));
     }
     return ptr;
@@ -276,7 +278,7 @@ int hawk_posix_memalign(void** memptr, size_t alignment, size_t size)
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
         auto trace =
-            Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth, gl_config.UseAbslStacktraces);
+            Stacktrace::Unwind(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.CollapseRecursionDepth, *hooks::gl_unwind.UseAbslStacktraces);
         memhawk->TrackAlloc(*info, std::move(trace));
     }
     return res;
@@ -305,7 +307,7 @@ void* hawk_calloc(size_t nm, size_t size)
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
         auto trace =
-            Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth, gl_config.UseAbslStacktraces);
+            Stacktrace::Unwind(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.CollapseRecursionDepth, *hooks::gl_unwind.UseAbslStacktraces);
         memhawk->TrackAlloc(*info, std::move(trace));
     }
     return ptr;
@@ -320,7 +322,7 @@ void* hawk_realloc(void* ptr, size_t size)
     LogTrace("requested: " fPtr " " fSzt, ptr, size);
 
     auto trace =
-        Stacktrace::Unwind(gl_config.TrackDepth, gl_config.CollapseRecursionDepth, gl_config.UseAbslStacktraces);
+        Stacktrace::Unwind(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.CollapseRecursionDepth, *hooks::gl_unwind.UseAbslStacktraces);
 
     auto origPtr = ptr;
 
@@ -439,7 +441,7 @@ void hawk_free(void* ptr)
 
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
-        auto trace = Stacktrace::Unwind(MinUnwindDepth, gl_config.CollapseRecursionDepth, gl_config.UseAbslStacktraces);
+        auto trace = Stacktrace::Unwind(MinUnwindDepth, *hooks::gl_unwind.CollapseRecursionDepth, *hooks::gl_unwind.UseAbslStacktraces);
         memhawk->TrackDealloc(*info, trace);
     }
 

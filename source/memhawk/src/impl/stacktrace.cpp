@@ -2,7 +2,7 @@
 
 #include "algo.h"
 #include "config.h"
-#include "log.h"
+#include "logging.h"
 
 #include <absl/base/attributes.h>
 #include <absl/debugging/stacktrace.h>

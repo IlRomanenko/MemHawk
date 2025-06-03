@@ -2,7 +2,7 @@
 
 #include "compression.h"
 #include "config.h"
-#include "log_name.h"
+#include "logging.h"
 #include "stacktrace.h"
 
 #include <absl/base/internal/spinlock.h>
@@ -26,17 +26,22 @@ bool IsFixedTrackerId(uint32_t traceId)
     return traceId & StaticStacktraceTracker::FixedTrackerIdFlag;
 }
 
-StaticStacktraceTracker::StaticStacktraceTracker(bool dump) : m_dump(dump)
+StaticStacktraceTracker::StaticStacktraceTracker(StacktraceTrackerConfig cfg) : m_cfg{std::move(cfg)}
 {
 }
 
 StaticStacktraceTracker::~StaticStacktraceTracker()
 {
-    if (!m_dump)
+    if (!*m_cfg.DumpStacktraces)
     {
         return;
     }
-    std::ofstream result(GetProcessLogName("inner_stacktraces", gl_config), std::ios_base::out | std::ios_base::trunc);
+    auto filename = GetProcessLogName("inner_stacktraces");
+    if (m_cfg.Filename->has_value())
+    {
+        filename = m_cfg.Filename->value();
+    }
+    std::ofstream result(filename, std::ios_base::out | std::ios_base::trunc);
     result << "Inner stacktraces:" << "\n";
     for (size_t i = 0; i < m_size; i++)
     {

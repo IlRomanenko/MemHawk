@@ -1,14 +1,15 @@
 #include "text_writer.h"
 
-#include "log_name.h"
+#include "logging.h"
 #include "stacktrace.h"
 
 #include <boost/range/iterator_range.hpp>
+#include <fmt/format.h>
 
 namespace memhawk
 {
 
-TextWriter::TextWriter(Config cfg, std::unique_ptr<IStacktraceFinder> finder)
+TextWriter::TextWriter(TextWriterConfig cfg, std::unique_ptr<IStacktraceFinder> finder)
     : m_cfg{std::move(cfg)}, m_stacktraceFinder{std::move(finder)}
 {
 }
@@ -16,10 +17,9 @@ TextWriter::TextWriter(Config cfg, std::unique_ptr<IStacktraceFinder> finder)
 void TextWriter::PostponedConstruct()
 {
     m_storage = std::make_unique<Storage>();
-    m_storage->summaryFile =
-        std::ofstream(GetProcessLogName("summary", m_cfg), std::ios_base::out | std::ios_base::trunc);
+    m_storage->summaryFile = std::ofstream(GetProcessLogName("summary"), std::ios_base::out | std::ios_base::trunc);
     m_storage->stacktracesFile =
-        std::ofstream(GetProcessLogName("stacktraces", m_cfg), std::ios_base::out | std::ios_base::trunc);
+        std::ofstream(GetProcessLogName("stacktraces"), std::ios_base::out | std::ios_base::trunc);
 }
 
 TextWriter::~TextWriter()
@@ -71,11 +71,11 @@ void TextWriter::FlushData()
     absl::flat_hash_set<uint32_t> newStacktraces;
 
     const auto& bySizeIndex = m_storage->index.get<Storage::ByTotalSize>();
-    size_t topElementsCount = std::min(m_cfg.TrackerBySizeCount, bySizeIndex.size());
+    size_t topElementsCount = std::min(*m_cfg.TrackerBySizeCount, bySizeIndex.size());
     const auto bySizeRange = boost::make_iterator_range_n(bySizeIndex.begin(), topElementsCount);
 
     const auto& byCountIndex = m_storage->index.get<Storage::ByTotalCount>();
-    topElementsCount = std::min(m_cfg.TrackerByTotalCount, byCountIndex.size());
+    topElementsCount = std::min(*m_cfg.TrackerByTotalCount, byCountIndex.size());
     const auto byCountRange = boost::make_iterator_range_n(byCountIndex.begin(), topElementsCount);
 
     std::stringstream str;

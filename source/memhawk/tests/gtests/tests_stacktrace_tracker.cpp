@@ -8,6 +8,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <memory>
 #include <random>
 
 namespace memhawk::bit_packing
@@ -18,7 +19,8 @@ class StacktraceTrackerFixture : public testing::Test
 public:
     void SetUp() override
     {
-        m_tracker.PostponedConstruct();
+        m_tracker = std::make_unique<StacktraceTracker>(StacktraceTrackerConfig{});
+        m_tracker->PostponedConstruct();
     }
 
     static Stacktrace SetUpStacktrace(const std::vector<uint64_t>& data)
@@ -34,7 +36,7 @@ public:
 
 protected:
     std::vector<uint32_t> m_data;
-    StacktraceTracker m_tracker;
+    std::unique_ptr<StacktraceTracker> m_tracker;
     static constexpr const uint32_t TestValue = 0xDEADBEEF;
 };
 
@@ -43,9 +45,9 @@ TEST_F(StacktraceTrackerFixture, AddTrace_ExpectFound)
     const std::vector<uint64_t> testData = {0x7514af7f7063, 0x7514af839744, 0x7514af8049eb,
                                             0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4};
     auto trace = SetUpStacktrace(testData);
-    const size_t traceId = m_tracker.InsertStacktrace(std::move(trace));
+    const size_t traceId = m_tracker->InsertStacktrace(std::move(trace));
     EXPECT_NE(traceId, 0);
-    const auto foundTrace = m_tracker.GetStacktraceFromId(traceId);
+    const auto foundTrace = m_tracker->GetStacktraceFromId(traceId);
     ASSERT_TRUE(foundTrace);
     EXPECT_EQ(ConvertStacktrace(foundTrace.value()), testData); // NOLINT(bugprone-unchecked-optional-access)
 }
@@ -69,7 +71,7 @@ TEST_F(StacktraceTrackerFixture, AddRandomTraces_ExpectAllFound)
             trace.emplace_back(dist(rng));
         }
         testData.emplace_back(trace); // copy trace
-        const auto traceId = m_tracker.InsertStacktrace(SetUpStacktrace(trace));
+        const auto traceId = m_tracker->InsertStacktrace(SetUpStacktrace(trace));
         EXPECT_NE(traceId, 0);
         savedTraceId.push_back(traceId);
     }
@@ -79,7 +81,7 @@ TEST_F(StacktraceTrackerFixture, AddRandomTraces_ExpectAllFound)
 
     for (size_t i = 0; i < Count; i++)
     {
-        const auto foundTrace = m_tracker.GetStacktraceFromId(savedTraceId[i]);
+        const auto foundTrace = m_tracker->GetStacktraceFromId(savedTraceId[i]);
         ASSERT_TRUE(foundTrace);
         EXPECT_EQ(ConvertStacktrace(foundTrace.value()), testData[i]); // NOLINT(bugprone-unchecked-optional-access)
     }

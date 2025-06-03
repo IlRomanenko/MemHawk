@@ -1,5 +1,6 @@
 #pragma once
 
+#include "config.h"
 #include "i_writer.h"
 
 #include <boost/multi_index/hashed_index.hpp>
@@ -19,7 +20,7 @@ namespace bmi = boost::multi_index;
 class TextWriter : public IWriter
 {
 public:
-    explicit TextWriter(Config cfg, std::unique_ptr<IStacktraceFinder> finder);
+    explicit TextWriter(TextWriterConfig cfg, std::unique_ptr<IStacktraceFinder> finder);
     ~TextWriter() override;
 
     void PostponedConstruct() override;
@@ -91,7 +92,7 @@ private:
     };
 
 private:
-    Config m_cfg;
+    TextWriterConfig m_cfg;
     std::unique_ptr<IStacktraceFinder> m_stacktraceFinder;
     std::unique_ptr<Storage> m_storage;
 };

@@ -1,28 +1,25 @@
 #pragma once
 
-#include <cstdint>
+#include "config.h"
+#include "logging_level.h"
+
+#include <string>
 
 namespace memhawk
 {
 
-enum class LogLevel : uint8_t
-{
-    Trace = 0,
-    Debug = 1,
-    Info = 2,
-    Warning = 3,
-    Error = 4,
-    Off = 5
-};
+inline LogLevel gl_loggingLevel = LogLevel::Info;
 
-void LogInit();
+void LogInit(LoggingConfig cfg);
 void LogDeinit();
 void LogPrint(const char* fmt, ...);
+
+std::string GetProcessLogName(const char* suffix);
 
 #define LogEx(level, format, ...)                                                                                      \
     do                                                                                                                 \
     {                                                                                                                  \
-        if (memhawk::LogLevel::level >= memhawk::gl_config.LoggingLevel)                                               \
+        if (memhawk::LogLevel::level >= memhawk::gl_loggingLevel)                                                      \
         {                                                                                                              \
             memhawk::LogPrint("[%s]:%s :: " format "\n", #level, __func__, ##__VA_ARGS__);                             \
         }                                                                                                              \

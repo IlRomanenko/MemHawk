@@ -1,39 +1,24 @@
 #include "config.h"
 
+#include "config/parse_struct.h"
+#include "logging.h"
+
 #include <absl/base/attributes.h>
 #include <boost/algorithm/string/finder.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <fmt/format.h>
 
-#include <charconv>
+// #include <charconv>
 #include <cstdlib>
-#include <string_view>
+// #include <string_view>
 #include <unistd.h>
-#include <utility>
+
+// #include <utility>
 
 namespace memhawk
 {
 
 constexpr const char* OptionsEnvName = "MEMHAWK_OPTS";
-
-constexpr const char* OptionDelim = ":";
-constexpr const char* OptionKeyValueDelim = "=";
-
-
-constexpr const char* TrackDepthName = "track_depth";
-constexpr const char* LruStackSizeName = "lru_size";
-constexpr const char* CollapseRecursionDepthName = "collapse_recursion_depth";
-constexpr const char* MaxPostponedName = "max_postponed";
-constexpr const char* LoggingLevelName = "logging_level";
-constexpr const char* MainLogIntoFileName = "main_log_file";
-constexpr const char* LogDirName = "log_dir";
-constexpr const char* TrackingWorkerName = "tracking_worker";
-constexpr const char* TrackerBySizeCountName = "tracker_by_size_count";
-constexpr const char* TrackerByTotalCountName = "tracker_by_total_count";
-constexpr const char* DumpAllInternalStacktracesName = "tracker_internal_dump";
-constexpr const char* DumpAllExternalStacktracesName = "tracker_external_dump";
-constexpr const char* UseAbslStacktracesName = "absl_stacktrace";
-constexpr const char* PrognameRegexName = "regex";
 
 template <typename... Args>
 void PrintError(fmt::format_string<Args...> fmt, Args... args)
@@ -42,133 +27,69 @@ void PrintError(fmt::format_string<Args...> fmt, Args... args)
     dprintf(STDERR_FILENO, fStr, str.c_str());
 }
 
-void ParseValue(std::string_view key, std::string_view valueStr, size_t& result)
+void OnError(const config::ParseError& err)
 {
-    size_t value{};
-    auto res = std::from_chars(valueStr.begin(), valueStr.end(), value);
-    if (res.ec == std::errc())
+    switch (err.type)
     {
-        result = value;
-    }
-    else
-    {
-        PrintError("Failed to parse key: {} with value: {}", key, valueStr);
+
+    case config::ParseErrorType::Ok:
+        break;
+    case config::ParseErrorType::FieldNotFound:
+        PrintError("Failed to find field: {}, during parsing key: {}\n", err.field, err.key);
+        break;
+    case config::ParseErrorType::ValueNotParsed:
+        PrintError("Failed to parse value: {}, field: {}, during parsing key: {}\n", err.value, err.field, err.key);
+        break;
+    case config::ParseErrorType::ValueNotFound:
+        PrintError("Incorrect option format: {}, failed to find value\n", err.key);
+        break;
+    case config::ParseErrorType::RequiredFieldMissed:
+        PrintError("Required filed missed, key: {}, field: {}\n", err.key, err.field);
+        break;
     }
 }
 
-// TODO: perhaps, there is more accurate approach without actually writing your own parser
-void InitConfig()
+bool ValidateConfig(MainConfig& cfg)
 {
+    bool valid = true;
+    if (*cfg.Unwind->TrackDepth > MaxUnwindDepth)
+    {
+        PrintError("Can't set track depth more than: {}", MaxUnwindDepth);
+        cfg.Unwind->TrackDepth = MaxUnwindDepth;
+        valid = false;
+    }
+    if (*cfg.Unwind->TrackDepth < MinUnwindDepth)
+    {
+        PrintError("Can't set track depth less than: {}", MinUnwindDepth);
+        cfg.Unwind->TrackDepth = MinUnwindDepth;
+        valid = false;
+    }
+    if (*cfg.MemHawk->MaxPostponed < MinPostponedSize)
+    {
+        PrintError("Can't set postponed size less than: {}", MinPostponedSize);
+        *cfg.MemHawk->MaxPostponed = MinPostponedSize;
+        valid = false;
+    }
+    return valid;
+}
+
+MainConfig ParseConfig()
+{
+    MainConfig cfg{};
     const auto str = getenv(OptionsEnvName);
     if (!str)
     {
-        gl_config = {};
-        return;
+        return {};
     }
-
-    const auto strView = std::string_view(str);
-    auto splitIt = boost::algorithm::make_split_iterator(strView, boost::algorithm::first_finder(OptionDelim));
-    for (; splitIt != decltype(splitIt)(); splitIt++)
+    if (!config::ParseStruct(str, cfg, OnError))
     {
-        const auto elemView = std::string_view(splitIt->begin(), splitIt->size());
-        auto separatorPos = elemView.find(OptionKeyValueDelim);
-        if (separatorPos == std::string_view::npos)
-        {
-            PrintError("Incorrect element without `=` separator: {}", elemView);
-            continue;
-        }
-        const auto key = elemView.substr(0, separatorPos);
-        const auto valueStr = elemView.substr(separatorPos + 1);
-
-        if (key == TrackDepthName)
-        {
-            ParseValue(key, valueStr, gl_config.TrackDepth);
-            if (gl_config.TrackDepth > MaxUnwindDepth)
-            {
-                PrintError("Can't set track depth more than: {}", MaxUnwindDepth);
-                gl_config.TrackDepth = MaxUnwindDepth;
-            }
-            if (gl_config.TrackDepth < MinUnwindDepth)
-            {
-                PrintError("Can't set track depth less than: {}", MinUnwindDepth);
-                gl_config.TrackDepth = MinUnwindDepth;
-            }
-        }
-        else if (key == LruStackSizeName)
-        {
-            ParseValue(key, valueStr, gl_config.LruStackSize);
-        }
-        else if (key == CollapseRecursionDepthName)
-        {
-            ParseValue(key, valueStr, gl_config.CollapseRecursionDepth);
-        }
-        else if (key == MaxPostponedName)
-        {
-            ParseValue(key, valueStr, gl_config.MaxPostponed);
-            if (gl_config.MaxPostponed < MinPostponedSize)
-            {
-                PrintError("Can't set postponed size less than: {}", MinPostponedSize);
-                gl_config.MaxPostponed = MinPostponedSize;
-            }
-        }
-        else if (key == LoggingLevelName)
-        {
-            size_t value{};
-            ParseValue(key, valueStr, value);
-            gl_config.LoggingLevel = static_cast<LogLevel>(value);
-        }
-        else if (key == MainLogIntoFileName)
-        {
-            size_t value{};
-            ParseValue(key, valueStr, value);
-            gl_config.MainLogIntoFile = value > 0;
-        }
-        else if (key == LogDirName)
-        {
-            gl_config.LogDir = valueStr;
-        }
-        else if (key == TrackingWorkerName)
-        {
-            size_t value{};
-            ParseValue(key, valueStr, value);
-            gl_config.StartTrackingWorker = value > 0;
-        }
-        else if (key == TrackerBySizeCountName)
-        {
-            ParseValue(key, valueStr, gl_config.TrackerBySizeCount);
-        }
-        else if (key == TrackerByTotalCountName)
-        {
-            ParseValue(key, valueStr, gl_config.TrackerByTotalCount);
-        }
-        else if (key == DumpAllInternalStacktracesName)
-        {
-            size_t value{};
-            ParseValue(key, valueStr, value);
-            gl_config.DumpAllInnerStacktraces = value > 0;
-        }
-        else if (key == DumpAllExternalStacktracesName)
-        {
-            size_t value{};
-            ParseValue(key, valueStr, value);
-            gl_config.DumpAllExternalStacktraces = value > 0;
-        }
-        else if (key == UseAbslStacktracesName)
-        {
-            size_t value{};
-            ParseValue(key, valueStr, value);
-            gl_config.UseAbslStacktraces = value > 0;
-        }
-
-        else if (key == PrognameRegexName)
-        {
-            gl_config.PrognameRegex = valueStr;
-        }
-        else
-        {
-            PrintError("Unknown parameter: {}", key);
-        }
+        exit(-1);
     }
+    if (!ValidateConfig(cfg))
+    {
+        exit(-1);
+    }
+    return cfg;
 }
 
 } // namespace memhawk

@@ -1,6 +1,7 @@
 #include "thread_tracker.h"
 
 #include "alloc_info.h"
+#include "logging.h"
 #include "stacktrace.h"
 
 namespace memhawk

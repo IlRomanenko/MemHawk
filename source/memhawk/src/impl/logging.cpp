@@ -1,9 +1,9 @@
-#include "log.h"
+#include "logging.h"
 
 #include "config.h"
-#include "log_name.h"
 
 #include <absl/base/attributes.h>
+#include <fmt/format.h>
 
 #include <cerrno>
 #include <cstdarg>
@@ -12,19 +12,24 @@
 #include <cstring>
 #include <fcntl.h>
 #include <unistd.h>
+#include <utility>
 
 namespace memhawk
 {
 namespace
 {
 ABSL_CONST_INIT int gl_logFile = STDERR_FILENO;
+ABSL_CONST_INIT LoggingConfig gl_loggingConfig = {};
 } // namespace
 
-void LogInit()
+void LogInit(LoggingConfig cfg)
 {
-    if (gl_config.MainLogIntoFile)
+    gl_loggingConfig = std::move(cfg);
+
+    gl_loggingLevel = *gl_loggingConfig.LoggingLevel;
+    if (*gl_loggingConfig.MainLogIntoFile)
     {
-        const auto filename = GetProcessLogName("main_log", gl_config);
+        const auto filename = GetProcessLogName("main_log");
         gl_logFile = open(filename.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, S_IRUSR | S_IWUSR);
         if (gl_logFile < 0)
         {
@@ -34,7 +39,7 @@ void LogInit()
             char buffer[BufSize];
             LogPrint("Failed to initialise logging: " fStr ", error: ", filename.c_str(),
                      strerror_r(error, buffer, 512));
-            abort();
+            exit(-1);
         }
     }
     else
@@ -45,7 +50,7 @@ void LogInit()
 
 void LogDeinit()
 {
-    if (gl_config.MainLogIntoFile)
+    if (*gl_loggingConfig.MainLogIntoFile)
     {
         fsync(gl_logFile);
         close(gl_logFile);
@@ -60,5 +65,12 @@ void LogPrint(const char* fmt, ...)
     vdprintf(gl_logFile, fmt, args);
     va_end(args);
 }
+
+std::string GetProcessLogName(const char* suffix)
+{
+    return fmt::format("{}/memhawk_{}_{}_{}.log", *gl_loggingConfig.LogDir, program_invocation_short_name, getpid(),
+                       suffix);
+}
+
 
 } // namespace memhawk

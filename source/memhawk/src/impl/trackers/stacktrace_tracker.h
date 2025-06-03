@@ -1,5 +1,6 @@
 #pragma once
 
+#include "config.h"
 #include "i_stacktrace_tracker.h"
 #include "stacktrace.h"
 
@@ -16,7 +17,7 @@ namespace memhawk
 class StacktraceTracker : public IStacktraceTracker
 {
 public:
-    explicit StacktraceTracker(bool dump = false);
+    explicit StacktraceTracker(StacktraceTrackerConfig cfg);
     ~StacktraceTracker() override;
 
     void PostponedConstruct();
@@ -50,8 +51,9 @@ private:
     Stacktrace GetStacktrace(uint32_t traceId);
 
 private:
+    StacktraceTrackerConfig m_cfg;
+
     absl::base_internal::SpinLock m_mt;
-    bool m_dump{false};
     std::unique_ptr<Storage> m_storage;
 };
 

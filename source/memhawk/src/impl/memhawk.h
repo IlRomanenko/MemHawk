@@ -1,6 +1,7 @@
 #pragma once
 
 #include "alloc_info.h"
+#include "config.h"
 #include "i_stacktrace_tracker.h"
 #include "stacktrace.h"
 #include "thread_tracker.h"
@@ -27,7 +28,7 @@ namespace memhawk
 class MemHawk
 {
 public:
-    explicit MemHawk(Config cfg);
+    explicit MemHawk(MemHawkConfig cfg);
     ~MemHawk();
 
     void PostponedConstruct();
@@ -86,7 +87,7 @@ private:
     void SetUpThreadFinishPromise(uint32_t trackerId);
 
 private:
-    Config m_cfg;
+    MemHawkConfig m_cfg;
 
     // Inner worker
     std::mutex m_mt;

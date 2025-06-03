@@ -1,5 +1,6 @@
 #pragma once
 
+#include "config.h"
 #include "i_stacktrace_tracker.h"
 #include "stacktrace.h"
 
@@ -28,7 +29,7 @@ public:
     static constexpr const uint32_t UnknownTraceId = (ElementsCount + 1) ^ FixedTrackerIdFlag;
 
 public:
-    explicit StaticStacktraceTracker(bool dump = false);
+    explicit StaticStacktraceTracker(StacktraceTrackerConfig cfg);
     ~StaticStacktraceTracker() override;
 
     uint32_t InsertStacktrace(Stacktrace&& trace) override;
@@ -51,6 +52,8 @@ private:
     };
 
 private:
+    StacktraceTrackerConfig m_cfg;
+
     absl::base_internal::SpinLock m_mt;
 
     // Use static arrays because memory can't be allocated upon inserting into StaticStacktraceTracker
@@ -62,8 +65,6 @@ private:
 
     uint32_t m_size{};
     uint32_t m_storageSize{};
-
-    bool m_dump{false};
 };
 
 } // namespace memhawk
