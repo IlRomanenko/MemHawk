@@ -3,6 +3,7 @@
 #include "algo.h"
 #include "config.h"
 #include "logging.h"
+#include "macros.h"
 
 #include <absl/base/attributes.h>
 #include <absl/debugging/stacktrace.h>
@@ -55,15 +56,15 @@ Stacktrace::Stacktrace(void* const* data, size_t size) // NOLINT(cppcoreguidelin
     memcpy(reinterpret_cast<void*>(m_data), reinterpret_cast<const void*>(data), m_size * sizeof(void*));
 }
 
-Stacktrace Stacktrace::Unwind(size_t capacity, size_t collapseDepth, bool useAbsl, size_t skip)
+Stacktrace Stacktrace::Unwind(size_t capacity, bool useAbsl, size_t skip)
 {
     Stacktrace trace{};
-    trace.UnwindStacktrace(capacity, collapseDepth, useAbsl, skip);
+    trace.UnwindStacktrace(capacity, useAbsl, skip);
     return trace;
 }
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE
-inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t collapseDepth, bool useAbsl, size_t skip)
+inline void Stacktrace::UnwindStacktrace(size_t capacity, bool useAbsl, size_t skip)
 {
     const size_t size = std::min(capacity, MaxUnwindDepth);
     int resultSize = 0;
@@ -77,7 +78,7 @@ inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t collapseDepth, 
         // unwind by dwarf
         resultSize = unw_backtrace(m_data, static_cast<int>(size));
     }
-    while (resultSize > 0 && m_data[static_cast<size_t>(resultSize - 1)] == nullptr)
+    while (likely(resultSize > 0) && unlikely(m_data[static_cast<size_t>(resultSize - 1)] == nullptr))
     {
         resultSize--;
     }
@@ -90,8 +91,12 @@ inline void Stacktrace::UnwindStacktrace(size_t capacity, size_t collapseDepth, 
 
     m_size = static_cast<size_t>(resultSize);
     m_skip = skip;
+}
+
+void Stacktrace::CollapseRecursion(size_t depth)
+{
     // remove duplicates -> not interested in recursion
-    const auto newSize = CollapseRecursion(GetTrace(), collapseDepth);
+    const auto newSize = memhawk::CollapseRecursion(GetTrace(), depth);
     ShrinkBySize(newSize);
 }
 

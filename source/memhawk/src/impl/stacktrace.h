@@ -37,12 +37,13 @@ public:
     Stacktrace();
     Stacktrace(void* const* data, size_t size);
 
-    static Stacktrace Unwind(size_t capacity, size_t collapseDepth, bool useAbsl, size_t skip = 1);
+    static Stacktrace Unwind(size_t capacity, bool useAbsl, size_t skip = 1);
     static void Setup();
 
     void Compress(CompressedStacktrace& result) const;
 
     void CoarseToFunctionsStart();
+    void CollapseRecursion(size_t depth);
 
     void Skip(size_t size);
     void ShrinkBySize(size_t size);
@@ -54,7 +55,7 @@ public:
     bool operator==(const Stacktrace& rhs) const;
 
 private:
-    inline void UnwindStacktrace(size_t capacity, size_t collapseDepth, bool useAbsl, size_t skip);
+    inline void UnwindStacktrace(size_t capacity, bool useAbsl, size_t skip);
 
 private:
     alignas(64) void* m_data[MaxUnwindDepth]; // don't initialise memory

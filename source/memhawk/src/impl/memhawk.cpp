@@ -71,7 +71,8 @@ void MemHawk::PostponedConstruct()
     const RecursionGuard<AllocTag> guard;
     {
         const RecursionGuard<InnerAllocTag> innerGuard;
-        m_innerTracker = std::make_unique<ThreadTracker>(m_thTrackers.size(), *m_cfg.LruStackSize, m_innerBtTracker);
+        m_innerTracker = std::make_unique<ThreadTracker>(m_thTrackers.size(), *m_cfg.LruStackSize,
+                                                         *m_cfg.CollapseRecursionDepth, m_innerBtTracker);
     }
     m_btTracker.PostponedConstruct();
     RegisterThread();
@@ -87,7 +88,7 @@ void MemHawk::RegisterThread()
 {
     if (unlikely(gtl_tracker != nullptr))
     {
-        const auto trace = Stacktrace::Unwind(32, 0, false).Describe();
+        const auto trace = Stacktrace::Unwind(32, false).Describe();
         LogError("Trying to register already registered thread, stacktrace:\n" fStr, trace.c_str());
         return;
     }
@@ -117,7 +118,8 @@ void MemHawk::RegisterThread()
         return;
     }
     const auto trackerId = m_thTrackers.size();
-    m_thTrackers.emplace_back(std::make_unique<ThreadTracker>(trackerId, *m_cfg.LruStackSize, m_btTracker));
+    m_thTrackers.emplace_back(
+        std::make_unique<ThreadTracker>(trackerId, *m_cfg.LruStackSize, *m_cfg.CollapseRecursionDepth, m_btTracker));
     gtl_tracker = m_thTrackers.back().get();
     SetUpThreadFinishPromise(trackerId);
 }
@@ -250,6 +252,7 @@ void MemHawk::ProcessPostponed()
 
 void MemHawk::PostponeAlloc(const AllocInfo& info)
 {
+    const absl::base_internal::SpinLockHolder lock(&m_postponedMt);
     if (m_postponed.size() >= m_postponedCapacity)
     {
         LogWarning("Skipped postponed alloc due to exhausting capacity");
@@ -262,6 +265,7 @@ void MemHawk::PostponeAlloc(const AllocInfo& info)
 
 void MemHawk::PostponeDealloc(const AllocInfo& info)
 {
+    const absl::base_internal::SpinLockHolder lock(&m_postponedMt);
     if (m_postponed.size() >= m_postponedCapacity)
     {
         LogWarning("Skipped postponed alloc due to exhausting capacity");
@@ -314,12 +318,7 @@ void MemHawk::WorkerUpdateData()
             m_writer->AccountThreadTracker(tracker.get());
         }
     }
-    {
-        // add tags in order not to deadlock
-        const RecursionGuard<AllocTag> guard;
-        const RecursionGuard<InnerAllocTag> innerGuard;
-        m_writer->AccountThreadTracker(m_innerTracker.get());
-    }
+    m_writer->AccountThreadTracker(m_innerTracker.get());
 }
 
 void MemHawk::WorkerPrintData()

@@ -44,11 +44,11 @@ void EncodeBits(MutBitIterator& iter, uint32_t bitCount, uint32_t value);
 void DecodeBits(ConstBitIterator& iter, uint32_t bitCount, uint32_t& value);
 
 // Simple bit-packing algorithm
-size_t CalculateMaxExpectedSize(absl::Span<const uint64_t> in);
+uint32_t CalculateMaxExpectedSize(absl::Span<const uint64_t> in);
 
-size_t Compress(absl::Span<const uint64_t> in, uint32_t* out);
+uint32_t Compress(absl::Span<const uint64_t> in, uint32_t* out);
 void Compress(absl::Span<const uint64_t> in, std::vector<uint32_t>& out);
-size_t Decompress(absl::Span<const uint32_t> in, uint64_t* out);
+uint32_t Decompress(absl::Span<const uint32_t> in, uint64_t* out);
 void Decompress(absl::Span<const uint32_t> in, std::vector<uint64_t>& out);
 
 } // namespace memhawk::bit_packing

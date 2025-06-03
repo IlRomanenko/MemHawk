@@ -42,6 +42,7 @@ struct MemHawkConfig
     CONFIG_VAR_OPT(StacktraceTrackerConfig, InnerTracker, "inn_tracker", {});
     CONFIG_VAR_OPT(StacktraceTrackerConfig, ExternalTracker, "ext_tracker", {});
     CONFIG_VAR_OPT(WritersConfig, Writers, "writers", {});
+    CONFIG_VAR_OPT(size_t, CollapseRecursionDepth, "collapse_depth", 8);
 };
 
 struct LoggingConfig
@@ -55,7 +56,6 @@ struct UnwindConfig
 {
     CONFIG_VAR_OPT(bool, UseAbslStacktraces, "absl", false);
     CONFIG_VAR_OPT(size_t, TrackDepth, "track_depth", 32);
-    CONFIG_VAR_OPT(size_t, CollapseRecursionDepth, "collapse_depth", 4);
 };
 
 struct MainConfig
@@ -75,7 +75,7 @@ BOOST_HANA_ADAPT_STRUCT(memhawk::StacktraceTrackerConfig, DumpStacktraces, Filen
 BOOST_HANA_ADAPT_STRUCT(memhawk::TextWriterConfig, TrackerBySizeCount, TrackerByTotalCount);
 BOOST_HANA_ADAPT_STRUCT(memhawk::WritersConfig, TextWriter);
 BOOST_HANA_ADAPT_STRUCT(memhawk::MemHawkConfig, TrackingWorker, MaxPostponed, TrackerDumpingPeriodMs, LruStackSize,
-                        InnerTracker, ExternalTracker, Writers);
+                        InnerTracker, ExternalTracker, Writers, CollapseRecursionDepth);
 BOOST_HANA_ADAPT_STRUCT(memhawk::LoggingConfig, MainLogIntoFile, LoggingLevel, LogDir);
-BOOST_HANA_ADAPT_STRUCT(memhawk::UnwindConfig, UseAbslStacktraces, TrackDepth, CollapseRecursionDepth);
+BOOST_HANA_ADAPT_STRUCT(memhawk::UnwindConfig, UseAbslStacktraces, TrackDepth);
 BOOST_HANA_ADAPT_STRUCT(memhawk::MainConfig, PrognameRegex, MemHawk, Logging, Unwind, Help);

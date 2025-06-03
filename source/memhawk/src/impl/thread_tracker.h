@@ -45,8 +45,12 @@ public:
     };
 
 public:
-    ThreadTracker(uint32_t id, uint32_t capacity, IStacktraceTracker& tracker)
-        : m_trackerId(id), m_lruStacktraces(capacity), m_allocSummaries(capacity), m_btTracker(tracker)
+    ThreadTracker(uint32_t id, uint32_t capacity, uint32_t collapseDepth, IStacktraceTracker& tracker)
+        : m_trackerId(id)
+        , m_collapseDepth(collapseDepth)
+        , m_lruStacktraces(capacity)
+        , m_allocSummaries(capacity)
+        , m_btTracker(tracker)
     {
     }
 
@@ -61,9 +65,14 @@ private:
     alignas(64) SpinLock m_mt;
 
     uint32_t m_trackerId{};
+    uint32_t m_collapseDepth{};
 
     uint64_t m_totalAllocs{};
     uint64_t m_totalDeallocs{};
+
+    uint64_t m_cacheMisses{};
+    uint64_t m_cacheUsages{};
+
     AllocSummary m_total;
 
     // Stacktrace -> StacktraceId

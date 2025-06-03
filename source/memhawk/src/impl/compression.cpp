@@ -148,12 +148,12 @@ size_t CalculateControlBlockSize(size_t size)
     return (blockSizeBits + ValueBitsSize - 1) / ValueBitsSize;
 }
 
-size_t CalculateMaxExpectedSize(absl::Span<const uint64_t> in)
+uint32_t CalculateMaxExpectedSize(absl::Span<const uint64_t> in)
 {
     return 1 + in.size() * 2 + CalculateControlBlockSize(in.size());
 }
 
-size_t Compress(const absl::Span<const uint64_t> in, uint32_t* out)
+uint32_t Compress(const absl::Span<const uint64_t> in, uint32_t* out)
 {
     out[0] = static_cast<uint32_t>(in.size());
     MutBitIterator controlBlockIter{out};
@@ -196,15 +196,15 @@ void Compress(absl::Span<const uint64_t> in, std::vector<uint32_t>& out)
 
 void Decompress(absl::Span<const uint32_t> in, std::vector<uint64_t>& out)
 {
-    const size_t total = in[0];
+    const uint32_t total = in[0];
     out.clear();
     out.resize(total);
     Decompress(in, out.data());
 }
 
-size_t Decompress(absl::Span<const uint32_t> in, uint64_t* out)
+uint32_t Decompress(absl::Span<const uint32_t> in, uint64_t* out)
 {
-    const size_t total = in[0];
+    const uint32_t total = in[0];
     ConstBitIterator controlBlockIter{in};
     controlBlockIter.AdvanceBytes(1);
     ConstBitIterator dataIter{in};
@@ -217,7 +217,7 @@ size_t Decompress(absl::Span<const uint32_t> in, uint64_t* out)
     uint32_t high = 0;
     uint32_t low = 0;
 
-    for (size_t i = 0; i < total; i++)
+    for (uint32_t i = 0; i < total; i++)
     {
         Decode(controlBlockIter, dataIter, low);
         Decode(controlBlockIter, dataIter, high);

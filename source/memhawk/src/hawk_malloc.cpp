@@ -219,8 +219,7 @@ void* hawk_malloc(size_t size)
 
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
-        auto trace =
-            Stacktrace::Unwind(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.CollapseRecursionDepth, *hooks::gl_unwind.UseAbslStacktraces);
+        auto trace = Stacktrace::Unwind(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
         memhawk->TrackAlloc(*info, std::move(trace));
     }
     return ptr;
@@ -246,8 +245,7 @@ void* hawk_aligned_alloc(size_t align, size_t size)
 
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
-        auto trace =
-            Stacktrace::Unwind(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.CollapseRecursionDepth, *hooks::gl_unwind.UseAbslStacktraces);
+        auto trace = Stacktrace::Unwind(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
         memhawk->TrackAlloc(*info, std::move(trace));
     }
     return ptr;
@@ -277,8 +275,7 @@ int hawk_posix_memalign(void** memptr, size_t alignment, size_t size)
 
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
-        auto trace =
-            Stacktrace::Unwind(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.CollapseRecursionDepth, *hooks::gl_unwind.UseAbslStacktraces);
+        auto trace = Stacktrace::Unwind(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
         memhawk->TrackAlloc(*info, std::move(trace));
     }
     return res;
@@ -306,8 +303,7 @@ void* hawk_calloc(size_t nm, size_t size)
 
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
-        auto trace =
-            Stacktrace::Unwind(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.CollapseRecursionDepth, *hooks::gl_unwind.UseAbslStacktraces);
+        auto trace = Stacktrace::Unwind(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
         memhawk->TrackAlloc(*info, std::move(trace));
     }
     return ptr;
@@ -321,8 +317,7 @@ void* hawk_realloc(void* ptr, size_t size)
     }
     LogTrace("requested: " fPtr " " fSzt, ptr, size);
 
-    auto trace =
-        Stacktrace::Unwind(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.CollapseRecursionDepth, *hooks::gl_unwind.UseAbslStacktraces);
+    auto trace = Stacktrace::Unwind(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
 
     auto origPtr = ptr;
 
@@ -441,7 +436,7 @@ void hawk_free(void* ptr)
 
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
-        auto trace = Stacktrace::Unwind(MinUnwindDepth, *hooks::gl_unwind.CollapseRecursionDepth, *hooks::gl_unwind.UseAbslStacktraces);
+        auto trace = Stacktrace::Unwind(MinUnwindDepth, *hooks::gl_unwind.UseAbslStacktraces);
         memhawk->TrackDealloc(*info, trace);
     }
 
