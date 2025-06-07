@@ -120,4 +120,5 @@ ExtraArgs:
 - '-Wno-unknown-pragmas'
 - '-Wno-unused-command-line-argument' # similar issue
 
-HeaderFilterRegex: '^.*/(source)/.*(h|hpp)$'
+HeaderFilterRegex: '^.*/(source)/.*(?!.*\.pb\.)(h|hpp)$'
+SourceFilterRegex: '(?!.*\.pb\.cc$)'

@@ -111,7 +111,7 @@ inline bool ParseStructNested(const ParseContext& ctx, T& object)
             fieldFound = true;
             if constexpr (boost::hana::Struct<std::decay_t<decltype(*member)>>::value)
             {
-                bool isParsed = ParseStructNested(nextCtx, *member);
+                const bool isParsed = ParseStructNested(nextCtx, *member);
                 if (isParsed)
                 {
                     member.SetFlag();
@@ -139,13 +139,13 @@ inline bool ValidateStruct(T& object, const ErrorCallback& onError = nullptr, co
         auto& member = boost::hana::second(pair)(object);
         const auto memberName = member.GetName();
         auto fullPath = keyPath + OptionNestedDelim + memberName;
-        if (keyPath == "")
+        if (keyPath.empty())
         {
             fullPath = memberName;
         }
         if constexpr (boost::hana::Struct<std::decay_t<decltype(*member)>>::value)
         {
-            bool nestedValid = ValidateStruct(*member, onError, fullPath);
+            const bool nestedValid = ValidateStruct(*member, onError, fullPath);
             valid &= nestedValid;
         }
         else
@@ -180,7 +180,7 @@ inline void DescribeStruct(T& object, std::function<void(const DescribeContext&)
         auto& member = boost::hana::second(pair)(object);
         const auto memberName = member.GetName();
         auto fullPath = keyPath + OptionNestedDelim + memberName;
-        if (keyPath == "")
+        if (keyPath.empty())
         {
             fullPath = memberName;
         }

@@ -44,7 +44,7 @@ StacktraceTracker::~StacktraceTracker()
     auto filename = GetProcessLogName("inner_stacktraces");
     if (m_cfg.Filename->has_value())
     {
-        filename = m_cfg.Filename->value();
+        filename = m_cfg.Filename->value(); // NOLINT(bugprone-unchecked-optional-access)
     }
     std::ofstream result(filename, std::ios_base::out | std::ios_base::trunc);
     result << "Inner stacktraces:" << "\n";

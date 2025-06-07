@@ -22,7 +22,6 @@ class ProtobufWriter : public IWriterStrategy
 
 public:
     explicit ProtobufWriter(ProtobufWriterConfig cfg, std::shared_ptr<IStacktraceFinder> finder);
-    ~ProtobufWriter() override;
 
     ProtobufWriter(const ProtobufWriter&) = delete;
     ProtobufWriter& operator=(const ProtobufWriter&) = delete;

@@ -13,7 +13,7 @@ template <typename T, typename Meta>
 class ConfigVar
 {
 public:
-    constexpr explicit ConfigVar(const T& defaultValue) : m_value{defaultValue}
+    constexpr explicit ConfigVar(T defaultValue) : m_value{std::move(defaultValue)}
     {
     }
 
@@ -46,7 +46,7 @@ public:
 
     bool ParseValue(std::string_view str)
     {
-        bool ok = config::ParseValue(str, m_value);
+        const bool ok = config::ParseValue(str, m_value);
         if (ok)
         {
             m_set = true;

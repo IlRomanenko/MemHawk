@@ -42,14 +42,10 @@ ProtobufWriter::ProtobufWriter(ProtobufWriterConfig cfg, std::shared_ptr<IStackt
     auto filename = GetProcessLogName("protobuf", "binpb");
     if (m_cfg.Filename->has_value())
     {
-        filename = m_cfg.Filename->value();
+        filename = m_cfg.Filename->value(); // NOLINT(bugprone-unchecked-optional-access)
     }
     // google::protobuf::Out
     m_file = std::ofstream(filename, std::ios_base::out | std::ios_base::binary);
-}
-
-ProtobufWriter::~ProtobufWriter()
-{
 }
 
 void ProtobufWriter::UpdateModules()
