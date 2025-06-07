@@ -40,3 +40,4 @@ set_target_properties(xxhash_static PROPERTIES
 
 # Add a dependency to ensure libXXHASH is built before your target
 add_dependencies(xxhash_static xxhash_src)
+add_library(xxHash::xxhash ALIAS xxhash_static)

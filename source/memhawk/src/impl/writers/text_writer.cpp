@@ -9,82 +9,64 @@
 namespace memhawk
 {
 
-TextWriter::TextWriter(TextWriterConfig cfg, std::unique_ptr<IStacktraceFinder> finder)
+namespace writers
+{
+
+TextWriter::TextWriter(TextWriterConfig cfg, std::shared_ptr<IStacktraceFinder> finder)
     : m_cfg{std::move(cfg)}, m_stacktraceFinder{std::move(finder)}
 {
-}
-
-void TextWriter::PostponedConstruct()
-{
-    m_storage = std::make_unique<Storage>();
-    m_storage->summaryFile = std::ofstream(GetProcessLogName("summary"), std::ios_base::out | std::ios_base::trunc);
-    m_storage->stacktracesFile =
-        std::ofstream(GetProcessLogName("stacktraces"), std::ios_base::out | std::ios_base::trunc);
+    m_summaryFile = std::ofstream(GetProcessLogName("summary"), std::ios_base::out | std::ios_base::trunc);
+    m_stacktracesFile = std::ofstream(GetProcessLogName("stacktraces"), std::ios_base::out | std::ios_base::trunc);
 }
 
 TextWriter::~TextWriter()
 {
-    m_storage->summaryFile.close();
-    m_storage->stacktracesFile.close();
-    LogInfo("Storage.index");
-    for (const auto& elem : m_storage->index)
-    {
-        if (elem.summary.active == 0)
-        {
-            continue;
-        }
-        // if (!IsFixedTrackerId(elem.traceId))
-        // {
-        //     continue;
-        // }
-        LogInfo("TraceId: " fU32 ", active: " fI64 ", size: " fI64 ", overhead: " fI64 ", total: " fI64, elem.traceId,
-                elem.summary.active, elem.summary.size, elem.summary.overhead, elem.summary.totalCount);
-    }
+    m_summaryFile.close();
+    m_stacktracesFile.close();
 }
 
-void TextWriter::AccountThreadTracker(ThreadTracker* tracker)
+void TextWriter::UpdateModules()
 {
-    {
-        auto lockedTracker = tracker->LockTracker();
-        lockedTracker.ConsumeDiff(m_storage->localSummaries, m_storage->summary);
-    }
-    m_storage->updatedTraces += m_storage->localSummaries.size();
+}
 
-    auto& byTraceIdIndex = m_storage->index.get<Storage::ByTraceId>();
-    for (const auto& [traceId, summary] : m_storage->localSummaries)
+void TextWriter::AccountSnapshot(const SummariesMap& summaries, const AllocSummary& total)
+{
+    m_updatedTraces += summaries.size();
+    m_summary += total;
+
+    auto& byTraceIdIndex = m_index.get<ByTraceId>();
+    for (const auto& [traceId, summary] : summaries)
     {
         auto statIt = byTraceIdIndex.find(traceId);
         if (statIt == byTraceIdIndex.end())
         {
-            statIt = byTraceIdIndex.insert(Storage::IndexValue{traceId}).first;
+            statIt = byTraceIdIndex.insert(IndexValue{traceId}).first;
         }
-        byTraceIdIndex.modify(statIt, [&summary](Storage::IndexValue& value) {
+        byTraceIdIndex.modify(statIt, [&summary](IndexValue& value) {
             value.changed = true;
             value.summary += summary;
         });
     }
-    m_storage->localSummaries.clear();
 }
 
 void TextWriter::FlushData()
 {
     absl::flat_hash_set<uint32_t> newStacktraces;
 
-    const auto& bySizeIndex = m_storage->index.get<Storage::ByTotalSize>();
+    const auto& bySizeIndex = m_index.get<ByTotalSize>();
     size_t topElementsCount = std::min(*m_cfg.TrackerBySizeCount, bySizeIndex.size());
     const auto bySizeRange = boost::make_iterator_range_n(bySizeIndex.begin(), topElementsCount);
 
-    const auto& byCountIndex = m_storage->index.get<Storage::ByTotalCount>();
+    const auto& byCountIndex = m_index.get<ByTotalCount>();
     topElementsCount = std::min(*m_cfg.TrackerByTotalCount, byCountIndex.size());
     const auto byCountRange = boost::make_iterator_range_n(byCountIndex.begin(), topElementsCount);
 
     std::stringstream str;
     str << absl::FormatTime(absl::Now()) << "\n";
     str << fmt::format("Application heap: {:.3f}mb, active: {}, total: {}, memhawk overhead: {:.3f}mb\n",
-                       static_cast<double>(m_storage->summary.size) / 1024 / 1024, m_storage->summary.active,
-                       m_storage->summary.totalCount, static_cast<double>(m_storage->summary.overhead) / 1024 / 1024);
-    str << fmt::format("Total traces: {}, updated since last time: {}\n", m_storage->index.size(),
-                       m_storage->updatedTraces);
+                       static_cast<double>(m_summary.size) / 1024 / 1024, m_summary.active, m_summary.totalCount,
+                       static_cast<double>(m_summary.overhead) / 1024 / 1024);
+    str << fmt::format("Total traces: {}, updated since last time: {}\n", m_index.size(), m_updatedTraces);
 
     str << "ByActiveSize" << "\n";
     for (const auto& value : bySizeRange)
@@ -93,7 +75,7 @@ void TextWriter::FlushData()
         {
             continue;
         }
-        const auto it = m_storage->writtenStacktraces.insert(value.traceId);
+        const auto it = m_writtenStacktraces.insert(value.traceId);
         if (it.second)
         {
             newStacktraces.insert(value.traceId);
@@ -109,7 +91,7 @@ void TextWriter::FlushData()
     str << "ByTotalCount" << "\n";
     for (const auto& value : byCountRange)
     {
-        const auto it = m_storage->writtenStacktraces.insert(value.traceId);
+        const auto it = m_writtenStacktraces.insert(value.traceId);
         if (it.second)
         {
             newStacktraces.insert(value.traceId);
@@ -122,7 +104,7 @@ void TextWriter::FlushData()
                            value.summary.active, totalMb, average, value.summary.totalCount);
     }
     str << "\n\n";
-    m_storage->summaryFile << str.str();
+    m_summaryFile << str.str();
 
     for (const auto& traceId : newStacktraces)
     {
@@ -135,10 +117,11 @@ void TextWriter::FlushData()
         }
 
         auto traceStr = trace.value().Describe();
-        m_storage->stacktracesFile << fmt::format("TraceId: {}\n{}\n", traceId, traceStr) << std::endl;
+        m_stacktracesFile << fmt::format("TraceId: {}\n{}\n", traceId, traceStr) << std::endl;
     }
-    m_storage->stacktracesFile.flush();
-    m_storage->summaryFile.flush();
+    m_stacktracesFile.flush();
+    m_summaryFile.flush();
 }
 
+} // namespace writers
 } // namespace memhawk

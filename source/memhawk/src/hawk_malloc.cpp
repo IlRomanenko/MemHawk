@@ -8,6 +8,7 @@
 #include "impl/macros.h"
 #include "impl/memhawk.h"
 #include "impl/stacktrace.h"
+#include "impl/writers/factory.h"
 
 #include <absl/base/attributes.h>
 #include <absl/base/internal/direct_mmap.h>
@@ -77,26 +78,41 @@ HOOK(realloc, HookType::Required);
 HOOK(posix_memalign, HookType::Optional);
 HOOK(valloc, HookType::Optional);
 HOOK(aligned_alloc, HookType::Optional);
+HOOK(dlopen, HookType::Required);
+HOOK(dlclose, HookType::Required);
 
 #pragma GCC diagnostic pop
 #undef HOOK
 
 static ABSL_CONST_INIT bool gl_initialised = false;
+static ABSL_CONST_INIT bool gl_dlInitialised = false;
 static ABSL_CONST_INIT bool gl_memhawkReady = false;
-static ABSL_CONST_INIT MemHawk* gl_memhawk = nullptr;
+static ABSL_CONST_INIT std::unique_ptr<MemHawk> gl_memhawk = nullptr;
 static ABSL_CONST_INIT UnwindConfig gl_unwind = {};
 
 MemHawk* GetMemHawk()
 {
     if (likely(gl_memhawkReady))
     {
-        return gl_memhawk;
+        return gl_memhawk.get();
     }
     return nullptr;
 }
 
+void InitDlHooks()
+{
+    if (gl_dlInitialised)
+    {
+        return;
+    }
+    hooks::dlopen.init();
+    hooks::dlclose.init();
+    gl_dlInitialised = true;
+}
+
 void InitHooks()
 {
+    InitDlHooks();
     hooks::calloc.init();
     hooks::malloc.init();
     hooks::free.init();
@@ -125,8 +141,9 @@ catch (const std::exception& ex)
 
 __attribute__((__constructor__)) void init_memhawk()
 {
-    auto cfg = ParseConfig();
     InitHooks();
+
+    auto cfg = ParseConfig();
     if (CheckProgname(*cfg.PrognameRegex))
     {
         LogInit(*cfg.Logging);
@@ -134,7 +151,7 @@ __attribute__((__constructor__)) void init_memhawk()
         Stacktrace::Setup();
 
         LogInfo("[" fI32 "]", getpid());
-        gl_memhawk = new MemHawk(*cfg.MemHawk);
+        gl_memhawk = std::make_unique<MemHawk>(*cfg.MemHawk, std::make_unique<writers::WritersFactory>());
         gl_memhawkReady = true;
 
         // after that can save traces as postponed into memhawk
@@ -154,7 +171,7 @@ __attribute__((__destructor__)) void deinit_memhawk()
     if (gl_memhawk)
     {
         gl_memhawkReady = false;
-        delete gl_memhawk;
+        gl_memhawk.reset();
     }
     LogDeinit();
 }
@@ -447,6 +464,32 @@ size_t hawk_malloc_usable_size(void* ptr)
 {
     AllocInfo* info = reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) - AdditionalSize);
     return info->size;
+}
+
+void* hawk_dlopen(const char* file, int mode)
+{
+    if (unlikely(!hooks::gl_dlInitialised))
+    {
+        hooks::InitDlHooks();
+    }
+    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
+    {
+        memhawk->InvalidateModulesCache();
+    }
+    return hooks::dlopen(file, mode);
+}
+
+int hawk_dlclose(void* handle)
+{
+    if (unlikely(!hooks::gl_dlInitialised))
+    {
+        hooks::InitDlHooks();
+    }
+    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
+    {
+        memhawk->InvalidateModulesCache();
+    }
+    return hooks::dlclose(handle);
 }
 
 } // namespace memhawk

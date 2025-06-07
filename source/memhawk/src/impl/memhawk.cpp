@@ -9,13 +9,14 @@
 #include "scoped_sigmask.h"
 #include "stacktrace.h"
 #include "thread_tracker.h"
-#include "writers/text_writer.h"
+#include "writers/i_writer.h"
 
 #include <absl/base/attributes.h>
 #include <absl/cleanup/cleanup.h>
 #include <absl/synchronization/mutex.h>
 #include <fmt/format.h>
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <future>
@@ -29,8 +30,9 @@ namespace memhawk
 alignas(64) ABSL_CONST_INIT thread_local ThreadTracker* gtl_tracker = nullptr;
 alignas(64) ABSL_CONST_INIT thread_local std::array<void*, 8> gtl_retPtrs = {};
 
-MemHawk::MemHawk(MemHawkConfig cfg)
+MemHawk::MemHawk(MemHawkConfig cfg, std::unique_ptr<writers::IWritersFactory> factory)
     : m_cfg(std::move(cfg))
+    , m_writersFactory{std::move(factory)}
     , m_btTracker(*m_cfg.ExternalTracker)
     , m_postponedCapacity(*m_cfg.MaxPostponed)
     , m_postponed(*m_cfg.MaxPostponed)
@@ -222,6 +224,11 @@ void MemHawk::TrackDealloc(AllocInfo& info, const Stacktrace& trace)
     }
 }
 
+void MemHawk::InvalidateModulesCache()
+{
+    m_modulesCacheInvalidated.store(true);
+}
+
 void MemHawk::ProcessPostponed()
 {
     do
@@ -284,15 +291,16 @@ void MemHawk::TrackingWorker()
 
     LogInfo("Tracking worker started");
 
-    m_writer = std::make_unique<TextWriter>(*m_cfg.Writers->TextWriter, std::make_unique<InnerStacktraceFinder>(*this));
-    m_writer->PostponedConstruct();
+    m_workerStorage = std::make_unique<WorkerStorage>();
+    m_workerStorage->writer =
+        m_writersFactory->CreateWritersAdaptor(*m_cfg.Writers, std::make_shared<InnerStacktraceFinder>(*this));
 
     while (!m_stopped)
     {
         {
             std::unique_lock lock(m_mt);
             m_cv.wait_for(lock, std::chrono::milliseconds{*m_cfg.TrackerDumpingPeriodMs},
-                          [this]() { return !!m_stopped; });
+                          [this]() { return m_stopped.load(); });
         }
         WorkerUpdateData();
         WorkerPrintData();
@@ -311,19 +319,34 @@ void MemHawk::WorkerUpdateData()
         {
             // add tag in order not to deadlock
             const RecursionGuard<AllocTag> guard;
-            m_writer->AccountThreadTracker(tracker.get());
+            WorkerAccountThreadTracker(tracker.get());
         }
         else
         {
-            m_writer->AccountThreadTracker(tracker.get());
+            WorkerAccountThreadTracker(tracker.get());
         }
     }
-    m_writer->AccountThreadTracker(m_innerTracker.get());
+    WorkerAccountThreadTracker(m_innerTracker.get());
+    if (m_modulesCacheInvalidated.exchange(false, std::memory_order_relaxed))
+    {
+        m_workerStorage->writer->UpdateModules();
+    }
+}
+
+void MemHawk::WorkerAccountThreadTracker(ThreadTracker* tracker)
+{
+    {
+        auto lockedTracker = tracker->LockTracker();
+        lockedTracker.ConsumeDiff(m_workerStorage->localSummaries, m_workerStorage->summary);
+    }
+    m_workerStorage->writer->AccountSnapshot(m_workerStorage->localSummaries, m_workerStorage->summary);
+    m_workerStorage->summary = {};
+    m_workerStorage->localSummaries.clear();
 }
 
 void MemHawk::WorkerPrintData()
 {
-    m_writer->FlushData();
+    m_workerStorage->writer->FlushData();
 }
 
 } // namespace memhawk

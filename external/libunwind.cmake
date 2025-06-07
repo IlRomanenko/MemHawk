@@ -80,3 +80,4 @@ endif()
 
 # Add a dependency to ensure libunwind is built before your target
 add_dependencies(unwind_static libunwind_src)
+add_library(libunwind::libunwind ALIAS unwind_static)

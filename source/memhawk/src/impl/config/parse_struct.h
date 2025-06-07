@@ -97,7 +97,7 @@ inline bool ParseStructNested(const ParseContext& ctx, T& object)
     {
         return ParseStructField(ctx, object);
     }
-    const auto structKey = ctx.keyView.substr(ctx.parsedSize, splitPos);
+    const auto structKey = ctx.keyView.substr(ctx.parsedSize, splitPos - ctx.parsedSize);
 
     auto nextCtx = ctx;
     nextCtx.parsedSize = splitPos + 1;

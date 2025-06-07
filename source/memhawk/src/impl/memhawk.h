@@ -28,10 +28,12 @@ namespace memhawk
 class MemHawk
 {
 public:
-    explicit MemHawk(MemHawkConfig cfg);
+    explicit MemHawk(MemHawkConfig cfg, std::unique_ptr<writers::IWritersFactory> factory);
     ~MemHawk();
 
     void PostponedConstruct();
+
+    void InvalidateModulesCache();
 
     void TrackAlloc(AllocInfo& info, Stacktrace&& trace);
     void TrackDealloc(AllocInfo& info, const Stacktrace& trace);
@@ -61,6 +63,13 @@ private:
         MemHawk& m_memhawk;
     };
 
+    struct WorkerStorage
+    {
+        std::unique_ptr<writers::IWriterStrategy> writer;
+        SummariesMap localSummaries;
+        AllocSummary summary;
+    };
+
     struct Postponed
     {
         enum class Operation
@@ -76,6 +85,7 @@ private:
     void TrackingWorker();
     void WorkerUpdateData();
     void WorkerPrintData();
+    void WorkerAccountThreadTracker(ThreadTracker* tracker);
 
     // Postponed allocs handlers
     void PostponeAlloc(const AllocInfo& info);
@@ -89,12 +99,15 @@ private:
 private:
     MemHawkConfig m_cfg;
 
+    std::atomic_bool m_modulesCacheInvalidated{true};
+
     // Inner worker
     std::mutex m_mt;
     std::condition_variable m_cv;
     std::atomic<bool> m_stopped{false};
     std::thread m_worker;
-    std::unique_ptr<IWriter> m_writer;
+    std::unique_ptr<writers::IWritersFactory> m_writersFactory;
+    std::unique_ptr<WorkerStorage> m_workerStorage;
 
     // Trackers
     absl::base_internal::SpinLock m_thTrackersMt;

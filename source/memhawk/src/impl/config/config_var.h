@@ -13,7 +13,7 @@ template <typename T, typename Meta>
 class ConfigVar
 {
 public:
-    constexpr explicit ConfigVar(const T& defaultValue) : m_value(std::move(defaultValue))
+    constexpr explicit ConfigVar(const T& defaultValue) : m_value{defaultValue}
     {
     }
 

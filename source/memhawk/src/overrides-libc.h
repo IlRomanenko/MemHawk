@@ -61,5 +61,10 @@ int posix_memalign(void** r, size_t a, size_t s) __THROW ALIAS(hawk_posix_memali
 
 size_t malloc_usable_size(void* ptr) ALIAS(hawk_malloc_usable_size);
 
+// libdl functions
+void* dlopen(const char* file, int mode) ALIAS(hawk_dlopen);
+int dlclose(void* handle) ALIAS(hawk_dlclose);
+
+
 } // extern "C"
 #undef ALIAS

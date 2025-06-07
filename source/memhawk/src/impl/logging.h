@@ -14,7 +14,7 @@ void LogInit(LoggingConfig cfg);
 void LogDeinit();
 void LogPrint(const char* fmt, ...);
 
-std::string GetProcessLogName(const char* suffix);
+std::string GetProcessLogName(const char* suffix, const char* fileext = "log");
 
 #define LogEx(level, format, ...)                                                                                      \
     do                                                                                                                 \

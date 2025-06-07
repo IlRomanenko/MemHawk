@@ -53,6 +53,16 @@ size_t hawk_malloc_usable_size(void* ptr)
     return memhawk::hawk_malloc_usable_size(ptr);
 }
 
+void* hawk_dlopen(const char* file, int mode)
+{
+    return memhawk::hawk_dlopen(file, mode);
+}
+
+int hawk_dlclose(void* handle)
+{
+    return memhawk::hawk_dlclose(handle);
+}
+
 void* HawkInternalNew(size_t size) noexcept(false)
 {
     auto ptr = memhawk::hawk_malloc(size);

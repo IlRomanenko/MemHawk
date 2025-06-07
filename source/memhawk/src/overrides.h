@@ -16,6 +16,10 @@ void* hawk_valloc(size_t size);
 void* hawk_pvalloc(size_t size); // calls abort
 int hawk_posix_memalign(void** memptr, size_t alignment, size_t size);
 
+// libdl functions
+void* hawk_dlopen(const char* file, int mode);
+int hawk_dlclose(void* handle);
+
 // also replace some routines
 size_t hawk_malloc_usable_size(void* ptr);
 

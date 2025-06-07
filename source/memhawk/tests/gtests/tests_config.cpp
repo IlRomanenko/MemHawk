@@ -1,3 +1,4 @@
+#include "config.h"
 #include "impl/config/config_var.h"
 #include "impl/config/parse_struct.h"
 
@@ -161,6 +162,23 @@ TEST(Config, ParseStruct_WithNested_ExpectAllTypesOfErrors)
     AppConfig cfg{};
     auto res = config::ParseStruct("cfg.name_=qwerty:cfg.value=name:enabledtrue", cfg, mock.AsStdFunction());
     EXPECT_FALSE(res);
+}
+
+TEST(Config, ParseStruct_DeepNested_ExpectOk)
+{
+    MockFunction<config::ErrorCallback> mock;
+    EXPECT_CALL(mock, Call(_)).WillRepeatedly(Invoke([](const config::ParseError& err) {
+        std::cout << err.field << std::endl;
+        std::cout << err.key << std::endl;
+        std::cout << static_cast<uint64_t>(err.type) << std::endl;
+        std::cout << err.value << std::endl;
+        EXPECT_FALSE(true);
+    }));
+    MainConfig cfg{};
+    auto res = config::ParseStruct("memhawk.writers.proto_writer.enabled=1", cfg, mock.AsStdFunction());
+    EXPECT_TRUE(res);
+
+    EXPECT_EQ(*cfg.MemHawk->Writers->ProtobufWriter->Enabled, true);
 }
 
 } // namespace memhawk

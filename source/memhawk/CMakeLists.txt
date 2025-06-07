@@ -28,19 +28,40 @@ configure_file(
     ${PROJECT_SOURCE_DIR}/src/impl/config_defs.h
 )
 
+
+set(PROTO_DIR ${PROJECT_SOURCE_DIR})
+set(PROTO_FILES ${PROJECT_SOURCE_DIR}/protos/snapshot.proto)
+
+add_library(proto_files OBJECT ${PROTO_FILES})
+target_link_libraries(proto_files PUBLIC protobuf::libprotobuf)
+set(PROTO_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/protos")
+make_directory(${PROTO_BINARY_DIR})
+
+target_include_directories(proto_files PUBLIC
+  "$<BUILD_INTERFACE:${PROTO_BINARY_DIR}>"
+)
+
+protobuf_generate(
+    TARGET proto_files
+    LANGUAGE cpp
+    PROTOS ${PROTO_FILES}
+    IMPORT_DIRS "${PROTO_DIR}"
+    GENERATE_EXTENSIONS .pb.cc .pb.h
+    PROTOC_OUT_DIR "${PROTO_BINARY_DIR}"
+)
+
 target_link_libraries(${PROJECT_NAME}_impl
 PUBLIC
-    xxhash_static
-    unwind_static
-    fmt
+    xxHash::xxhash
+    libunwind::libunwind
+    fmt::fmt
     absl::flat_hash_map
     absl::synchronization
     absl::time
     absl::span
     absl::cleanup
     absl::stacktrace
-    atomic
-    dl
+    proto_files
 )
 
 target_include_directories(${PROJECT_NAME}_impl
@@ -58,7 +79,6 @@ target_link_libraries(${PROJECT_NAME}
 set_target_properties(${PROJECT_NAME} PROPERTIES
     VERSION ${MEMHAWK_LIB_VERSION}
     SOVERSION ${MEMHAWK_LIB_SOVERSION}
-    # PUBLIC_HEADER "include/memhawk/memhawk_api.h"
 )
 
 install(TARGETS ${PROJECT_NAME}

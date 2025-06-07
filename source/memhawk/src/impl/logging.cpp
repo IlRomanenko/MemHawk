@@ -66,10 +66,10 @@ void LogPrint(const char* fmt, ...)
     va_end(args);
 }
 
-std::string GetProcessLogName(const char* suffix)
+std::string GetProcessLogName(const char* suffix, const char* fileext)
 {
-    return fmt::format("{}/memhawk_{}_{}_{}.log", *gl_loggingConfig.LogDir, program_invocation_short_name, getpid(),
-                       suffix);
+    return fmt::format("{}/memhawk_{}_{}_{}.{}", *gl_loggingConfig.LogDir, program_invocation_short_name, getpid(),
+                       suffix, fileext);
 }
 
 

@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package memhawk.protos;
+
+message AllocSummary
+{
+    int64 size = 2;
+    int64 active = 3;
+    int64 overhead = 4;
+
+    uint64 totalCount = 5;
+    uint64 totalBytes = 6;
+}
+
+message TracedAllocSummary
+{
+    uint32 traceId = 1;
+    AllocSummary actual = 2;
+}
+
+message StacktracePtr
+{
+    uint32 ptrId = 1;
+    uint64 ptrAddr = 2;
+}
+
+message Stacktrace
+{
+    uint32 traceId = 1;
+    repeated uint32 ptrId = 2;
+}
+
+message ElfInfo
+{
+    string filename = 1;
+    uint64 addr = 2;
+    message Segment
+    {
+        uint64 addr = 1;
+        uint64 size = 2;
+    };
+    repeated Segment segments = 3;
+};
+
+message Snapshot
+{
+    uint64 timestamp = 1;
+    repeated TracedAllocSummary changed = 2;
+    repeated StacktracePtr ptrIds = 3;
+    repeated Stacktrace stacktraces = 4;
+    repeated ElfInfo loadedSo = 5;
+}
