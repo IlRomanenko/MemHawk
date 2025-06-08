@@ -5,7 +5,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Install GCC 9 and other dependencies
 RUN apt-get update -y
 RUN apt-get install -y \
-    clang-18 \
+    clang-18 lld-18 \
     git ccache \
     libtool autoconf unzip wget \
     libboost-container-dev \

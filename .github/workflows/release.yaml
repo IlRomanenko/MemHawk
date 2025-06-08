@@ -1,25 +1,13 @@
-name: Build on Commit
+name: Release
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-env:
-  BUILD_TYPE: RelWithDebInfo
+    tags:
+      - 'v*'  # Trigger on version tags (v1.0.0)
 
 jobs:
   build:
     runs-on: ubuntu-20.04
-
-    name: Build and Test (${{ matrix.config.type }})
-    strategy:
-      matrix:
-        config:
-          - { type: release, flags: "" }
-          - { type: asan, flags: "-DASAN" }
-          - { type: tsan, flags: "-DTSAN" }
 
     steps:
       - uses: actions/checkout@v4
@@ -43,12 +31,19 @@ jobs:
           sudo apt install -y cmake
 
       - name: Configure CMake
-        run: cmake -B ${{github.workspace}}/build ${{ matrix.config.flags }} -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+        run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_INSTALL_PREFIX=artifacts
 
       - name: Build project
-        run: cmake --build ${{github.workspace}}/build --parallel $(nproc)
-
-      - name: Run tests
+        run: cmake --build build --parallel $(nproc)
+          
+      - name: Install
         run: |
-          cd build
-          ctest --output-on-failure
+          cmake --build build --target install
+          tar -cf memhawk.tar -C artifacts .
+          gzip memhawk.tar
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: memhawk-package
+          path: memhawk.tar.gz
