@@ -11,15 +11,12 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
 
-    name: Build and Test (${{ matrix.config.type }})
+    name: Build and Test (${{ matrix.preset }})
     strategy:
       matrix:
-        config:
-          - { type: release, flags: "" }
-          - { type: asan, flags: "-DASAN" }
-          - { type: tsan, flags: "-DTSAN" }
+        preset: ["ClangTidy", "SanitizeAsan", "SanitizeTsan"]
 
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +26,7 @@ jobs:
           sudo apt update -y
           sudo apt install -y \
             build-essential \
-            clang-18 lld-18 \
+            clang lld \
             cmake git \
             libtool autoconf unzip wget \
             libboost-container-dev \
@@ -43,7 +40,7 @@ jobs:
           sudo apt install -y cmake
 
       - name: Configure CMake
-        run: cmake -B ${{github.workspace}}/build ${{ matrix.config.flags }} -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18
+        run: cmake -B ${{github.workspace}}/build --preset ${{ matrix.preset }}
 
       - name: Build project
         run: cmake --build ${{github.workspace}}/build --parallel $(nproc)

@@ -92,6 +92,8 @@ include(cmake/DevBuild.cmake)
 include(cmake/ClangTidy.cmake)
 
 add_subdirectory(external)
+
+enable_testing()
 add_subdirectory(source)
 
 if(MEMHAWK_BUILD_TESTING)
