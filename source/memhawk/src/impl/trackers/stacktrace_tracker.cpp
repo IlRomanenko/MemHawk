@@ -68,12 +68,21 @@ uint32_t StacktraceTracker::InsertStacktrace(Stacktrace&& trace)
     uint32_t nodeId = 0;
     for (const auto& ptr : reversed)
     {
-        auto nextNodeIt = m_storage->edges.find({nodeId, ptr});
+        const auto ptrValue = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(ptr));
+        auto ptrIdIt = m_storage->ptrMap.find(ptrValue);
+        if (ptrIdIt == m_storage->ptrMap.end())
+        {
+            const uint32_t ptrId = m_storage->ptrMap.size();
+            ptrIdIt = m_storage->ptrMap.insert({ptrValue, ptrId}).first;
+        }
+        const auto ptrId = ptrIdIt->second;
+
+        auto nextNodeIt = m_storage->edges.find({nodeId, ptrId});
         if (nextNodeIt == m_storage->edges.end())
         {
             const uint32_t nextNodeId = m_storage->nodes.size();
             m_storage->nodes.push_back(TraceNode{ptr, nodeId, false});
-            nextNodeIt = m_storage->edges.insert({{nodeId, ptr}, nextNodeId}).first;
+            nextNodeIt = m_storage->edges.insert({{nodeId, ptrId}, nextNodeId}).first;
         }
         nodeId = nextNodeIt->second;
     }

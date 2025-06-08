@@ -43,8 +43,10 @@ private:
     struct Storage
     {
         std::vector<TraceNode> nodes;
-        // <nodeId --> ptr -- > nextNodeId>
-        absl::flat_hash_map<std::pair<uint32_t, void*>, uint32_t> edges;
+        // <nodeId --> ptrId -- > nextNodeId>
+        absl::flat_hash_map<std::pair<uint32_t, uint32_t>, uint32_t> edges;
+        // ptrValue --> ptrId
+        absl::flat_hash_map<uint64_t, uint32_t> ptrMap;
         std::vector<uint32_t> leafsId;
     };
 

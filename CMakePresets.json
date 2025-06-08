@@ -40,8 +40,7 @@
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                 "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
-                "MEMHAWK_BUILD_TESTING": true,
-                "MEMHAWK_THINLTO": true
+                "MEMHAWK_BUILD_TESTING": true
             }
         },
         {
@@ -63,7 +62,7 @@
         {
             "name": "SanitizeAsan",
             "displayName": "Asan build",
-            "description": "Compile with -fsanitize=address",
+            "description": "Compile with -fsanitize=address,undefined",
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "cacheVariables": {
                 "CMAKE_CXX_COMPILER": "clang++",
@@ -74,6 +73,22 @@
                 "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
                 "MEMHAWK_BUILD_TESTING": true,
                 "ASAN": true
+            }
+        },
+        {
+            "name": "SanitizeTsan",
+            "displayName": "Tsan build",
+            "description": "Compile with -fsanitize=thread",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "clang++",
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
+                "MEMHAWK_BUILD_TESTING": true,
+                "TSAN": true
             }
         }
     ]

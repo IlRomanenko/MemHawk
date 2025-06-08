@@ -33,7 +33,7 @@ set(PROTO_DIR ${PROJECT_SOURCE_DIR})
 set(PROTO_FILES ${PROJECT_SOURCE_DIR}/protos/snapshot.proto)
 
 add_library(proto_files OBJECT ${PROTO_FILES})
-target_link_libraries(proto_files PUBLIC protobuf::libprotobuf-lite)
+target_link_libraries(proto_files PUBLIC protobuf::libprotobuf)
 set(PROTO_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/protos")
 make_directory(${PROTO_BINARY_DIR})
 

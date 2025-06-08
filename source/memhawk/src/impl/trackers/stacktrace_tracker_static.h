@@ -22,8 +22,8 @@ class StaticStacktraceTracker : public IStacktraceTracker
 public:
     static constexpr const size_t MaxStacktraceLength = 6;
 
-    static constexpr size_t ElementsCount = 256;
-    static constexpr size_t StorageSize = ElementsCount * MaxStacktraceLength;
+    static constexpr size_t ElementsCount = 512;
+    static constexpr size_t StorageSize = ElementsCount * MaxStacktraceLength * 2;
 
     static constexpr uint32_t FixedTrackerIdFlag = 1UL << (std::numeric_limits<uint32_t>::digits - 1);
     static constexpr const uint32_t UnknownTraceId = (ElementsCount + 1) ^ FixedTrackerIdFlag;

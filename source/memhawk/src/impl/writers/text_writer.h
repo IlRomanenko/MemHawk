@@ -1,5 +1,6 @@
 #pragma once
 
+#include "alloc_info.h"
 #include "config.h"
 #include "i_writer.h"
 
@@ -33,11 +34,10 @@ public:
 private:
     struct IndexValue
     {
-        bool changed{};
         uint32_t traceId{};
         mutable AllocSummary summary;
 
-        explicit IndexValue(uint32_t id) : changed{true}, traceId{id}
+        constexpr explicit IndexValue(uint32_t id) : traceId{id}
         {
         }
 
@@ -56,15 +56,9 @@ private:
     struct ByTraceId{};
     struct ByTotalSize{};
     struct ByTotalCount{};
-    struct ByChangedFlag{};
     using Index = bmi::multi_index_container<
         IndexValue,
         bmi::indexed_by<
-            bmi::ordered_non_unique<
-                bmi::tag<ByChangedFlag>,
-                bmi::member<IndexValue, bool, &IndexValue::changed>,
-                std::greater<>
-            >,
             bmi::hashed_unique<
                 bmi::tag<ByTraceId>,
                 bmi::member<IndexValue, uint32_t, &IndexValue::traceId>
@@ -82,6 +76,12 @@ private:
         >
     >;
     // clang-format on
+
+    void AccountSummary(Index& index, AllocSummary& total, uint32_t traceId, const AllocSummary& summary);
+
+    void DumpIndex(const Index& index, const TextWriterIndexConfig& cfg, std::stringstream& str,
+                   absl::flat_hash_set<uint32_t>& newStacktraces);
+
 private:
     TextWriterConfig m_cfg;
     std::shared_ptr<IStacktraceFinder> m_stacktraceFinder;
@@ -90,10 +90,15 @@ private:
     std::ofstream m_stacktracesFile;
 
     absl::flat_hash_set<uint32_t> m_writtenStacktraces;
-    AllocSummary m_summary;
     size_t m_updatedTraces{};
 
-    Index m_index;
+    AllocSummary m_total;
+
+    Index m_externalAllocsIndex;
+    AllocSummary m_externalAllocsSummary;
+
+    Index m_internalAllocsIndex;
+    AllocSummary m_internalAllocsSummary;
 };
 
 } // namespace writers

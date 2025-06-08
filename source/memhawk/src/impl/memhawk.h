@@ -31,8 +31,9 @@ public:
     explicit MemHawk(MemHawkConfig cfg, std::unique_ptr<writers::IWritersFactory> factory);
     ~MemHawk();
 
-    void PostponedConstruct();
+    void Stop();
 
+    void PostponedConstruct();
     void InvalidateModulesCache();
 
     void TrackAlloc(AllocInfo& info, Stacktrace&& trace);

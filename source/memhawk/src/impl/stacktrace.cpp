@@ -105,7 +105,10 @@ void Stacktrace::Compress(CompressedStacktrace& result) const
     const auto span = GetTrace();
     result.data.resize(span.size());
     const auto begin = reinterpret_cast<const void*>(span.data());
-    memcpy(result.data.data(), begin, span.size() * sizeof(void*));
+    if (likely(span.size() != 0))
+    {
+        memcpy(result.data.data(), begin, span.size() * sizeof(void*));
+    }
     result.RecalculateHash();
 }
 

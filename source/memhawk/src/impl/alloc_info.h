@@ -12,7 +12,7 @@ struct AllocInfo
     uint32_t offset{}; // in case of alignment
     uint32_t traceId{};
 
-    explicit AllocInfo(uint64_t ctrSize, uint32_t ctrOffset) : size(ctrSize), offset(ctrOffset), traceId(0)
+    constexpr explicit AllocInfo(uint64_t ctrSize, uint32_t ctrOffset) : size(ctrSize), offset(ctrOffset), traceId(0)
     {
     }
 };
@@ -31,6 +31,12 @@ struct AllocSummary
 
     AllocSummary() = default;
     ~AllocSummary() = default;
+
+    constexpr AllocSummary(int64_t ctrSize, int64_t ctrOverhead, int64_t ctrActive, uint64_t ctrTotalCount,
+                           uint64_t ctrTotalBytes)
+        : size{ctrSize}, overhead{ctrOverhead}, active{ctrActive}, totalCount{ctrTotalCount}, totalBytes{ctrTotalBytes}
+    {
+    }
 
     AllocSummary& operator+=(const AllocSummary& rhs) noexcept
     {

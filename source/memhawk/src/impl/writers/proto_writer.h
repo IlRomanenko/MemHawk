@@ -8,6 +8,8 @@
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
 #include <google/protobuf/arena.h>
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <protos/snapshot.pb.h>
 
 #include <fstream>
@@ -40,7 +42,9 @@ private:
     ProtobufWriterConfig m_cfg;
     std::shared_ptr<IStacktraceFinder> m_finder;
 
-    std::ofstream m_file;
+    std::unique_ptr<std::ofstream> m_ofstream;
+    std::unique_ptr<google::protobuf::io::OstreamOutputStream> m_ostream;
+    std::unique_ptr<google::protobuf::io::CodedOutputStream> m_codedStream;
 
     google::protobuf::Arena m_arena;
 

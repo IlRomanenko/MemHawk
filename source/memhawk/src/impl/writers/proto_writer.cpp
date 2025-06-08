@@ -5,6 +5,8 @@
 
 #include <google/protobuf/arena.h>
 #include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl.h>
+#include <google/protobuf/util/delimited_message_util.h>
 #include <protos/snapshot.pb.h>
 
 #include <cstdint>
@@ -44,8 +46,9 @@ ProtobufWriter::ProtobufWriter(ProtobufWriterConfig cfg, std::shared_ptr<IStackt
     {
         filename = m_cfg.Filename->value(); // NOLINT(bugprone-unchecked-optional-access)
     }
-    // google::protobuf::Out
-    m_file = std::ofstream(filename, std::ios_base::out | std::ios_base::binary);
+    m_ofstream = std::make_unique<std::ofstream>(filename, std::ios_base::out | std::ios_base::binary);
+    m_ostream = std::make_unique<google::protobuf::io::OstreamOutputStream>(m_ofstream.get());
+    m_codedStream = std::make_unique<google::protobuf::io::CodedOutputStream>(m_ostream.get());
 }
 
 void ProtobufWriter::UpdateModules()
@@ -88,11 +91,10 @@ void ProtobufWriter::FlushData()
         auto* changedSummary = snapshot->add_changed();
         FillChangedSummary(traceId, changedSummary);
     }
-
-    snapshot->SerializeToOstream(&m_file);
-    m_file.flush();
-    snapshot->Clear();
+    google::protobuf::util::SerializeDelimitedToCodedStream(*snapshot, m_codedStream.get());
+    m_ofstream->flush();
     m_changedSummaries.clear();
+    m_arena.Reset();
 }
 
 void ProtobufWriter::FillChangedSummary(uint32_t traceId, protos::TracedAllocSummary* tracedSummary)

@@ -9,6 +9,7 @@
 #include "scoped_sigmask.h"
 #include "stacktrace.h"
 #include "thread_tracker.h"
+#include "trackers/stacktrace_tracker_static.h"
 #include "writers/i_writer.h"
 
 #include <absl/base/attributes.h>
@@ -43,6 +44,14 @@ MemHawk::MemHawk(MemHawkConfig cfg, std::unique_ptr<writers::IWritersFactory> fa
 
 MemHawk::~MemHawk()
 {
+    if (!m_stopped)
+    {
+        Stop();
+    }
+}
+
+void MemHawk::Stop()
+{
     const RecursionGuard<AllocTag> guard;
     const RecursionGuard<InnerAllocTag> guardInner;
     {
@@ -54,6 +63,7 @@ MemHawk::~MemHawk()
     {
         m_worker.join();
     }
+    gtl_tracker = nullptr;
     LogInfo("Total trackers: " fSzt ", empty: " fSzt ", max postponed: " fSzt, m_thTrackers.size(),
             m_finishedTrackers.size(), m_maxPostponedSize);
     LogInfo("Inner traces: (" fSzt ", " fSzt "), external: " fSzt, m_innerBtTracker.StacktracesCount(),
@@ -285,7 +295,8 @@ void MemHawk::PostponeDealloc(const AllocInfo& info)
 
 void MemHawk::TrackingWorker()
 {
-    RegisterThread();
+    // set guard, that indicates, that this thread is local to memhawk
+    const RecursionGuard<AllocTag> guard;
     pthread_setname_np(pthread_self(), "MemHawkTh");
     const ScopedSignalBlocker signalBlocker{};
 
@@ -315,16 +326,7 @@ void MemHawk::WorkerUpdateData()
 
     for (const auto& tracker : m_thTrackers)
     {
-        if (tracker.get() == gtl_tracker)
-        {
-            // add tag in order not to deadlock
-            const RecursionGuard<AllocTag> guard;
-            WorkerAccountThreadTracker(tracker.get());
-        }
-        else
-        {
-            WorkerAccountThreadTracker(tracker.get());
-        }
+        WorkerAccountThreadTracker(tracker.get());
     }
     WorkerAccountThreadTracker(m_innerTracker.get());
     if (m_modulesCacheInvalidated.exchange(false, std::memory_order_relaxed))
