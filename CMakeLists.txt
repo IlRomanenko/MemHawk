@@ -1,24 +1,82 @@
 cmake_minimum_required(VERSION 3.25.0)
 project(alloc_tracker VERSION 0.1.0 LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+include(CheckCXXCompilerFlag)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+option(MEMHAWK_BUILD_TESTING "Build memhawk tests" OFF)
+option(MEMHAWK_ZLIB "Enable zlib support in libunwind" OFF)
+option(MEMHAWK_LZMA "Enable lzma support in libunwind" OFF)
+option(MEMHAWK_MSABI "Enable ms-abi support in libunwind" OFF)
+option(MEMHAWK_THINLTO "Clang-specific link time optimization" OFF)
+option(MEMHAWK_USE_CLANG_TIDY "Enable clang-tidy build" OFF)
+option(MEMHAWK_OPT_TLS "Enable optimized tls model" ON)
+option(MEMHAWK_AVX "Compile with avx support" ON)
 
 set(CMAKE_INSTALL_RPATH "$ORIGIN")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 set(CMAKE_BUILD_RPATH_USE_ORIGIN OFF)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -flto=auto -fPIC -pthread")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprefetch-loop-arrays -funroll-loops")
+set(MEMHAWK_COMMON_FLAGS "-fPIC -pthread -fno-omit-frame-pointer -fvisibility=hidden -funwind-tables")
 
-option(MEMHAWK_BUILD_TESTING OFF) # build tests
-option(MEMHAWK_ZLIB "enable zlib support in libunwind" OFF)
-option(MEMHAWK_LZMA "enable lzma support in libunwind" OFF)
-option(MEMHAWK_MSABI "enable ms-abi support in libunwind" OFF)
+# enabled by default
+if(MEMHAWK_OPT_TLS)
+    set(MEMHAWK_COMMON_FLAGS "${MEMHAWK_COMMON_FLAGS} -ftls-model=initial-exec")
+endif()
+
+if(MEMHAWK_AVX)
+    check_cxx_compiler_flag("-mavx2" COMPILER_SUPPORTS_AVX2)
+
+    if(COMPILER_SUPPORTS_AVX2)
+        message(STATUS "AVX-256 is supported")
+        set(MEMHAWK_COMMON_FLAGS "${MEMHAWK_COMMON_FLAGS} -mavx2")
+    else()
+        message(WARNING "AVX-512 is not supported")
+    endif()
+
+    check_cxx_compiler_flag("-mavx512f" COMPILER_SUPPORTS_AVX512)
+
+    if(COMPILER_SUPPORTS_AVX512)
+        message(STATUS "AVX-512 is supported")
+        set(MEMHAWK_COMMON_FLAGS "${MEMHAWK_COMMON_FLAGS} -mavx512f")
+    else()
+        message(WARNING "AVX-512 is not supported")
+    endif()
+endif()
+
+check_cxx_compiler_flag("-fuse-ld=lld" HAS_LLD)
+if(HAS_LLD)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=lld")
+    set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fuse-ld=lld")
+    message(STATUS "Using LLD linker")
+else()
+    message(STATUS "Using default linker")
+endif()
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}   ${MEMHAWK_COMMON_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${MEMHAWK_COMMON_FLAGS}")
+
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -O3")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
+set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -O3")
+
+if(MEMHAWK_THINLTO)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=thin")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto=thin")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -flto=thin")
+else()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -flto=auto")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -flto=auto")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -flto=auto")
+endif()
 
 set(MEMHAWK_LIB_VERSION 1.0.00)
 set(MEMHAWK_LIB_SOVERSION 1)
-
 
 find_program(CCACHE_PROGRAM ccache)
 if(CCACHE_PROGRAM)
@@ -31,7 +89,11 @@ endif()
 
 include(cmake/Sanitize.cmake)
 include(cmake/DevBuild.cmake)
+include(cmake/ClangTidy.cmake)
 
 add_subdirectory(external)
 add_subdirectory(source)
-add_subdirectory(tests)
+
+if(MEMHAWK_BUILD_TESTING)
+    add_subdirectory(tests)
+endif()

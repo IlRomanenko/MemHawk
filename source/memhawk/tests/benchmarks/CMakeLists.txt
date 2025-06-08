@@ -1,15 +1,13 @@
+project(benchmark_impl)
 
-set(target_name benchmark_memhawk)
+collect_sources(HEADERS SOURCES ${PROJECT_SOURCE_DIR})
 
-add_executable(${target_name}
-    main.cpp
-)
+add_executable(${PROJECT_NAME} ${HEADERS} ${SOURCES})
 
-target_link_libraries(${target_name}
+target_link_libraries(${PROJECT_NAME}
 PRIVATE
     benchmark::benchmark
-    unwind_static
-    absl::stacktrace
 )
+embed_library(${PROJECT_NAME} memhawk_impl)
 
-memhawk_build(${target_name})
+memhawk_build(${PROJECT_NAME})

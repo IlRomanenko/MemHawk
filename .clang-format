@@ -16,7 +16,6 @@ UseTab: Never
 AccessModifierOffset: -4
 SeparateDefinitionBlocks: Always
 
-
 PointerAlignment: Left
 AllowShortFunctionsOnASingleLine: false
 
@@ -40,18 +39,22 @@ IncludeIsMainSourceRegex: '(_test)?$'
 BreakBeforeBraces: Custom
 BraceWrapping:
     AfterClass: true
-    AfterControlStatement: false
+    AfterControlStatement: true
     AfterEnum: true
     AfterFunction: true
     AfterNamespace: true
-    AfterObjCDeclaration: false
+    AfterObjCDeclaration: true
     AfterStruct: true
-    AfterUnion: false
-    BeforeCatch: false
-    BeforeElse: false
+    AfterUnion: true
+    BeforeCatch: true
+    BeforeElse: true
     IndentBraces: false
   
 AlwaysBreakTemplateDeclarations: Yes
-BreakConstructorInitializers: BeforeColon
-BreakBeforeInheritanceComma: true
 BreakTemplateDeclarations: Yes
+
+BreakConstructorInitializers: BeforeComma
+BreakInheritanceList: BeforeComma
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+ConstructorInitializerIndentWidth: 4
+BreakBeforeInheritanceComma: true

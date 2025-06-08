@@ -1,18 +1,17 @@
+#include <sys/cdefs.h>
+
 #include <cstdio>
 #include <cstdlib>
 #include <list>
 #include <thread>
-#include <sys/cdefs.h>
 
-__attribute__((used)) 
-void* foo()
+__attribute__((used)) void* foo()
 {
     auto ptr = malloc(10);
     return ptr;
 }
 
-__attribute__((used)) 
-void* bar()
+__attribute__((used)) void* bar()
 {
     auto ptr = foo();
     return ptr;
@@ -22,14 +21,16 @@ int main()
 {
     constexpr size_t TotalAllocs = 1'000'000;
     std::list<int> ls;
-    for (size_t i = 0; i < TotalAllocs; i++) {
+    for (size_t i = 0; i < TotalAllocs; i++)
+    {
         ls.emplace_back(i);
     }
     ls.clear();
     ls.resize(0);
 
     size_t x = 0;
-    for (size_t i = 0; i < TotalAllocs; i++) {
+    for (size_t i = 0; i < TotalAllocs; i++)
+    {
         // void* q = malloc(10);
         void* q = bar();
         x += reinterpret_cast<size_t>(q);
@@ -37,7 +38,8 @@ int main()
     }
     printf("%zu\n", x);
 
-    for (size_t i = 0; i < 10; i++) {
+    for (size_t i = 0; i < 42; i++)
+    {
         std::thread th([]() {});
         th.join();
     }

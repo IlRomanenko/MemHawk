@@ -1,6 +1,6 @@
 include(FetchContent)
-include(ExternalProject)
 
+message(NOTICE "Enabling `fmt` dependency")
 FetchContent_Declare(
     fmt
     GIT_REPOSITORY https://github.com/fmtlib/fmt.git
@@ -15,6 +15,7 @@ set(ABSL_ENABLE_INSTALL ON CACHE BOOL "" FORCE)
 set(ABSL_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(ABSL_PROPAGATE_CXX_STD ON CACHE BOOL "" FORCE)
 
+message(NOTICE "Enabling `absl` dependency")
 FetchContent_Declare(
     absl
     GIT_REPOSITORY https://github.com/abseil/abseil-cpp.git
@@ -24,7 +25,32 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(absl)
 
+set(protobuf_BUILD_TESTS OFF CACHE BOOL "Disable tests" FORCE)
+set(protobuf_BUILD_EXAMPLES OFF CACHE BOOL "Disable examples" FORCE)
+set(protobuf_LOCAL_DEPENDENCIES_ONLY ON CACHE BOOL "Only local dependencies" FORCE)
+set(protobuf_ALLOW_CCACHE ON CACHE BOOL "Allow ccache" FORCE)
+set(protobuf_BUILD_PROTOC_BINARIES ON CACHE BOOL "Build protoc compiler")
+set(protobuf_BUILD_LIBPROTOBUF_LITE ON CACHE BOOL "Skip lite version" FORCE)
+set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libs" FORCE)
+set(protobuf_WITH_ZLIB ${MEMHAWK_ZLIB} CACHE BOOL "Build with zlib support" FORCE)
+
+message(NOTICE "Enabling `protobuf` dependency")
+FetchContent_Declare(
+    protobuf
+    GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
+    GIT_TAG v31.1
+    EXCLUDE_FROM_ALL
+    SYSTEM
+    OVERRIDE_FIND_PACKAGE
+)
+FetchContent_MakeAvailable(protobuf)
+
+# Necessary include in order to get protobuf-generate function
+include(${protobuf_SOURCE_DIR}/cmake/protobuf-generate.cmake)
+
 if(${MEMHAWK_BUILD_TESTING})
+
+    message(NOTICE "Enabling `googletest` dependency")
     FetchContent_Declare(
         googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
@@ -34,6 +60,8 @@ if(${MEMHAWK_BUILD_TESTING})
     )
     FetchContent_MakeAvailable(googletest)
 
+
+    message(NOTICE "Enabling `benchmark` dependency")
     set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(
         benchmark
@@ -48,79 +76,9 @@ endif()
 find_package(Threads REQUIRED)
 find_package(Boost 1.70.0 REQUIRED NO_MODULE COMPONENTS container)
 
-# Download and build libunwind
-set(UNWIND_INSTALL_DIR ${CMAKE_BINARY_DIR}/libunwind-install)
-set(UNWIND_LIBRARY_DIR ${UNWIND_INSTALL_DIR}/lib)
-set(UNWIND_INCLUDE_DIR ${UNWIND_INSTALL_DIR}/include)
+# set flags for external dependencies
+set(CFLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+set(CXXFLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 
-set(LIBUNWIND_OPTIONS)
-list(APPEND LIBUNWIND_OPTIONS "--enable-static" "--disable-shared" "--disable-tests")
-
-# both variants for building with -fPIC
-list(APPEND LIBUNWIND_OPTIONS "--enable-pic" "--with-pic")
-
-IF(MEMHAWK_LZMA)
-    find_package(lzma REQUIRED)
-    list(APPEND LIBUNWIND_OPTIONS "--enable-minidebuginfo")
-else()
-    list(APPEND LIBUNWIND_OPTIONS "--disable-minidebuginfo")
-endif()
-
-IF(MEMHAWK_ZLIB)
-    find_package(zlib REQUIRED)
-    list(APPEND LIBUNWIND_OPTIONS "--enable-zlibdebuginfo")
-else()
-    list(APPEND LIBUNWIND_OPTIONS "--disable-zlibdebuginfo")
-endif()
-
-IF(MEMHAWK_MSABI)
-    # todo: what package should be required?
-    # find_package(zlib REQUIRED)
-    list(APPEND LIBUNWIND_OPTIONS "--enable-msabi-support")
-else()
-    list(APPEND LIBUNWIND_OPTIONS "--disable-msabi-support")
-endif()
-
-list(APPEND LIBUNWIND_OPTIONS "--prefix=${UNWIND_INSTALL_DIR}")
-
-ExternalProject_Add(
-    libunwind_src
-    GIT_REPOSITORY https://github.com/libunwind/libunwind.git
-    GIT_TAG v1.8.1
-    CONFIGURE_COMMAND autoreconf -i && ./configure ${LIBUNWIND_OPTIONS}
-    BUILD_COMMAND make
-    INSTALL_COMMAND make install
-    BUILD_IN_SOURCE ON
-    UPDATE_DISCONNECTED 1
-    BUILD_BYPRODUCTS
-        ${UNWIND_LIBRARY_DIR}/libunwind.a
-)
-
-
-# todo: change it somehow, otherwise unwind_static fails to create
-# because libunwind_src is not evaluated on configure stage
-file(MAKE_DIRECTORY ${UNWIND_LIBRARY_DIR})
-file(MAKE_DIRECTORY ${UNWIND_INCLUDE_DIR})
-
-add_library(unwind_static STATIC IMPORTED GLOBAL)
-set_target_properties(unwind_static PROPERTIES
-    IMPORTED_LOCATION ${UNWIND_LIBRARY_DIR}/libunwind.a
-    INTERFACE_INCLUDE_DIRECTORIES ${UNWIND_INCLUDE_DIR}
-)
-
-if(MEMHAWK_LZMA)
-    find_library(LZMA_LIBRARY lzma REQUIRED)
-    set_target_properties(unwind_static PROPERTIES
-        INTERFACE_LINK_LIBRARIES "${LZMA_LIBRARY}"
-    )
-endif()
-
-if(MEMHAWK_ZLIB)
-    find_library(ZLIB_LIBRARY zlib REQUIRED)
-    set_target_properties(unwind_static PROPERTIES
-        INTERFACE_LINK_LIBRARIES "${ZLIB_LIBRARY}"
-    )
-endif()
-
-# Add a dependency to ensure libunwind is built before your target
-add_dependencies(unwind_static libunwind_src)
+include(libunwind.cmake)
+include(xxhash.cmake)

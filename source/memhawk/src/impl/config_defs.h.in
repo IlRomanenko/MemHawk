@@ -1,0 +1,4 @@
+#pragma once
+
+#cmakedefine COMPILER_SUPPORTS_AVX2
+#cmakedefine COMPILER_SUPPORTS_AVX512

@@ -1,0 +1,4 @@
+#pragma once
+
+#define COMPILER_SUPPORTS_AVX2
+#define COMPILER_SUPPORTS_AVX512
