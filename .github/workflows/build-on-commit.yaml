@@ -69,6 +69,9 @@ jobs:
         run: |
           ccache --show-stats
           echo "Cache directory size: $(du -sh $CCACHE_DIR | cut -f1)"
+
+      - name: Install artifacts
+        run: cmake --install ${{github.workspace}}/build
   
       - name: Archive build artifacts
         if: ${{ success() }}
