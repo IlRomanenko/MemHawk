@@ -20,6 +20,14 @@ set(CMAKE_INSTALL_RPATH "$ORIGIN")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 set(CMAKE_BUILD_RPATH_USE_ORIGIN OFF)
 
+message(STATUS "C Compiler: ${CMAKE_C_COMPILER}")
+message(STATUS "C Compiler version: ${CMAKE_C_COMPILER_VERSION}")
+message(STATUS "C++ Compiler: ${CMAKE_CXX_COMPILER}")
+message(STATUS "C++ Compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "Linker: ${CMAKE_LINKER}")
+message(STATUS)
+
+
 set(MEMHAWK_COMMON_FLAGS "-fPIC -pthread -fno-omit-frame-pointer -fvisibility=hidden -funwind-tables")
 
 # enabled by default

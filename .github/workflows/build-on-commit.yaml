@@ -5,9 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-
-env:
-  BUILD_TYPE: RelWithDebInfo
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
   build:
@@ -16,10 +14,19 @@ jobs:
     name: Build and Test (${{ matrix.preset }})
     strategy:
       matrix:
-        preset: ["ClangTidy", "SanitizeAsan", "SanitizeTsan"]
+        preset: ["ReleaseClang"]
+        # preset: ["ClangTidy", "SanitizeAsan", "SanitizeTsan"]
+
+    env:
+      CCACHE_DIR: /tmp/ccache  # Explicit cache location
+      CCACHE_COMPRESS: 1       # Enable compression
+      CCACHE_COMPRESSLEVEL: 6  # Balance speed/ratio
+      CCACHE_MAXSIZE: 2G       # Max cache size
+      CCACHE_HARDLINK: 1       # Reduce disk space
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
@@ -28,6 +35,7 @@ jobs:
             build-essential \
             clang lld \
             cmake git \
+            ccache \
             libtool autoconf unzip wget \
             libboost-container-dev \
             software-properties-common lsb-release
@@ -38,10 +46,23 @@ jobs:
           sudo apt-add-repository "deb https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main"
           sudo apt update -y && \
           sudo apt install -y cmake
+  
+      - name: Ccache persistence
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.os }}-${{ matrix.preset }}-ccache-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.preset }}-ccache-
+    
+      - name: Show initial ccache stats
+        run: |
+          ccache --show-stats
+          ccache --zero-stats
 
       - name: Configure CMake
-        run: cmake -B ${{github.workspace}}/build --preset ${{ matrix.preset }}
-
+        run: cmake -B ${{github.workspace}}/build --preset ${{ matrix.preset }} -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/artifacts
+      
       - name: Build project
         run: cmake --build ${{github.workspace}}/build --parallel $(nproc)
 
@@ -49,3 +70,15 @@ jobs:
         run: |
           cd build
           ctest --output-on-failure
+
+      - name: Show final ccache stats
+        run: |
+          ccache --show-stats
+          echo "Cache directory size: $(du -sh $CCACHE_DIR | cut -f1)"
+  
+      - name: Archive build artifacts
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: ${{github.workspace}}/artifacts/

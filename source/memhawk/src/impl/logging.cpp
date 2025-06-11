@@ -19,7 +19,7 @@ namespace memhawk
 namespace
 {
 ABSL_CONST_INIT int gl_logFile = STDERR_FILENO;
-LoggingConfig gl_loggingConfig;
+ABSL_CONST_INIT LoggingConfig gl_loggingConfig = {};
 } // namespace
 
 void LogInit(LoggingConfig cfg)

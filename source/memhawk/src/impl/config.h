@@ -19,13 +19,13 @@ constexpr size_t MinPostponedSize = 64;
 struct StacktraceTrackerConfig
 {
     CONFIG_VAR_OPT(bool, DumpStacktraces, "dump", false);
-    CONFIG_VAR_OPT(std::optional<std::string>, Filename, "filename", {});
+    CONFIG_VAR_OPT(std::optional<std::string_view>, Filename, "filename", {});
 };
 
 struct TextWriterIndexConfig
 {
     CONFIG_VAR_OPT(bool, Enabled, "enabled", true);
-    CONFIG_VAR_OPT(size_t, TrackerBySizeCount, "by_size_count", 25);
+    CONFIG_VAR_OPT(size_t, TrackerBySizeCount, "by_size_count", 10);
     CONFIG_VAR_OPT(size_t, TrackerByTotalCount, "by_total_count", 10);
 };
 
@@ -34,7 +34,7 @@ constexpr const TextWriterIndexConfig DefaultTextWriterInternalConfig = {false, 
 struct TextWriterConfig
 {
     CONFIG_VAR_OPT(bool, Enabled, "enabled", true);
-    CONFIG_VAR_OPT(std::optional<std::string>, Filename, "filename", {});
+    CONFIG_VAR_OPT(std::optional<std::string_view>, Filename, "filename", {});
     CONFIG_VAR_OPT(TextWriterIndexConfig, ExternalTraces, "ext", {});
     CONFIG_VAR_OPT(TextWriterIndexConfig, InternalTraces, "int", DefaultTextWriterInternalConfig);
 };
@@ -42,7 +42,7 @@ struct TextWriterConfig
 struct ProtobufWriterConfig
 {
     CONFIG_VAR_OPT(bool, Enabled, "enabled", false);
-    CONFIG_VAR_OPT(std::optional<std::string>, Filename, "filename", {});
+    CONFIG_VAR_OPT(std::optional<std::string_view>, Filename, "filename", {});
 };
 
 struct WritersConfig
@@ -67,7 +67,7 @@ struct LoggingConfig
 {
     CONFIG_VAR_OPT(bool, MainLogIntoFile, "main_log", true);
     CONFIG_VAR_OPT(LogLevel, LoggingLevel, "log_level", LogLevel::Info);
-    CONFIG_VAR_OPT(std::string, LogDir, "log_dir", "./");
+    CONFIG_VAR_OPT(std::string_view, LogDir, "log_dir", "./");
 };
 
 struct UnwindConfig
@@ -78,7 +78,7 @@ struct UnwindConfig
 
 struct MainConfig
 {
-    CONFIG_VAR_OPT(std::string, PrognameRegex, "progname_regex", "");
+    CONFIG_VAR_OPT(std::string_view, PrognameRegex, "progname_regex", "");
     CONFIG_VAR_OPT(MemHawkConfig, MemHawk, "memhawk", {});
     CONFIG_VAR_OPT(LoggingConfig, Logging, "logging", {});
     CONFIG_VAR_OPT(UnwindConfig, Unwind, "unwind", {});
