@@ -31,6 +31,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update -y
+          sudo apt-get remove -y --purge man-db
           sudo apt install -y \
             build-essential \
             clang lld llvm \
@@ -48,7 +49,16 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.preset }}-ccache-${{ hashFiles('**/CMakeLists.txt') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.preset }}-ccache-
-    
+
+      # not optimal, but greatly reduce amount of files to recompile
+      - name: External libs build persistence
+        uses: actions/cache@v3
+        with:
+          path: ${{github.workspace}}/build/external
+          key: ${{ runner.os }}-${{ matrix.preset }}-external-${{ hashFiles('**/libunwind.cmake', '**/xxhash.cmake') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.preset }}-external
+
       - name: Show initial ccache stats
         run: |
           ccache --show-stats
