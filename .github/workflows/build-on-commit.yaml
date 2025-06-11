@@ -1,0 +1,91 @@
+name: Build on Commit
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    name: Build and Test (${{ matrix.preset }})
+    strategy:
+      matrix:
+        preset: ["ReleaseClang"]
+        # preset: ["ClangTidy", "SanitizeAsan", "SanitizeTsan"]
+
+    env:
+      CCACHE_DIR: /tmp/ccache  # Explicit cache location
+      CCACHE_COMPRESS: 1       # Enable compression
+      CCACHE_COMPRESSLEVEL: 6  # Balance speed/ratio
+      CCACHE_MAXSIZE: 2G       # Max cache size
+      CCACHE_HARDLINK: 1       # Reduce disk space
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update -y
+          sudo apt-get remove -y --purge man-db
+          sudo apt install -y \
+            build-essential \
+            clang lld llvm \
+            cmake git \
+            ccache \
+            libtool autoconf unzip wget \
+            libboost-container-dev \
+            libprotobuf-dev protobuf-compiler \
+            software-properties-common lsb-release
+
+      - name: Ccache persistence
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.os }}-${{ matrix.preset }}-ccache-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.preset }}-ccache-
+
+      # not optimal, but greatly reduce amount of files to recompile
+      - name: External libs build persistence
+        uses: actions/cache@v3
+        with:
+          path: ${{github.workspace}}/build/external
+          key: ${{ runner.os }}-${{ matrix.preset }}-external-${{ hashFiles('**/libunwind.cmake', '**/xxhash.cmake') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.preset }}-external
+
+      - name: Show initial ccache stats
+        run: |
+          ccache --show-stats
+          ccache --zero-stats
+
+      - name: Configure CMake
+        run: cmake -B ${{github.workspace}}/build --preset ${{ matrix.preset }} -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/artifacts -DMEMHAWK_AVX=OFF -DMEMHAWK_BUILD_PROTOBUF=OFF
+      
+      - name: Build project
+        run: cmake --build ${{github.workspace}}/build --parallel $(nproc)
+
+      - name: Run tests
+        run: |
+          cd build
+          ctest --output-on-failure
+
+      - name: Show final ccache stats
+        run: |
+          ccache --show-stats
+          echo "Cache directory size: $(du -sh $CCACHE_DIR | cut -f1)"
+
+      - name: Install artifacts
+        run: cmake --install ${{github.workspace}}/build
+  
+      - name: Archive build artifacts
+        if: ${{ success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: ${{github.workspace}}/artifacts/

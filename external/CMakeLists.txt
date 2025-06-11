@@ -25,28 +25,30 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(absl)
 
-set(protobuf_BUILD_TESTS OFF CACHE BOOL "Disable tests" FORCE)
-set(protobuf_BUILD_EXAMPLES OFF CACHE BOOL "Disable examples" FORCE)
-set(protobuf_LOCAL_DEPENDENCIES_ONLY ON CACHE BOOL "Only local dependencies" FORCE)
-set(protobuf_ALLOW_CCACHE ON CACHE BOOL "Allow ccache" FORCE)
-set(protobuf_BUILD_PROTOC_BINARIES ON CACHE BOOL "Build protoc compiler")
-set(protobuf_BUILD_LIBPROTOBUF_LITE ON CACHE BOOL "Skip lite version" FORCE)
-set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libs" FORCE)
-set(protobuf_WITH_ZLIB ${MEMHAWK_ZLIB} CACHE BOOL "Build with zlib support" FORCE)
+if (MEMHAWK_BUILD_PROTOBUF)
+    set(protobuf_BUILD_TESTS OFF CACHE BOOL "Disable tests" FORCE)
+    set(protobuf_BUILD_EXAMPLES OFF CACHE BOOL "Disable examples" FORCE)
+    set(protobuf_LOCAL_DEPENDENCIES_ONLY ON CACHE BOOL "Only local dependencies" FORCE)
+    set(protobuf_ALLOW_CCACHE ON CACHE BOOL "Allow ccache" FORCE)
+    set(protobuf_BUILD_PROTOC_BINARIES ON CACHE BOOL "Build protoc compiler")
+    set(protobuf_BUILD_LIBPROTOBUF_LITE ON CACHE BOOL "Skip lite version" FORCE)
+    set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libs" FORCE)
+    set(protobuf_WITH_ZLIB ${MEMHAWK_ZLIB} CACHE BOOL "Build with zlib support" FORCE)
 
-message(NOTICE "Enabling `protobuf` dependency")
-FetchContent_Declare(
-    protobuf
-    GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
-    GIT_TAG v31.1
-    EXCLUDE_FROM_ALL
-    SYSTEM
-    OVERRIDE_FIND_PACKAGE
-)
-FetchContent_MakeAvailable(protobuf)
+    message(NOTICE "Enabling `protobuf` dependency")
+    FetchContent_Declare(
+        protobuf
+        GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
+        GIT_TAG v31.1
+        EXCLUDE_FROM_ALL
+        SYSTEM
+        OVERRIDE_FIND_PACKAGE
+    )
+    FetchContent_MakeAvailable(protobuf)
 
-# Necessary include in order to get protobuf-generate function
-include(${protobuf_SOURCE_DIR}/cmake/protobuf-generate.cmake)
+    # Necessary include in order to get protobuf-generate function
+    include(${protobuf_SOURCE_DIR}/cmake/protobuf-generate.cmake)
+endif()
 
 if(${MEMHAWK_BUILD_TESTING})
 

@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Trigger on version tags (v1.0.0)
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update -y
+          sudo apt install -y \
+            build-essential \
+            clang-18 lld-18 \
+            cmake git \
+            libtool autoconf unzip wget \
+            libboost-container-dev \
+            software-properties-common lsb-release
+
+      - name: Update CMake
+        run: |
+          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | sudo tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null
+          sudo apt-add-repository "deb https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main"
+          sudo apt update -y && \
+          sudo apt install -y cmake
+
+      - name: Configure CMake
+        run: cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_INSTALL_PREFIX=artifacts
+
+      - name: Build project
+        run: cmake --build build --parallel $(nproc)
+          
+      - name: Install
+        run: |
+          cmake --build build --target install
+          tar -cf memhawk.tar -C artifacts .
+          gzip memhawk.tar
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: memhawk-package
+          path: memhawk.tar.gz

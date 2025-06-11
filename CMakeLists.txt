@@ -15,10 +15,20 @@ option(MEMHAWK_THINLTO "Clang-specific link time optimization" OFF)
 option(MEMHAWK_USE_CLANG_TIDY "Enable clang-tidy build" OFF)
 option(MEMHAWK_OPT_TLS "Enable optimized tls model" ON)
 option(MEMHAWK_AVX "Compile with avx support" ON)
+option(MEMHAWK_LLD "Link with lld" OFF)
+option(MEMHAWK_BUILD_PROTOBUF "Build protobuf library from sources" ON)
 
 set(CMAKE_INSTALL_RPATH "$ORIGIN")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 set(CMAKE_BUILD_RPATH_USE_ORIGIN OFF)
+
+message(STATUS "C Compiler: ${CMAKE_C_COMPILER}")
+message(STATUS "C Compiler version: ${CMAKE_C_COMPILER_VERSION}")
+message(STATUS "C++ Compiler: ${CMAKE_CXX_COMPILER}")
+message(STATUS "C++ Compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "Linker: ${CMAKE_LINKER}")
+message(STATUS)
+
 
 set(MEMHAWK_COMMON_FLAGS "-fPIC -pthread -fno-omit-frame-pointer -fvisibility=hidden -funwind-tables")
 
@@ -48,7 +58,7 @@ if(MEMHAWK_AVX)
 endif()
 
 check_cxx_compiler_flag("-fuse-ld=lld" HAS_LLD)
-if(HAS_LLD)
+if(HAS_LLD AND MEMHAWK_LLD)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fuse-ld=lld")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fuse-ld=lld")
     set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -fuse-ld=lld")
@@ -92,6 +102,8 @@ include(cmake/DevBuild.cmake)
 include(cmake/ClangTidy.cmake)
 
 add_subdirectory(external)
+
+enable_testing()
 add_subdirectory(source)
 
 if(MEMHAWK_BUILD_TESTING)

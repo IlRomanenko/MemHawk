@@ -13,3 +13,5 @@ PRIVATE
 embed_library(${PROJECT_NAME} memhawk_impl)
 
 memhawk_build(${PROJECT_NAME})
+
+add_test(NAME gtest_memhawk COMMAND gtest_memhawk)

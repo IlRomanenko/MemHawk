@@ -35,6 +35,13 @@ inline bool ParseValue(std::string_view str, T& value) requires(std::is_enum_v<T
 }
 
 template <>
+inline bool ParseValue<std::string_view>(std::string_view str, std::string_view& value)
+{
+    value = str;
+    return true;
+}
+
+template <>
 inline bool ParseValue<std::string>(std::string_view str, std::string& value)
 {
     value = str;
