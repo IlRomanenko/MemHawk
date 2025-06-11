@@ -29,6 +29,7 @@ configure_file(
 )
 
 
+find_package(Protobuf REQUIRED)
 set(PROTO_DIR ${PROJECT_SOURCE_DIR})
 set(PROTO_FILES ${PROJECT_SOURCE_DIR}/protos/snapshot.proto)
 

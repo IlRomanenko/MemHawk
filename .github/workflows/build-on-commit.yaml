@@ -38,6 +38,7 @@ jobs:
             ccache \
             libtool autoconf unzip wget \
             libboost-container-dev \
+            libprotobuf-dev protobuf-compiler \
             software-properties-common lsb-release
 
       - name: Ccache persistence
@@ -54,7 +55,7 @@ jobs:
           ccache --zero-stats
 
       - name: Configure CMake
-        run: cmake -B ${{github.workspace}}/build --preset ${{ matrix.preset }} -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/artifacts
+        run: cmake -B ${{github.workspace}}/build --preset ${{ matrix.preset }} -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/artifacts -DMEMHAWK_AVX=OFF -DMEMHAWK_BUILD_PROTOBUF=OFF
       
       - name: Build project
         run: cmake --build ${{github.workspace}}/build --parallel $(nproc)

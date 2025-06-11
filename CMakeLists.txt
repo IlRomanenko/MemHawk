@@ -16,6 +16,7 @@ option(MEMHAWK_USE_CLANG_TIDY "Enable clang-tidy build" OFF)
 option(MEMHAWK_OPT_TLS "Enable optimized tls model" ON)
 option(MEMHAWK_AVX "Compile with avx support" ON)
 option(MEMHAWK_LLD "Link with lld" OFF)
+option(MEMHAWK_BUILD_PROTOBUF "Build protobuf library from sources" ON)
 
 set(CMAKE_INSTALL_RPATH "$ORIGIN")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
