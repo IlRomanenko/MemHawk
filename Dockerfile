@@ -5,7 +5,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 # Install GCC 9 and other dependencies
 RUN apt-get update -y
 RUN apt-get install -y \
-    clang-18 lld-18 \
+    clang-18 lld-18 llvm-18 \
     git ccache \
     libtool autoconf unzip wget \
     libboost-container-dev \
@@ -24,8 +24,7 @@ WORKDIR /workspace
 COPY . .
 
 # Create a build directory and compile project
-RUN mkdir build && \
-    cd build && \
-    cmake -DCMAKE_C_COMPILER=clang-18 -DCMAKE_CXX_COMPILER=clang++-18 -DCMAKE_BUILD_TYPE=RelWithDebInfo -DMEMHAWK_THINLTO=true -DCMAKE_INSTALL_PREFIX=/artifacts .. && \
-    make -j $(nproc) && \
-    make install
+RUN \
+    cmake -B build --preset ReleaseClang -DCMAKE_INSTALL_PREFIX=/artifacts && \
+    cmake --build build --parallel $(nproc) && \
+    cd build && make install
