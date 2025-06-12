@@ -45,9 +45,6 @@ if (MEMHAWK_BUILD_PROTOBUF)
         OVERRIDE_FIND_PACKAGE
     )
     FetchContent_MakeAvailable(protobuf)
-
-    # Necessary include in order to get protobuf-generate function
-    include(${protobuf_SOURCE_DIR}/cmake/protobuf-generate.cmake)
 endif()
 
 if(${MEMHAWK_BUILD_TESTING})

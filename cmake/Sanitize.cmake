@@ -1,6 +1,7 @@
 # Sanitizers
 
 # --------------------------------------------------------------------
+set(SANITIZERS_SUPPRESS_OPTIONS "")
 
 # UB Sanitizer
 # https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html
@@ -26,6 +27,7 @@ if(ASAN)
     message(STATUS "Sanitize with Address Sanitizer (ASAN)")
     add_compile_options(${ASAN_COMPILE_FLAGS})
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${ASAN_LINK_FLAGS}")
+    set(SANITIZERS_SUPPRESS_OPTIONS "${SANITIZERS_SUPPRESS_OPTIONS} ASAN_OPTIONS=detect_odr_violation=0")
 endif()
 
 # --------------------------------------------------------------------
@@ -40,4 +42,5 @@ if(TSAN)
     message(STATUS "Sanitize with Thread Sanitizer (TSAN)")
     add_compile_options(${TSAN_COMPILE_FLAGS})
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${TSAN_LINK_FLAGS}")
+    # set(SANITIZERS_SUPPRESS_OPTIONS "${SANITIZERS_SUPPRESS_OPTIONS} TSAN_OPTIONS=detect_odr_violation=0")
 endif()
