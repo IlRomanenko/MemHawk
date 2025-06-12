@@ -154,6 +154,7 @@ void TextWriter::FlushData()
     }
     m_stacktracesFile.flush();
     m_summaryFile.flush();
+    m_updatedTraces = 0;
 }
 
 } // namespace writers

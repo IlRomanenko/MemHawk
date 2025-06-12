@@ -22,7 +22,7 @@ void StacktraceTracker::PostponedConstruct()
 {
     m_storage = std::make_unique<Storage>();
     // add root node
-    m_storage->nodes.push_back(TraceNode{nullptr, 0, false});
+    m_storage->nodes.push_back(TraceNode{nullptr, 0});
 }
 
 size_t StacktraceTracker::StacktracesCount()
@@ -72,7 +72,7 @@ uint32_t StacktraceTracker::InsertStacktrace(Stacktrace&& trace)
         auto ptrIdIt = m_storage->ptrMap.find(ptrValue);
         if (ptrIdIt == m_storage->ptrMap.end())
         {
-            const uint32_t ptrId = m_storage->ptrMap.size();
+            const uint32_t ptrId = m_storage->ptrCounter++;
             ptrIdIt = m_storage->ptrMap.insert({ptrValue, ptrId}).first;
         }
         const auto ptrId = ptrIdIt->second;
@@ -81,17 +81,13 @@ uint32_t StacktraceTracker::InsertStacktrace(Stacktrace&& trace)
         if (nextNodeIt == m_storage->edges.end())
         {
             const uint32_t nextNodeId = m_storage->nodes.size();
-            m_storage->nodes.push_back(TraceNode{ptr, nodeId, false});
+            m_storage->nodes.push_back(TraceNode{ptr, nodeId});
             nextNodeIt = m_storage->edges.insert({{nodeId, ptrId}, nextNodeId}).first;
         }
         nodeId = nextNodeIt->second;
     }
     // check if wasn't marked previously
-    if (!m_storage->nodes[nodeId].leaf)
-    {
-        m_storage->nodes[nodeId].leaf = true;
-        m_storage->leafsId.push_back(nodeId);
-    }
+    m_storage->leafsId.insert(nodeId);
     return nodeId;
 }
 
@@ -102,7 +98,7 @@ std::optional<Stacktrace> StacktraceTracker::GetStacktraceFromId(uint32_t traceI
     {
         return {};
     }
-    if (!m_storage->nodes[traceId].leaf)
+    if (!m_storage->leafsId.contains(traceId))
     {
         return {};
     }

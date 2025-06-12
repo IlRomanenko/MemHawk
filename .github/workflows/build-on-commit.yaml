@@ -14,8 +14,7 @@ jobs:
     name: Build and Test (${{ matrix.preset }})
     strategy:
       matrix:
-        preset: ["ReleaseClang", "SanitizeAsan"]
-        # preset: ["ClangTidy", "SanitizeAsan", "SanitizeTsan"]
+        preset: ["ClangTidy", "SanitizeAsan", "SanitizeTsan"]
 
     env:
       CCACHE_DIR: /tmp/ccache  # Explicit cache location
@@ -89,5 +88,5 @@ jobs:
         if: ${{ success() }}
         uses: actions/upload-artifact@v4
         with:
-          name: build-output
+          name: build-output-${{ matrix.preset }}
           path: ${{github.workspace}}/artifacts/

@@ -52,6 +52,84 @@ TEST_F(StacktraceTrackerFixture, AddTrace_ExpectFound)
     EXPECT_EQ(ConvertStacktrace(foundTrace.value()), testData); // NOLINT(bugprone-unchecked-optional-access)
 }
 
+TEST_F(StacktraceTrackerFixture, AddTraceTwice_ExpectOneCopy)
+{
+    const std::vector<uint64_t> testData = {0x7514af7f7063, 0x7514af839744, 0x7514af8049eb,
+                                            0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4};
+    auto trace = SetUpStacktrace(testData);
+    const size_t traceId = m_tracker->InsertStacktrace(std::move(trace));
+    trace = SetUpStacktrace(testData);
+    const size_t nextTraceId = m_tracker->InsertStacktrace(std::move(trace));
+
+    EXPECT_NE(traceId, 0);
+    EXPECT_EQ(traceId, nextTraceId);
+    const auto foundTrace = m_tracker->GetStacktraceFromId(traceId);
+    ASSERT_TRUE(foundTrace);
+    EXPECT_EQ(ConvertStacktrace(foundTrace.value()), testData); // NOLINT(bugprone-unchecked-optional-access)
+}
+
+TEST_F(StacktraceTrackerFixture, AddSimilarTraces_ExpectAllFound)
+{
+    constexpr size_t Count = 3;
+    const std::vector<uint64_t> testData = {0xdeadbeef0000, 0x7514af839744, 0x7514af8049eb,
+                                            0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4};
+    for (size_t i = 0; i < Count; i++)
+    {
+        auto trace = testData;
+        trace[0] += i;
+        const size_t traceId = m_tracker->InsertStacktrace(SetUpStacktrace(trace));
+        EXPECT_EQ(traceId, 6 + i);
+    }
+    // insert original trace once more time
+    const size_t traceId = m_tracker->InsertStacktrace(SetUpStacktrace(testData));
+    EXPECT_EQ(traceId, 6);
+}
+
+TEST_F(StacktraceTrackerFixture, AddRandomTracesWithSimilarSuffix_ExpectAllFound)
+{
+    constexpr size_t Count = 100'000;
+    std::mt19937_64 rng(42);
+    std::uniform_int_distribution<> dist;
+
+    std::vector<uint64_t> originalTrace;
+    originalTrace.reserve(MaxUnwindDepth);
+    for (size_t j = 0; j < MaxUnwindDepth; j++)
+    {
+        originalTrace.emplace_back(dist(rng));
+    }
+
+    std::vector<std::vector<uint64_t>> testData;
+    std::vector<uint32_t> savedTraceId;
+
+    std::uniform_int_distribution<> lenDist(1, 10);
+
+    for (size_t i = 0; i < Count; i++)
+    {
+        std::vector<uint64_t> trace = originalTrace;
+        const size_t prefixSize = static_cast<size_t>(lenDist(rng));
+        for (size_t j = 0; j < prefixSize; j++)
+        {
+            trace[j] = static_cast<uint64_t>(dist(rng));
+        }
+        testData.emplace_back(trace); // copy trace
+        const auto traceId = m_tracker->InsertStacktrace(SetUpStacktrace(trace));
+        EXPECT_NE(traceId, 0);
+        savedTraceId.push_back(traceId);
+    }
+
+    const absl::flat_hash_set<uint32_t> savedSet(savedTraceId.begin(), savedTraceId.end());
+    EXPECT_EQ(savedSet.size(), savedTraceId.size());
+
+    for (size_t i = 0; i < Count; i++)
+    {
+        const auto foundTrace = m_tracker->GetStacktraceFromId(savedTraceId[i]);
+        ASSERT_TRUE(foundTrace);
+        EXPECT_EQ(ConvertStacktrace(foundTrace.value()), testData[i]); // NOLINT(bugprone-unchecked-optional-access)
+    }
+
+    EXPECT_EQ(savedSet.size(), m_tracker->StacktracesCount());
+}
+
 TEST_F(StacktraceTrackerFixture, AddRandomTraces_ExpectAllFound)
 {
     constexpr size_t Count = 4096;
@@ -85,6 +163,8 @@ TEST_F(StacktraceTrackerFixture, AddRandomTraces_ExpectAllFound)
         ASSERT_TRUE(foundTrace);
         EXPECT_EQ(ConvertStacktrace(foundTrace.value()), testData[i]); // NOLINT(bugprone-unchecked-optional-access)
     }
+
+    EXPECT_EQ(savedSet.size(), m_tracker->StacktracesCount());
 }
 
 } // namespace memhawk::bit_packing
