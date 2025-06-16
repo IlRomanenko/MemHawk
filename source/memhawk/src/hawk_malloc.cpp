@@ -143,7 +143,7 @@ __attribute__((__constructor__)) void init_memhawk()
 {
     InitHooks();
 
-    auto cfg = ParseConfig();
+    const auto cfg = ParseConfig();
     if (CheckProgname(*cfg.PrognameRegex))
     {
         LogInit(*cfg.Logging);

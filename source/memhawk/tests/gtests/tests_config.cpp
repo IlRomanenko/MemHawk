@@ -167,18 +167,22 @@ TEST(Config, ParseStruct_WithNested_ExpectAllTypesOfErrors)
 TEST(Config, ParseStruct_DeepNested_ExpectOk)
 {
     MockFunction<config::ErrorCallback> mock;
-    EXPECT_CALL(mock, Call(_)).WillRepeatedly(Invoke([](const config::ParseError& err) {
-        std::cout << err.field << std::endl;
-        std::cout << err.key << std::endl;
-        std::cout << static_cast<uint64_t>(err.type) << std::endl;
-        std::cout << err.value << std::endl;
-        EXPECT_FALSE(true);
-    }));
+    EXPECT_CALL(mock, Call(_)).Times(0);
     MainConfig cfg{};
     auto res = config::ParseStruct("memhawk.writers.proto_writer.enabled=1", cfg, mock.AsStdFunction());
     EXPECT_TRUE(res);
 
     EXPECT_EQ(*cfg.MemHawk->Writers->ProtobufWriter->Enabled, true);
+}
+
+TEST(Config, ParseStruct_StringField_ExpectOk)
+{
+    MockFunction<config::ErrorCallback> mock;
+    EXPECT_CALL(mock, Call(_)).Times(0);
+    MainConfig cfg{};
+    auto res = config::ParseStruct("progname_regex=deadbeefdeadbeefdeadbeef", cfg, mock.AsStdFunction());
+    EXPECT_TRUE(res);
+    EXPECT_EQ(*cfg.PrognameRegex, "deadbeefdeadbeefdeadbeef");
 }
 
 } // namespace memhawk

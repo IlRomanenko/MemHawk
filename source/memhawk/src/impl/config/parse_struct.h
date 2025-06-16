@@ -167,11 +167,10 @@ inline bool ValidateStruct(T& object, const ErrorCallback& onError = nullptr, co
 }
 
 template <typename T>
-inline bool ParseStruct(const std::string& input, T& object, const ErrorCallback& onError = nullptr)
+inline bool ParseStruct(std::string_view input, T& object, const ErrorCallback& onError = nullptr)
 {
     bool valid = true;
-    const auto strView = std::string_view(input);
-    auto splitIt = boost::algorithm::make_split_iterator(strView, boost::algorithm::first_finder(OptionDelim));
+    auto splitIt = boost::algorithm::make_split_iterator(input, boost::algorithm::first_finder(OptionDelim));
     for (; splitIt != decltype(splitIt)(); splitIt++)
     {
         const auto elemView = std::string_view(splitIt->begin(), splitIt->size());
