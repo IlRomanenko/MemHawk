@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25.0)
-project(alloc_tracker VERSION 0.1.0 LANGUAGES C CXX)
+project(MemHawk LANGUAGES C CXX)
 
 include(CheckCXXCompilerFlag)
 

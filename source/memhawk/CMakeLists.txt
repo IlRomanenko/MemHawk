@@ -1,5 +1,5 @@
 
-project(memhawk)
+project(libmemhawk)
 
 collect_project_sources(HEADERS SOURCES ${PROJECT_SOURCE_DIR})
 set(HEADERS_IMPL ${HEADERS})
@@ -29,7 +29,6 @@ configure_file(
 )
 
 
-find_package(Protobuf REQUIRED)
 set(PROTO_DIR ${PROJECT_SOURCE_DIR})
 set(PROTO_FILES ${PROJECT_SOURCE_DIR}/protos/snapshot.proto)
 set(PROTO_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}")

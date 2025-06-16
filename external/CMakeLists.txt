@@ -47,6 +47,9 @@ if (MEMHAWK_BUILD_PROTOBUF)
     FetchContent_MakeAvailable(protobuf)
 endif()
 
+# Find package - from sources or from host system
+find_package(Protobuf REQUIRED)
+
 if(${MEMHAWK_BUILD_TESTING})
 
     message(NOTICE "Enabling `googletest` dependency")

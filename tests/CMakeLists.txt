@@ -4,7 +4,7 @@ add_executable(test_binary
 
 target_link_libraries(test_binary
 PRIVATE
-    memhawk
+    libmemhawk
 )
 
 memhawk_build(test_binary)
