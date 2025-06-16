@@ -1,5 +1,6 @@
 #include "config.h"
 
+#include "config/describe_struct.h"
 #include "config/parse_struct.h"
 #include "logging.h"
 
@@ -47,7 +48,7 @@ void OnError(const config::ParseError& err)
 
 void OnKey(const config::DescribeContext& ctx)
 {
-    PrintMessage("{} = {}\n", ctx.key, ctx.defaultValue);
+    PrintMessage("{} = {}\n", ctx.key, ctx.value);
 }
 
 bool ValidateConfig(MainConfig& cfg)
@@ -90,10 +91,10 @@ MainConfig ParseConfig()
     {
         exit(-1);
     }
-    if(*cfg.Help)
+    if (*cfg.Help)
     {
         PrintMessage("full set of fields in config:\n");
-        config::DescribeStruct(cfg, OnKey);
+        config::DescribeStruct(MainConfig{}, OnKey);
         exit(0);
     }
     return cfg;
