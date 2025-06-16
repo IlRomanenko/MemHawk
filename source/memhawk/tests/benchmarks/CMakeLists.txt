@@ -8,6 +8,6 @@ target_link_libraries(${PROJECT_NAME}
 PRIVATE
     benchmark::benchmark
 )
-embed_library(${PROJECT_NAME} libmemhawk_impl)
+embed_library(${PROJECT_NAME} memhawk_impl)
 
 memhawk_build(${PROJECT_NAME})

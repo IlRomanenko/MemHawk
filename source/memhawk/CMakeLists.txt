@@ -1,5 +1,5 @@
 
-project(libmemhawk)
+project(memhawk)
 
 collect_project_sources(HEADERS SOURCES ${PROJECT_SOURCE_DIR})
 set(HEADERS_IMPL ${HEADERS})
