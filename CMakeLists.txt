@@ -14,7 +14,7 @@ option(MEMHAWK_MSABI "Enable ms-abi support in libunwind" OFF)
 option(MEMHAWK_THINLTO "Clang-specific link time optimization" OFF)
 option(MEMHAWK_USE_CLANG_TIDY "Enable clang-tidy build" OFF)
 option(MEMHAWK_OPT_TLS "Enable optimized tls model" ON)
-option(MEMHAWK_AVX "Compile with avx support" ON)
+option(MEMHAWK_AVX "Compile with avx support" OFF)
 option(MEMHAWK_LLD "Link with lld" OFF)
 option(MEMHAWK_BUILD_PROTOBUF "Build protobuf library from sources" ON)
 
