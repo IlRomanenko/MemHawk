@@ -1,20 +1,29 @@
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <iostream>
 #include <list>
+#include <mutex>
 #include <thread>
 #include <vector>
 
 std::atomic_bool gl_start = {false};
+std::condition_variable gl_cvStart;
+std::mutex gl_mtStart;
+
+std::mutex gl_mtFinish;
 std::atomic_uint32_t gl_finishedWorkers = 0;
-std::atomic_bool gl_finished = {false};
+std::condition_variable gl_cvFinished;
 
 uint32_t gl_totalWorkers = 0;
 
 void worker()
 {
-    gl_start.wait(false);
+    {
+        std::unique_lock lock(gl_mtStart);
+        gl_cvStart.wait(lock, []() { return gl_start.load(); });
+    }
     constexpr const size_t Size = 1UL << 22;
     std::list<int> dq;
     const auto begin = std::chrono::steady_clock::now();
@@ -29,8 +38,7 @@ void worker()
     gl_finishedWorkers++;
     if (gl_finishedWorkers == gl_totalWorkers)
     {
-        gl_finished = true;
-        gl_finished.notify_all();
+        gl_cvFinished.notify_all();
     }
 }
 
@@ -44,11 +52,17 @@ int main()
         workers.emplace_back(std::thread([]() { worker(); }));
     }
 
+    {
+        std::unique_lock lock(gl_mtStart);
+        gl_start = true;
+        gl_cvStart.notify_all();
+    }
     const auto begin = std::chrono::steady_clock::now();
-    gl_start = true;
-    gl_start.notify_all();
 
-    gl_finished.wait(false);
+    {
+        std::unique_lock lock(gl_mtFinish);
+        gl_cvFinished.wait(lock, []() { return gl_finishedWorkers == gl_totalWorkers; });
+    }
     const auto end = std::chrono::steady_clock::now();
 
     std::cout << "Workers: " << gl_totalWorkers
