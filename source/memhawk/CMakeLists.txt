@@ -68,6 +68,10 @@ PUBLIC
     absl::cleanup
     absl::stacktrace
     proto_files
+INTERFACE
+    Boost::container
+    Boost::hana
+    Boost::multi_index
 )
 
 target_include_directories(${PROJECT_NAME}_impl

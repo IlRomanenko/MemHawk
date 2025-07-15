@@ -6,7 +6,6 @@ RUN apt-get update -y
 RUN apt-get install -y \
     git ccache \
     libtool autoconf unzip wget \
-    libboost-container-dev \
     software-properties-common lsb-release
 
 RUN wget -qO- https://apt.llvm.org/llvm.sh | bash -s 18

@@ -25,6 +25,18 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(absl)
 
+message(NOTICE "Enabling `boost` dependency")
+FetchContent_Declare(
+    Boost
+    URL https://github.com/boostorg/boost/releases/download/boost-1.88.0/boost-1.88.0-cmake.tar.xz
+    URL_MD5 3edffaacd2cfe63c240ef1b99497c74f
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
+    EXCLUDE_FROM_ALL
+    SYSTEM
+)
+set(BOOST_INCLUDE_LIBRARIES container hana multi_index)
+FetchContent_MakeAvailable(Boost)
+
 if (MEMHAWK_BUILD_PROTOBUF)
     set(protobuf_BUILD_TESTS OFF CACHE BOOL "Disable tests" FORCE)
     set(protobuf_BUILD_EXAMPLES OFF CACHE BOOL "Disable examples" FORCE)
@@ -76,7 +88,6 @@ if(${MEMHAWK_BUILD_TESTING})
 endif()
 
 find_package(Threads REQUIRED)
-find_package(Boost 1.70.0 REQUIRED NO_MODULE COMPONENTS container)
 
 # set flags for external dependencies
 set(CFLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_RELWITHDEBINFO}")

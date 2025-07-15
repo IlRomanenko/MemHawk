@@ -1,14 +1,18 @@
 # MemHawk - a high performance memory profiler
 
+![GitHub License](https://img.shields.io/github/license/IlRomanenko/MemHawk) ![Asan Status](https://img.shields.io/github/actions/workflow/status/IlRomanenko/MemHawk/sanitizers-asan.yaml?label=Asan) ![Tsan Status](https://img.shields.io/github/actions/workflow/status/IlRomanenko/MemHawk/sanitizers-tsan.yaml?label=Tsan) ![Clang-tidy Status](https://img.shields.io/github/actions/workflow/status/IlRomanenko/MemHawk/clang-tidy.yaml?label=Clang-tidy)
+
+## Overview
+
 MemHawk traces all memory allocations and summaries them by stack traces. It helps you quickly identify the top-N memory allocation traces that are consuming the most memory — perfect for tracking down leaks in your application.
 
 ## Features
 
 * **Statically Linked & Zero External Dependencies:** MemHawk is self-contained. It’s built for static linking, meaning you won’t have to worry about external libraries or dependency conflicts.
 
-* **Supports unwinding by dwarf info and by frame pointer:** Speed can be increased for binaries built with `-fno-omit-frame-pointer`.
+* **Supports unwinding by dwarf info and by frame pointer:** Unwinds all binaries with dwarf info. Moreover unwinding speed can be increased for binaries built with `-fno-omit-frame-pointer`.
 
-* **Extremely Fast with Minimal Global Locks:** MemHawk is designed to be incredibly efficient. Its minimal-lock design ensures that even in multi-threaded environments, the overhead is kept to a bare minimum.
+* **Extremely Fast with Minimal Global Locks:** MemHawk is designed to be incredibly efficient. Its minimal-lock design ensures that even in multi-threaded environments, the synchronization overhead is kept to a minimum.
 
 * **Top-N Trace Summaries:** Instantly identify the top allocation traces by memory consumption. This focused insight makes it easier to locate and resolve memory leaks.
 
@@ -34,11 +38,9 @@ MemHawk traces all memory allocations and summaries them by stack traces. It hel
 
 ### Prerequisites
 
-A C++ compiler with C++17 (or later) support.
+A C++ compiler with C++20 (or later) support.
 
 CMake 3.25 or newer.
-
-Boost: libboost-container-dev or similar package.
 
 ## Building MemHawk
 
