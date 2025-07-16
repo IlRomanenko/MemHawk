@@ -58,6 +58,12 @@ target_include_directories(proto_files PUBLIC
 
 target_link_libraries(${PROJECT_NAME}_impl
 PUBLIC
+    Boost::range
+    Boost::algorithm
+    Boost::circular_buffer
+    Boost::container
+    Boost::hana
+    Boost::multi_index
     xxHash::xxhash
     libunwind::libunwind
     fmt::fmt
@@ -68,10 +74,6 @@ PUBLIC
     absl::cleanup
     absl::stacktrace
     proto_files
-INTERFACE
-    Boost::container
-    Boost::hana
-    Boost::multi_index
 )
 
 target_include_directories(${PROJECT_NAME}_impl

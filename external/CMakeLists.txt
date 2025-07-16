@@ -34,7 +34,7 @@ FetchContent_Declare(
     EXCLUDE_FROM_ALL
     SYSTEM
 )
-set(BOOST_INCLUDE_LIBRARIES container hana multi_index)
+set(BOOST_INCLUDE_LIBRARIES container hana multi_index range algorithm circular_buffer concept_check)
 FetchContent_MakeAvailable(Boost)
 
 if (MEMHAWK_BUILD_PROTOBUF)

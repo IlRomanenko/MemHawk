@@ -7,6 +7,7 @@ add_executable(${PROJECT_NAME} ${HEADERS} ${SOURCES})
 target_link_libraries(${PROJECT_NAME}
 PRIVATE
     benchmark::benchmark
+    Boost::concept_check
 )
 embed_library(${PROJECT_NAME} memhawk_impl)
 
