@@ -8,23 +8,23 @@ MemHawk traces all memory allocations and summaries them by stack traces. It hel
 
 ## Features
 
-* **Statically Linked & Zero External Dependencies:** MemHawk is self-contained. It’s built for static linking, meaning you won’t have to worry about external libraries or dependency conflicts.
+* 🚀 **Extremely Fast**: Designed with a minimal-locking, thread-local architecture to ensure the lowest possible overhead, even in highly concurrent applications.
 
-* **Supports unwinding by dwarf info and by frame pointer:** Unwinds all binaries with dwarf info. Moreover unwinding speed can be increased for binaries built with `-fno-omit-frame-pointer`.
+* 🎯 **100% Accurate**: Tracks every malloc/free to give you a complete and precise picture of your application's memory usage. No sampling, no missed events.
 
-* **Extremely Fast with Minimal Global Locks:** MemHawk is designed to be incredibly efficient. Its minimal-lock design ensures that even in multi-threaded environments, the synchronization overhead is kept to a minimum.
+* 💡 **Smart Aggregation**: Instead of logging millions of individual events, MemHawk groups allocations by unique stack traces, making it easy to spot the top memory consumers.
 
-* **Top-N Trace Summaries:** Instantly identify the top allocation traces by memory consumption. This focused insight makes it easier to locate and resolve memory leaks.
+* 🔧 **Flexible Unwinding**: Supports stack unwinding via both DWARF debug info (for any binary) and frame pointers (-fno-omit-frame-pointer) for even greater speed.
 
-* **CMake Integration:** The library is designed using modern CMake practices, making it straightforward to integrate into your existing projects.
+* 📦 **Zero Runtime Dependencies & Statically Linked**: MemHawk is compiled into a single, self-contained library. All its components (like libunwind, absl, xxHash) are built-in. You don't need to install anything on the target machine—just copy libmemhawk.so and you're ready to profile.
 
-## Is it actually fast?
+## Benchmarks
 
-**Definitely.** And the difference in speed will become more noticeable as the number of cores and threads increases. Performance was tested on `Intel(R) Core(TM) i9-9900KF CPU @ 3.60GHz`.  Benchmark is located on `tests/run_benchmark.sh`.
+Performance was tested on an Intel(R) Core(TM) i9-9900KF CPU @ 3.60GHz. The difference in speed becomes even more noticeable as the number of threads increases. The benchmark source is available in tests/bench_allocs.cpp.
 
 **N.B.** Jemalloc is the fastest option, but it performs probabilistic sampling instead of full profiling and omits information about total allocation count on given trace.
 
-| Allocator                       | Workers | Time    |
+| Profiler / Allocator            | Workers | Time    |
 |---------------------------------|---------|---------|
 | tcmalloc.so + heap profiling    | 16      | 50844ms |
 | heaptrack.so                    | 16      | 28137ms |
@@ -34,21 +34,25 @@ MemHawk traces all memory allocations and summaries them by stack traces. It hel
 | system malloc                   | 16      | 582ms   |
 | jemalloc.so + heap sampling     | 16      | 336ms   |
 
+## How It Works
+
+MemHawk achieves its speed by avoiding global locks on the critical path. Each application thread writes allocation data to a thread-local cache. A background worker thread then asynchronously collects and aggregates this data, generating a global summary with minimal impact on the application's performance.
+
+This design makes it exceptionally well-suited for profiling highly concurrent, multi-threaded applications.
+
 ## Getting Started
 
 ### Prerequisites
 
-A C++ compiler with C++20 (or later) support.
-
-CMake 3.25 or newer.
+*   A C++ compiler with C++20 support (GCC 11+, Clang 12+).
+*   CMake 3.25 or newer.
 
 ## Building MemHawk
 
-```(bash)
+```bash
 git clone https://github.com/IlRomanenko/MemHawk.git
 cd MemHawk
-mkdir build
-cd build
+mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make -j$(nproc)
 ```
@@ -57,17 +61,36 @@ make -j$(nproc)
 
 ### Primary usage via LD_PRELOAD
 
-```(bash)
+```bash
 LD_PRELOAD=/path/to/libmemhawk.so ./your_application
 ```
 
 ### Add as dependency via patchelf
 
-With patchelf memhawk can be injected even into binaries with suid/guid.
+With patchelf memhawk can be injected even into binaries with suid/guid, where LD_PRELOAD is often disabled for security reasons.
 
 ```(bash)
 patchelf --add-needed /path/to/libmemhawk.so ./your_application
 ./your_application <your app args>
+```
+
+### As a Linked Library
+
+MemHawk can also be linked into your application. In that case, it's recommended to list it as the very first dependency in your target's link libraries. This ensures that MemHawk's interception mechanisms are set up before any other libraries.
+
+## Configuration
+
+MemHawk's behavior can be controlled via the `MEMHAWK_OPTS` environment variable. Multiple options can be separated by a colon (`:`).
+
+To see a full list of available options and their default values, run:
+```bash
+MEMHAWK_OPTS=help=1 LD_PRELOAD=./libmemhawk.so date
+```
+
+**Example:** Change the log directory and the summary report period.
+```bash
+MEMHAWK_OPTS="logging.log_dir=/tmp:memhawk.dumping_period=5000" \
+  LD_PRELOAD=./libmemhawk.so ./your_application
 ```
 
 ## Examples
@@ -83,7 +106,7 @@ LD_PRELOAD=./libmemhawk.so filelight
 #### Step 2: Analyze the results
 After starting filelight, MemHawk will create several log files. The most important one is `memhawk_filelight_<pid>_summary.log`. It contains aggregated statistics for all allocations.
 
-```bash
+```log
 2025-07-20T17:22:13.1626456+03:00
 Application heap: size:   332.598 mb, active:      6089431, total:     11116384, average:       57.272 bytes, overhead:    92.918 mb
 MemHawk heap:     size:    48.140 mb, active:       204186, total:       210301, average:      247.217 bytes, overhead:     3.117 mb
@@ -107,7 +130,7 @@ TraceId:    440637, size:    27.462 mb, active:      1199826, total:      119982
 #### Step 3: Find the source code
 Now, let's find TraceId: 440633 in the `memhawk_filelight_<pid>_stacktraces.log` file to see the full stack trace.
 
-```bash
+```log
 TraceId: 440633
 0x55762bfb8659: /usr/bin/filelight + 31659: _ZN9Filelight11LocalLister4scanERK10QByteArrayS3_
 0x55762bfba461: /usr/bin/filelight + 33461: _ZNSt17_Function_handlerIFvvEZN9Filelight11LocalLister4scanERK10QByteArrayS5_EUlvE_E9_M_invokeERKSt9_Any_data
@@ -141,7 +164,7 @@ LD_PRELOAD=./libmemhawk.so ./stripped
 ```
 In stacktraces.log, you will see unresolved addresses:
 
-```bash
+```log
 TraceId: 14
 0x564cb099d44a: /path/to/stripped + 244a:
 0x7fa1004e51a4: /usr/lib/libstdc++.so.6.0.34 + e51a4: execute_native_thread_routine
@@ -163,10 +186,6 @@ worker()
 /path/to/memhawk/tests/bench_allocs.cpp:48
 ```
 The -i flag shows the full chain of inlined calls, making this method incredibly powerful for debugging production builds.
-
-### As a Linked Library
-
-MemHawk can also be linked into your application. In that case, it's recommended to list it as the very first dependency in your target's link libraries. This ensures that MemHawk's interception mechanisms are set up before any other libraries.
 
 ## License
 
