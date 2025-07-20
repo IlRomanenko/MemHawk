@@ -1,6 +1,6 @@
 # MemHawk - a high performance memory profiler
 
-![GitHub License](https://img.shields.io/github/license/IlRomanenko/MemHawk) ![Asan Status](https://img.shields.io/github/actions/workflow/status/IlRomanenko/MemHawk/sanitizers-asan.yaml?label=Asan) ![Tsan Status](https://img.shields.io/github/actions/workflow/status/IlRomanenko/MemHawk/sanitizers-tsan.yaml?label=Tsan) ![Clang-tidy Status](https://img.shields.io/github/actions/workflow/status/IlRomanenko/MemHawk/clang-tidy.yaml?label=Clang-tidy)
+![GitHub License](https://img.shields.io/github/license/IlRomanenko/MemHawk) [![Asan Status](https://github.com/IlRomanenko/MemHawk/actions/workflows/sanitizers-asan.yaml/badge.svg)](https://github.com/IlRomanenko/MemHawk/actions/workflows/sanitizers-asan.yaml) [![Tsan Status](https://github.com/IlRomanenko/MemHawk/actions/workflows/sanitizers-tsan.yaml/badge.svg)](https://github.com/IlRomanenko/MemHawk/actions/workflows/sanitizers-tsan.yaml) [![Clang-tidy Status](https://github.com/IlRomanenko/MemHawk/actions/workflows/clang-tidy.yaml/badge.svg)](https://github.com/IlRomanenko/MemHawk/actions/workflows/clang-tidy.yaml)
 
 ## Overview
 
