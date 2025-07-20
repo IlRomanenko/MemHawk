@@ -56,7 +56,6 @@ The recommended configuration uses Clang, as it is the primary compiler used for
 ```bash
 git clone https://github.com/IlRomanenko/MemHawk.git
 cd MemHawk
-mkdir build && cd build
 cmake -B $(pwd)/build --preset ReleaseClang -DCMAKE_INSTALL_PREFIX=$(pwd)/artifacts
 cmake --build $(pwd)/build --parallel $(nproc)
 cmake --install $(pwd)/build
