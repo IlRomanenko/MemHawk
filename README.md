@@ -20,19 +20,20 @@ MemHawk traces all memory allocations and summaries them by stack traces. It hel
 
 ## Benchmarks
 
-Performance was tested on an Intel(R) Core(TM) i9-9900KF CPU @ 3.60GHz. The difference in speed becomes even more noticeable as the number of threads increases. The benchmark source is available in tests/bench_allocs.cpp.
+Performance was tested on an Intel(R) Core(TM) i9-9900KF CPU @ 3.60GHz. The difference in speed becomes even more noticeable as the number of threads increases. The benchmark source is available in `tests/bench_allocs.cpp`.
 
 **N.B.** Jemalloc is the fastest option, but it performs probabilistic sampling instead of full profiling and omits information about total allocation count on given trace.
 
-| Profiler / Allocator            | Workers | Time    |
-|---------------------------------|---------|---------|
-| tcmalloc.so + heap profiling    | 16      | 50844ms |
-| heaptrack.so                    | 16      | 28137ms |
-| libmemhawk.so + dwarf unwinding | 16      | 2794ms  |
-| libmemhawk.so + frame unwinding | 16      | 2186ms  |
-| libmemhawk.so + frame unwinding + zero recursion collapsing | 16 | 1816ms |
-| system malloc                   | 16      | 582ms   |
-| jemalloc.so + heap sampling     | 16      | 336ms   |
+| Profiler / Allocator                          | Workers | Time    | Speedup |
+| --------------------------------------------- | ------- | ------- | ------- |
+| tcmalloc.so + heap profiling                  | 16      | 50991ms | 82.8x   |
+| **heaptrack.so**                              | 16      | 25512ms | 41.4x   |
+| **libmemhawk.so + dwarf unwinding (default)** | 16      | 1555ms  | 2.52x   |
+| libmemhawk.so + frame unwinding               | 16      | 1182ms  | 1.91x   |
+| libmemhawk.so + dwarf unwinding + jemalloc    | 16      | 1120ms  | 1.81x   |
+| libmemhawk.so + frame unwinding + jemalloc    | 16      | 843ms   | 1.36x   |
+| **system malloc (baseline)**                  | 16      | 616ms   | 1x      |
+| jemalloc.so + heap sampling                   | 16      | 311ms   | 0.5x    |
 
 ## How It Works
 
@@ -49,12 +50,16 @@ This design makes it exceptionally well-suited for profiling highly concurrent, 
 
 ## Building MemHawk
 
+These commands will configure, build, and install the library into an artifacts directory within the project root.
+The recommended configuration uses Clang, as it is the primary compiler used for development and testing.
+
 ```bash
 git clone https://github.com/IlRomanenko/MemHawk.git
 cd MemHawk
 mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
-make -j$(nproc)
+cmake -B $(pwd)/build --preset ReleaseClang -DCMAKE_INSTALL_PREFIX=$(pwd)/artifacts
+cmake --build $(pwd)/build --parallel $(nproc)
+cmake --install $(pwd)/build
 ```
 
 ## Usage

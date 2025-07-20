@@ -1,62 +1,79 @@
 System malloc
-Workers: 16 Time: 582ms
+Workers: 16 Time: 616ms
 
 libmemhawk.so + dwarf unwinding
-Workers: 16 Time: 2794ms
+Workers: 16 Time: 1555ms
 
 libmemhawk.so + frame unwinding
-Workers: 16 Time: 2186ms
+Workers: 16 Time: 1182ms
 
-libmemhawk.so + frame unwinding + zero recursion collapsing
-Workers: 16 Time: 1816ms
+libmemhawk.so + dwarf unwinding + jemalloc
+Workers: 16 Time: 1120ms
+
+libmemhawk.so + frame unwinding + jemalloc
+Workers: 16 Time: 843ms
 
 tcmalloc.so + heap profiling
-Workers: 16 Time: 50844ms
+Workers: 16 Time: 50991ms
 
 heaptrack.so
-Workers: 16 Time: 28137ms
+Workers: 16 Time: 25512ms
 
 jemalloc.so + heap sampling
-Workers: 16 Time: 336ms
+Workers: 16 Time: 311ms
+<jemalloc>: Leak approximation summary: ~566314 bytes, ~7 objects, >= 1 context
+<jemalloc>: Run jeprof on dump output for leak detail
 
 lscpu:
-Architecture:                         x86_64
-CPU op-mode(s):                       32-bit, 64-bit
-Address sizes:                        39 bits physical, 48 bits virtual
-Byte Order:                           Little Endian
-CPU(s):                               16
-On-line CPU(s) list:                  0-15
-Vendor ID:                            GenuineIntel
-Model name:                           Intel(R) Core(TM) i9-9900KF CPU @ 3.60GHz
-CPU family:                           6
-Model:                                158
-Thread(s) per core:                   2
-Core(s) per socket:                   8
-Socket(s):                            1
-Stepping:                             12
-CPU(s) scaling MHz:                   96%
-CPU max MHz:                          5000.0000
-CPU min MHz:                          800.0000
-BogoMIPS:                             7200.00
-Flags:                                fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb ssbd ibrs ibpb stibp tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid mpx rdseed adx smap clflushopt intel_pt xsaveopt xsavec xgetbv1 xsaves dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp vnmi md_clear flush_l1d arch_capabilities
-Virtualization:                       VT-x
-L1d cache:                            256 KiB (8 instances)
-L1i cache:                            256 KiB (8 instances)
-L2 cache:                             2 MiB (8 instances)
-L3 cache:                             16 MiB (1 instance)
-NUMA node(s):                         1
-NUMA node0 CPU(s):                    0-15
-Vulnerability Gather data sampling:   Mitigation; Microcode
-Vulnerability Itlb multihit:          KVM: Mitigation: Split huge pages
-Vulnerability L1tf:                   Not affected
-Vulnerability Mds:                    Mitigation; Clear CPU buffers; SMT vulnerable
-Vulnerability Meltdown:               Not affected
-Vulnerability Mmio stale data:        Mitigation; Clear CPU buffers; SMT vulnerable
-Vulnerability Reg file data sampling: Not affected
-Vulnerability Retbleed:               Mitigation; IBRS
-Vulnerability Spec rstack overflow:   Not affected
-Vulnerability Spec store bypass:      Mitigation; Speculative Store Bypass disabled via prctl
-Vulnerability Spectre v1:             Mitigation; usercopy/swapgs barriers and __user pointer sanitization
-Vulnerability Spectre v2:             Mitigation; IBRS; IBPB conditional; STIBP conditional; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected
-Vulnerability Srbds:                  Mitigation; Microcode
-Vulnerability Tsx async abort:        Mitigation; TSX disabled
+Architecture:                x86_64
+  CPU op-mode(s):            32-bit, 64-bit
+  Address sizes:             39 bits physical, 48 bits virtual
+  Byte Order:                Little Endian
+CPU(s):                      16
+  On-line CPU(s) list:       0-15
+Vendor ID:                   GenuineIntel
+  Model name:                Intel(R) Core(TM) i9-9900KF CPU @ 3.60GHz
+    CPU family:              6
+    Model:                   158
+    Thread(s) per core:      2
+    Core(s) per socket:      8
+    Socket(s):               1
+    Stepping:                12
+    CPU(s) scaling MHz:      96%
+    CPU max MHz:             5000.0000
+    CPU min MHz:             800.0000
+    BogoMIPS:                7200.00
+    Flags:                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc
+                              art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pci
+                             d sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb ssbd ibrs ibpb stibp tpr_shadow flexpr
+                             iority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid mpx rdseed adx smap clflushopt intel_pt xsaveopt xsavec xgetbv1 xsaves dtherm ida ara
+                             t pln pts hwp hwp_notify hwp_act_window hwp_epp vnmi md_clear flush_l1d arch_capabilities
+Virtualization features:
+  Virtualization:            VT-x
+Caches (sum of all):
+  L1d:                       256 KiB (8 instances)
+  L1i:                       256 KiB (8 instances)
+  L2:                        2 MiB (8 instances)
+  L3:                        16 MiB (1 instance)
+NUMA:
+  NUMA node(s):              1
+  NUMA node0 CPU(s):         0-15
+Vulnerabilities:
+  Gather data sampling:      Mitigation; Microcode
+  Ghostwrite:                Not affected
+  Indirect target selection: Not affected
+  Itlb multihit:             KVM: Mitigation: Split huge pages
+  L1tf:                      Not affected
+  Mds:                       Mitigation; Clear CPU buffers; SMT vulnerable
+  Meltdown:                  Not affected
+  Mmio stale data:           Mitigation; Clear CPU buffers; SMT vulnerable
+  Reg file data sampling:    Not affected
+  Retbleed:                  Mitigation; IBRS
+  Spec rstack overflow:      Not affected
+  Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl
+  Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+  Spectre v2:                Mitigation; IBRS; IBPB conditional; STIBP conditional; RSB filling; PBRSB-eIBRS Not affected; BHI Not affected
+  Srbds:                     Mitigation; Microcode
+  Tsa:                       Not affected
+  Tsx async abort:           Mitigation; TSX disabled
+./run_benchmarks.sh  357.68s user 437.54s system 957% cpu 1:23.08 total

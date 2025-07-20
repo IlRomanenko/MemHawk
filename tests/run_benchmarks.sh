@@ -17,11 +17,15 @@ LD_PRELOAD=./libmemhawk.so ./bench_allocs
 echo
 
 print_colored "libmemhawk.so + frame unwinding"
-MEMHAWK_OPTS=absl_stacktrace=1 LD_PRELOAD=./libmemhawk.so ./bench_allocs
+MEMHAWK_OPTS=unwind.absl=1 LD_PRELOAD=./libmemhawk.so ./bench_allocs
 echo
 
-print_colored "libmemhawk.so + frame unwinding + zero recursion collapsing"
-MEMHAWK_OPTS=absl_stacktrace=1:collapse_recursion_depth=0 LD_PRELOAD=./libmemhawk.so ./bench_allocs
+print_colored "libmemhawk.so + dwarf unwinding + jemalloc"
+LD_PRELOAD=./libmemhawk.so:/usr/lib/libjemalloc.so ./bench_allocs
+echo
+
+print_colored "libmemhawk.so + frame unwinding + jemalloc"
+MEMHAWK_OPTS=unwind.absl=1 LD_PRELOAD=./libmemhawk.so:/usr/lib/libjemalloc.so ./bench_allocs
 echo
 
 print_colored "tcmalloc.so + heap profiling"
@@ -33,7 +37,7 @@ LD_PRELOAD=/usr/lib/heaptrack/libheaptrack_preload.so ./bench_allocs
 echo
 
 print_colored "jemalloc.so + heap sampling"
-MALLOC_CONF="prof:true,prof_prefix:/tmp/jeprof.out,prof_active:true" LD_PRELOAD=/usr/lib/libjemalloc.so ./bench_allocs
+MALLOC_CONF="prof:true,prof_prefix:/tmp/jeprof.out,prof_active:true,prof_final:true,prof_leak:true,prof_accum:true" LD_PRELOAD=/usr/lib/libjemalloc.so ./bench_allocs
 echo
 
 echo "lscpu:"
