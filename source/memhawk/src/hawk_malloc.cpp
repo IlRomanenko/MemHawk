@@ -182,12 +182,19 @@ constexpr size_t AdditionalSize = sizeof(AllocInfo);
 // Ensure, that we won't ruin malloc invariant
 static_assert(alignof(max_align_t) == sizeof(AllocInfo));
 
+auto align_ceil(auto value, size_t alignment)
+{
+    return (value + alignment - 1) / alignment * alignment;
+}
+
 // Allocate memory via mmap before memhawk is initialised
 void* mmap_malloc(size_t size)
 {
     auto totalSize = size + AdditionalSize;
     auto ptr =
         absl::base_internal::DirectMmap(nullptr, totalSize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    memset(ptr, 0, size);
+
     AllocInfo* info = reinterpret_cast<AllocInfo*>(ptr);
     *info = AllocInfo{size, AdditionalSize};
     // set specific TraceId, that shouldn't be used by memhawk
@@ -211,10 +218,36 @@ void* mmap_realloc(void* ptr, size_t size)
     auto origPtr = reinterpret_cast<char*>(ptr) - info->offset;
 
     auto realloced = mmap_malloc(size);
+    if (unlikely(!ptr))
+    {
+        return nullptr;
+    }
     memcpy(realloced, ptr, info->size);
     mmap_free(origPtr, info->size);
 
     return realloced;
+}
+
+void* mmap_alloc_aligned(size_t size, size_t alignment)
+{
+    auto alignedSize = align_ceil(AdditionalSize, alignment);
+    size_t totalSize = size + alignedSize * 2;
+    // allocate enough memory in order to find suitable aligned pointer for user data 
+    void* ptr = mmap_malloc(totalSize);
+    if (unlikely(!ptr))
+    {
+        return nullptr;
+    }
+    // reserve memory for AllocInfo
+    auto shiftedPtr = reinterpret_cast<char*>(ptr) + AdditionalSize;
+    // find first aligned addr
+    auto alignedPtrValue = align_ceil(reinterpret_cast<uintptr_t>(shiftedPtr), alignment);
+    void* alignedPtr = reinterpret_cast<void*>(alignedPtrValue);
+
+    AllocInfo* info = reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(alignedPtr) - AdditionalSize);
+    *info = AllocInfo{totalSize, static_cast<uint32_t>(alignedPtrValue - reinterpret_cast<uintptr_t>(ptr))};
+
+    return alignedPtr;
 }
 
 void* hawk_malloc(size_t size)
@@ -227,7 +260,10 @@ void* hawk_malloc(size_t size)
 
     auto totalSize = size + AdditionalSize;
     void* ptr = hooks::malloc(totalSize);
-
+    if (unlikely(!ptr))
+    {
+        return nullptr;
+    }
     AllocInfo* info = reinterpret_cast<AllocInfo*>(ptr);
     *info = AllocInfo{size, AdditionalSize};
     ptr = reinterpret_cast<char*>(ptr) + AdditionalSize;
@@ -246,14 +282,16 @@ void* hawk_aligned_alloc(size_t align, size_t size)
 {
     if (unlikely(!hooks::gl_initialised))
     {
-        // will be printed into stderr
-        LogError("aligned_alloc is not supported yet on statics initialisation");
-        abort();
+        return mmap_alloc_aligned(size, align);
     }
     LogTrace("requested: " fSzt, size);
 
-    auto alignedSize = (AdditionalSize + align - 1) / align * align;
+    auto alignedSize = align_ceil(AdditionalSize, align);
     void* ptr = hooks::aligned_alloc(align, (size + alignedSize));
+    if (unlikely(!ptr))
+    {
+        return nullptr;
+    }
     AllocInfo* info = reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) + alignedSize - AdditionalSize);
     *info = AllocInfo{size, static_cast<uint32_t>(alignedSize)};
     ptr = reinterpret_cast<char*>(ptr) + alignedSize;
@@ -272,16 +310,15 @@ int hawk_posix_memalign(void** memptr, size_t alignment, size_t size)
 {
     if (unlikely(!hooks::gl_initialised))
     {
-        // will be printed into stderr
-        LogError("posix_memalign is not supported yet on statics initialisation");
-        abort();
+        *memptr = mmap_alloc_aligned(size, alignment);
+        return 0;
     }
     LogTrace("requested: " fSzt, size);
 
-    auto alignedSize = (AdditionalSize + alignment - 1) / alignment * alignment;
+    auto alignedSize = align_ceil(AdditionalSize, alignment);
     const auto res = hooks::posix_memalign(memptr, alignment, size + alignedSize);
     LogTrace("result: " fPtr, *memptr);
-    if (res != 0)
+    if (unlikely(res != 0))
     {
         return res;
     }
@@ -308,7 +345,7 @@ void* hawk_calloc(size_t nm, size_t size)
 
     const size_t totalSize = nm * size + AdditionalSize;
     void* ptr = hooks::calloc(1UL, totalSize);
-    if (unlikely(ptr == nullptr))
+    if (unlikely(!ptr))
     {
         return ptr;
     }
@@ -363,9 +400,9 @@ void* hawk_realloc(void* ptr, size_t size)
         }
     }
     void* realloced = hooks::realloc(origPtr, size + AdditionalSize);
-    if (unlikely(realloced == nullptr))
+    if (unlikely(!realloced))
     {
-        return ptr;
+        return nullptr;
     }
 
     AllocInfo* info = reinterpret_cast<AllocInfo*>(realloced);
@@ -419,7 +456,7 @@ void* hawk_pvalloc(size_t size)
     }
     const auto szPageSize = static_cast<size_t>(pageSize);
     // rounds the size of the allocation up to the next multiple of the system page size
-    size = (size + szPageSize - 1) / szPageSize * szPageSize;
+    size = align_ceil(size, szPageSize);
     return hawk_aligned_alloc(szPageSize, size);
 }
 
