@@ -191,8 +191,14 @@ std::string Stacktrace::Describe() const
         unw_word_t offset{};
         unw_get_elf_filename_by_ip(unw_local_addr_space, reinterpret_cast<unw_word_t>(ip), elfName, 512, &offset,
                                    nullptr);
+        Dl_info info{};
+        // use dladdr instead of the libunwind function, as the offset returned by libunwind can sometimes be misleading
+        if (dladdr(ip, &info))
+        {
+            offset = reinterpret_cast<unw_word_t>(ip) - reinterpret_cast<unw_word_t>(info.dli_fbase);
+        }
 
-        stream << fmt::format("{}: {} + {:x}: {}\n", ip, elfName, offset, buf);
+        stream << fmt::format("{}: {} + 0x{:x} : {}\n", ip, elfName, offset, buf);
     }
     return stream.str();
 }

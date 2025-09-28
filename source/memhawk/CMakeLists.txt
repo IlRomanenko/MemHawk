@@ -74,6 +74,7 @@ PUBLIC
     absl::cleanup
     absl::stacktrace
     proto_files
+    dl
 )
 
 target_include_directories(${PROJECT_NAME}_impl
@@ -86,7 +87,6 @@ add_library(${PROJECT_NAME} SHARED ${HEADERS} ${SOURCES})
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
     ${PROJECT_NAME}_impl
-    dl
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
