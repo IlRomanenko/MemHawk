@@ -45,10 +45,17 @@ struct ProtobufWriterConfig
     CONFIG_VAR_OPT(std::optional<std::string_view>, Filename, "filename", {});
 };
 
+struct HeaptrackWriterConfig
+{
+    CONFIG_VAR_OPT(bool, Enabled, "enabled", true);
+    CONFIG_VAR_OPT(std::optional<std::string_view>, Filename, "filename", {});
+};
+
 struct WritersConfig
 {
     CONFIG_VAR_OPT(TextWriterConfig, TextWriter, "text_writer", {});
     CONFIG_VAR_OPT(ProtobufWriterConfig, ProtobufWriter, "proto_writer", {});
+    CONFIG_VAR_OPT(HeaptrackWriterConfig, HeaptrackWriter, "heaptrack_writer", {});
 };
 
 struct MemHawkConfig
@@ -93,7 +100,8 @@ BOOST_HANA_ADAPT_STRUCT(memhawk::StacktraceTrackerConfig, DumpStacktraces, Filen
 BOOST_HANA_ADAPT_STRUCT(memhawk::TextWriterIndexConfig, Enabled, TrackerBySizeCount, TrackerByTotalCount);
 BOOST_HANA_ADAPT_STRUCT(memhawk::TextWriterConfig, Enabled, Filename, ExternalTraces, InternalTraces);
 BOOST_HANA_ADAPT_STRUCT(memhawk::ProtobufWriterConfig, Enabled, Filename);
-BOOST_HANA_ADAPT_STRUCT(memhawk::WritersConfig, TextWriter, ProtobufWriter);
+BOOST_HANA_ADAPT_STRUCT(memhawk::HeaptrackWriterConfig, Enabled, Filename);
+BOOST_HANA_ADAPT_STRUCT(memhawk::WritersConfig, TextWriter, ProtobufWriter, HeaptrackWriter);
 BOOST_HANA_ADAPT_STRUCT(memhawk::MemHawkConfig, TrackingWorker, MaxPostponed, TrackerDumpingPeriodMs, LruStackSize,
                         InnerTracker, ExternalTracker, Writers, CollapseRecursionDepth);
 BOOST_HANA_ADAPT_STRUCT(memhawk::LoggingConfig, MainLogIntoFile, LoggingLevel, LogDir);

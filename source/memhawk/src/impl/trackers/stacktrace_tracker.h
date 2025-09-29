@@ -3,6 +3,7 @@
 #include "config.h"
 #include "i_stacktrace_tracker.h"
 #include "stacktrace.h"
+#include "stacktrace_tree.h"
 
 #include <absl/base/internal/spinlock.h>
 #include <absl/container/flat_hash_map.h>
@@ -47,14 +48,9 @@ private:
     struct Storage
     {
         std::deque<TraceNode> nodes;
-        // <nodeId --> ptrId -- > nextNodeId>
-        absl::flat_hash_map<std::pair<uint32_t, uint32_t>, uint32_t> edges;
+        StacktraceTree tree;
 
-        // ptrValue --> ptrId
-        absl::flat_hash_map<uint64_t, uint32_t> ptrMap;
         absl::flat_hash_set<uint32_t> leafsId;
-
-        uint32_t ptrCounter{1};
     };
 
     Stacktrace GetStacktrace(uint32_t traceId);

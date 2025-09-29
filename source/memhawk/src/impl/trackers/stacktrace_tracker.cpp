@@ -3,6 +3,7 @@
 #include "config.h"
 #include "logging.h"
 #include "stacktrace.h"
+#include "stacktrace_tree.h"
 
 #include <absl/base/internal/spinlock.h>
 #include <boost/range/adaptor/reversed.hpp>
@@ -61,34 +62,11 @@ StacktraceTracker::~StacktraceTracker()
 uint32_t StacktraceTracker::InsertStacktrace(Stacktrace&& trace)
 {
     const absl::base_internal::SpinLockHolder lock(&m_mt);
-
-    const auto span = trace.GetTrace();
-    const auto reversed = boost::adaptors::reverse(span);
-
-    uint32_t nodeId = 0;
-    for (const auto& ptr : reversed)
-    {
-        const auto ptrValue = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(ptr));
-        auto ptrIdIt = m_storage->ptrMap.find(ptrValue);
-        if (ptrIdIt == m_storage->ptrMap.end())
-        {
-            const uint32_t ptrId = m_storage->ptrCounter++;
-            ptrIdIt = m_storage->ptrMap.insert({ptrValue, ptrId}).first;
-        }
-        const auto ptrId = ptrIdIt->second;
-
-        auto nextNodeIt = m_storage->edges.find({nodeId, ptrId});
-        if (nextNodeIt == m_storage->edges.end())
-        {
-            const uint32_t nextNodeId = m_storage->nodes.size();
-            m_storage->nodes.push_back(TraceNode{ptr, nodeId});
-            nextNodeIt = m_storage->edges.insert({{nodeId, ptrId}, nextNodeId}).first;
-        }
-        nodeId = nextNodeIt->second;
-    }
-    // check if wasn't marked previously
-    m_storage->leafsId.insert(nodeId);
-    return nodeId;
+    StacktraceTree::NodeId nodeId = m_storage->tree.index(trace, [this](uintptr_t ptrValue, StacktraceTree::NodeId parent) {
+        m_storage->nodes.push_back(TraceNode{reinterpret_cast<void*>(ptrValue), parent.value()});
+    });
+    m_storage->leafsId.insert(nodeId.value());
+    return nodeId.value();
 }
 
 std::optional<Stacktrace> StacktraceTracker::GetStacktraceFromId(uint32_t traceId)
