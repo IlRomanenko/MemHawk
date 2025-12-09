@@ -1,0 +1,64 @@
+services:
+
+  postgres:
+    image: postgres:18-trixie
+    container_name: postgres
+    restart: unless-stopped
+    networks:
+      - monitoring_net
+    # set shared memory limit when using docker compose
+    shm_size: 128mb
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-admin}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin}
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.10
+    container_name: clickhouse
+    restart: unless-stopped
+    networks:
+      - monitoring_net
+    environment:
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-admin}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-admin}
+    volumes:
+      - ./clickhouse/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./clickhouse/config.xml:/etc/clickhouse-server/config.d/custom.xml
+      - clickhouse_data:/var/lib/clickhouse
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      - "${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
+
+  grafana:
+    image: grafana/grafana:12.2
+    container_name: grafana
+    restart: unless-stopped
+    depends_on:
+      - clickhouse
+    networks:
+      - monitoring_net
+    environment:
+      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
+      - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+
+volumes:
+  clickhouse_data:
+  postgres_data:
+  grafana_data:
+
+networks:
+  monitoring_net:
+    driver: bridge

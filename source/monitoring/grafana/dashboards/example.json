@@ -1,0 +1,18 @@
+{
+  "title": "Stacktrace Overview",
+  "panels": [
+    {
+      "type": "table",
+      "title": "Stacktrace Data",
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "ClickHouse" },
+      "targets": [
+        {
+          "query": "SELECT timestamp, function, file, line, value FROM profiling.stacktraces ORDER BY timestamp DESC LIMIT 100"
+        }
+      ],
+      "options": { "showHeader": true }
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1
+}

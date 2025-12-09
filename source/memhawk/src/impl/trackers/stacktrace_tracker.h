@@ -26,7 +26,7 @@ public:
 
     void PostponedConstruct();
 
-    uint32_t InsertStacktrace(Stacktrace&& trace) override;
+    uint32_t InsertStacktrace(const Stacktrace& trace) override;
     std::optional<Stacktrace> GetStacktraceFromId(uint32_t traceId) override;
 
     size_t StacktracesCount() override;

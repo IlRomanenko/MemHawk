@@ -1,0 +1,6 @@
+<yandex>
+  <logger>
+    <level>warning</level>
+  </logger>
+  <http_server_default_response>OK</http_server_default_response>
+</yandex>

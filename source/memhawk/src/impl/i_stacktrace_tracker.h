@@ -20,7 +20,7 @@ public:
 class IStacktraceTracker : public IStacktraceFinder
 {
 public:
-    virtual uint32_t InsertStacktrace(Stacktrace&& trace) = 0;
+    virtual uint32_t InsertStacktrace(const Stacktrace& trace) = 0;
     virtual size_t StacktracesCount() = 0;
 };
 

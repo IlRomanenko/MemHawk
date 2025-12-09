@@ -65,11 +65,14 @@ size_t StaticStacktraceTracker::GetStorageSize()
     return m_storageSize;
 }
 
-uint32_t StaticStacktraceTracker::InsertStacktrace(Stacktrace&& trace)
+uint32_t StaticStacktraceTracker::InsertStacktrace(const Stacktrace& trace)
 {
     const absl::base_internal::SpinLockHolder lock(&m_mt);
-    trace.ShrinkBySize(MaxStacktraceLength);
-    auto traceId = InsertStacktraceUnlocked(std::move(trace));
+    auto span = trace.GetTrace();
+    if (span.size() > MaxStacktraceLength) {
+        span = span.subspan(0, MaxStacktraceLength);
+    }
+    auto traceId = InsertStacktraceUnlocked(span);
     return traceId ^ FixedTrackerIdFlag;
 }
 
@@ -82,10 +85,9 @@ bool StaticStacktraceTracker::TraceElement::operator==(const TraceElement& rhs) 
     return trace == rhs.trace;
 }
 
-uint32_t StaticStacktraceTracker::InsertStacktraceUnlocked(Stacktrace&& trace)
+uint32_t StaticStacktraceTracker::InsertStacktraceUnlocked(absl::Span<void* const> span)
 {
-    const auto span = trace.GetTrace();
-    const auto uspan = absl::MakeConstSpan(reinterpret_cast<uint64_t*>(span.data()), span.size());
+    const auto uspan = absl::MakeConstSpan(reinterpret_cast<const uint64_t*>(span.data()), span.size());
 
     const uint32_t compressedSize = bit_packing::Compress(uspan, m_compressedTrace.data());
     const auto compressedSpan = absl::MakeConstSpan(m_compressedTrace.begin(), compressedSize);

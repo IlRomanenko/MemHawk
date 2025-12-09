@@ -59,12 +59,16 @@ PUBLIC
 add_library(${PROJECT_NAME} SHARED ${HEADERS} ${SOURCES})
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
+    -Wl,--exclude-libs,ALL
     ${PROJECT_NAME}_impl
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     VERSION ${MEMHAWK_LIB_VERSION}
     SOVERSION ${MEMHAWK_LIB_SOVERSION}
+    C_VISIBILITY_PRESET hidden
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON
 )
 
 install(TARGETS ${PROJECT_NAME}

@@ -1,0 +1,9 @@
+[workspace]
+resolver = "3"
+members = [
+    "source/symbolizer"
+]
+
+[profile.release]
+debug = true
+# lto = true

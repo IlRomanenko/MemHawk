@@ -1,5 +1,6 @@
 #pragma once
 
+#include "alloc_info.h"
 #include "config.h"
 #include "i_stacktrace_tracker.h"
 #include "thread_tracker.h"
@@ -12,6 +13,7 @@
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <protos/snapshot.pb.h>
 
+#include <chrono>
 #include <fstream>
 
 namespace memhawk
@@ -34,6 +36,8 @@ public:
 
 private:
 
+    void FillAllocSummary(protos::AllocSummary* protoSummary, const AllocSummary& summary);
+    void FillProcessInfo(protos::ProcessInfo* info);
     void FillChangedSummary(uint32_t traceId, protos::TracedAllocSummary* tracedSummary);
 
     void AddStacktrace(uint32_t traceId, protos::Snapshot* snapshot);
@@ -48,12 +52,15 @@ private:
 
     google::protobuf::Arena m_arena;
 
+    AllocSummary m_total;
     SummariesMap m_localSummaries;
     absl::flat_hash_set<uint32_t> m_changedSummaries;
     absl::flat_hash_set<uint32_t> m_writtenTraces;
     absl::flat_hash_map<uint64_t, uint32_t> m_ptrMap;
 
     bool m_updateModules{true};
+
+    std::chrono::system_clock::time_point m_startTime;
 };
 
 } // namespace writers

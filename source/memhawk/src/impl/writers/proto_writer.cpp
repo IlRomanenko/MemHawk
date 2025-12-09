@@ -2,6 +2,7 @@
 #include "proto_writer.h"
 
 #include "logging.h"
+#include "recursion_guard.h"
 
 #include <google/protobuf/arena.h>
 #include <google/protobuf/io/coded_stream.h>
@@ -9,10 +10,15 @@
 #include <google/protobuf/util/delimited_message_util.h>
 #include <protos/snapshot.pb.h>
 
+#include <chrono>
 #include <cstdint>
+#include <elf.h>
+#include <filesystem>
 #include <fstream>
 #include <ios>
 #include <link.h>
+#include <system_error>
+#include <unistd.h>
 
 namespace memhawk
 {
@@ -21,12 +27,28 @@ namespace writers
 
 namespace
 {
+std::string GetPrognameFullPath()
+{
+    std::error_code ec{};
+    auto res = std::filesystem::read_symlink("/proc/self/exe", ec);
+    if (ec)
+    {
+        return program_invocation_name;
+    }
+    return res.native();
+}
+
 int iterate_dl_headers(struct dl_phdr_info* info, size_t /*size*/, void* data)
 {
     auto snapshot = reinterpret_cast<protos::Snapshot*>(data);
     auto* loadedSo = snapshot->add_loadedso();
     loadedSo->set_addr(info->dlpi_addr);
-    loadedSo->set_filename(std::string{info->dlpi_name});
+    std::string fileName{info->dlpi_name};
+    if (fileName.empty())
+    {
+        fileName = GetPrognameFullPath();
+    }
+    loadedSo->set_filename(fileName);
     for (size_t i = 0; i < info->dlpi_phnum; i++)
     {
         auto* segment = loadedSo->add_segments();
@@ -41,6 +63,8 @@ int iterate_dl_headers(struct dl_phdr_info* info, size_t /*size*/, void* data)
 ProtobufWriter::ProtobufWriter(ProtobufWriterConfig cfg, std::shared_ptr<IStacktraceFinder> finder)
     : m_cfg{std::move(cfg)}, m_finder(std::move(finder))
 {
+    m_startTime = std::chrono::system_clock::now();
+
     auto filename = GetProcessLogName("protobuf", "binpb");
     if (m_cfg.Filename->has_value())
     {
@@ -56,8 +80,9 @@ void ProtobufWriter::UpdateModules()
     m_updateModules = true;
 }
 
-void ProtobufWriter::AccountSnapshot(const SummariesMap& summaries, const AllocSummary& /*total*/)
+void ProtobufWriter::AccountSnapshot(const SummariesMap& summaries, const AllocSummary& total)
 {
+    m_total += total;
     for (const auto& [traceId, summary] : summaries)
     {
         m_changedSummaries.insert(traceId);
@@ -81,6 +106,12 @@ void ProtobufWriter::FlushData()
         m_updateModules = false;
     }
 
+    const auto now = std::chrono::system_clock::now();
+    const auto nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
+    snapshot->set_timestamp(static_cast<uint64_t>(nowNs));
+
+    FillProcessInfo(snapshot->mutable_process());
+    FillAllocSummary(snapshot->mutable_total(), m_total);
     for (const auto& traceId : m_changedSummaries)
     {
         if (!m_writtenTraces.contains(traceId))
@@ -97,17 +128,29 @@ void ProtobufWriter::FlushData()
     m_arena.Reset();
 }
 
+void ProtobufWriter::FillProcessInfo(protos::ProcessInfo* info)
+{
+    *info->mutable_processshortname() = program_invocation_short_name;
+    *info->mutable_processfullpath() = GetPrognameFullPath();
+    info->set_pid(static_cast<uint32_t>(getpid()));
+    const auto startNs = std::chrono::duration_cast<std::chrono::nanoseconds>(m_startTime.time_since_epoch()).count();
+    info->set_starttimestamp(static_cast<uint64_t>(startNs));
+}
+
+void ProtobufWriter::FillAllocSummary(protos::AllocSummary* protoSummary, const AllocSummary& summary)
+{
+    protoSummary->set_active(summary.active);
+    protoSummary->set_overhead(summary.overhead);
+    protoSummary->set_size(summary.size);
+    protoSummary->set_totalbytes(summary.totalBytes);
+    protoSummary->set_totalcount(summary.totalCount);
+}
+
 void ProtobufWriter::FillChangedSummary(uint32_t traceId, protos::TracedAllocSummary* tracedSummary)
 {
     const auto& summary = m_localSummaries[traceId];
-
     tracedSummary->set_traceid(traceId);
-    auto* actual = tracedSummary->mutable_actual();
-    actual->set_active(summary.active);
-    actual->set_overhead(summary.overhead);
-    actual->set_size(summary.size);
-    actual->set_totalbytes(summary.totalBytes);
-    actual->set_totalcount(summary.totalCount);
+    FillAllocSummary(tracedSummary->mutable_actual(), summary);
 }
 
 void ProtobufWriter::AddStacktrace(uint32_t traceId, protos::Snapshot* snapshot)
@@ -121,7 +164,7 @@ void ProtobufWriter::AddStacktrace(uint32_t traceId, protos::Snapshot* snapshot)
     stacktrace->set_traceid(traceId);
     for (const auto& ptr : trace->GetTrace())
     {
-        auto ptrValue = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(ptr));
+        auto ptrValue = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(ptr)) - 1;
         auto ptrIt = m_ptrMap.find(ptrValue);
         if (ptrIt == m_ptrMap.end())
         {

@@ -29,7 +29,6 @@ namespace memhawk
 {
 
 alignas(64) ABSL_CONST_INIT thread_local ThreadTracker* gtl_tracker = nullptr;
-alignas(64) ABSL_CONST_INIT thread_local std::array<void*, 8> gtl_retPtrs = {};
 
 MemHawk::MemHawk(MemHawkConfig cfg, std::unique_ptr<writers::IWritersFactory> factory)
     : m_cfg(std::move(cfg))
@@ -143,19 +142,9 @@ void MemHawk::SetUpThreadFinishPromise(uint32_t trackerId)
     m_finishPromises.push_back(exitPromise.get_future());
 }
 
-void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
+void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace& trace, bool isExternal)
 {
-    const RecursionGuard<RetPtrTag> retPtrGuard;
-    const auto span = trace.GetTrace();
-    const auto level = retPtrGuard.Level();
-    if (likely(span.size() > 1))
-    {
-        gtl_retPtrs[level] = span[1];
-    }
-    const absl::Cleanup retCleanup = [level]() { gtl_retPtrs[level] = nullptr; };
-
-    const RecursionGuard<AllocTag> guard;
-    if (guard)
+    if (likely(isExternal))
     {
         // external allocation
         if (unlikely(gtl_tracker == nullptr))
@@ -163,23 +152,15 @@ void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
             RegisterThread();
         }
         auto lockedTracker = gtl_tracker->LockTracker();
-        lockedTracker.SaveTraceId(info, std::move(trace));
+        lockedTracker.SaveTraceId(info, trace);
         lockedTracker.TrackAlloc(info);
     }
     else
     {
         // internal allocation of memhawk
         const RecursionGuard<InnerAllocTag> innerGuard;
-        // track only inner memhawk's stacktraces in order to reduce index size
-        trace.ShrinkByPtr(gtl_retPtrs[level - 1]); // level can't be less than 1
-        if (level > 1 && !trace.GetTrace().empty())
-        {
-            // don't interested in previous memhawk call
-            // malloc->trace->malloc and free->trace->malloc will be squashed into trace->malloc
-            trace.ShrinkBySize(trace.GetTrace().size() - 1);
-        }
         // set trace id manually, otherwise there can be malloc recursion upon inserting into tracker caches
-        info.traceId = m_innerBtTracker.InsertStacktrace(std::move(trace));
+        info.traceId = m_innerBtTracker.InsertStacktrace(trace);
 
         if (innerGuard)
         {
@@ -195,19 +176,10 @@ void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
     }
 }
 
-void MemHawk::TrackDealloc(AllocInfo& info, const Stacktrace& trace)
+void MemHawk::TrackDealloc(AllocInfo& info, bool isExternal)
 {
-    const RecursionGuard<RetPtrTag> retPtrGuard;
-    const auto span = trace.GetTrace();
-    const auto level = retPtrGuard.Level();
-    if (likely(span.size() > 1))
-    {
-        gtl_retPtrs[level] = span[1];
-    }
-    const absl::Cleanup retCleanup = [level]() { gtl_retPtrs[level] = nullptr; };
-
     const RecursionGuard<AllocTag> guard;
-    if (guard)
+    if (likely(isExternal))
     {
         // external deallocation
         if (unlikely(gtl_tracker == nullptr))

@@ -59,7 +59,7 @@ StacktraceTracker::~StacktraceTracker()
     result.close();
 }
 
-uint32_t StacktraceTracker::InsertStacktrace(Stacktrace&& trace)
+uint32_t StacktraceTracker::InsertStacktrace(const Stacktrace& trace)
 {
     const absl::base_internal::SpinLockHolder lock(&m_mt);
     StacktraceTree::NodeId nodeId = m_storage->tree.index(trace, [this](uintptr_t ptrValue, StacktraceTree::NodeId parent) {

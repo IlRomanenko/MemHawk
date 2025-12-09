@@ -17,10 +17,14 @@ option(MEMHAWK_OPT_TLS "Enable optimized tls model" ON)
 option(MEMHAWK_AVX "Compile with avx support" OFF)
 option(MEMHAWK_LLD "Link with lld" OFF)
 option(MEMHAWK_BUILD_PROTOBUF "Build protobuf library from sources" ON)
+option(MEMHAWK_SELF_PROFILING "Build memhawk with self profiling" OFF)
+option(MEMHAWK_BUILD_UI "Build hawk_visualizer" ON)
 
 set(CMAKE_INSTALL_RPATH "$ORIGIN")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
 set(CMAKE_BUILD_RPATH_USE_ORIGIN OFF)
+
+set(MEMHAWK_ROOT_DIR "${PROJECT_SOURCE_DIR}")
 
 message(STATUS "C Compiler: ${CMAKE_C_COMPILER}")
 message(STATUS "C Compiler version: ${CMAKE_C_COMPILER_VERSION}")

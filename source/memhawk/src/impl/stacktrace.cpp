@@ -18,11 +18,62 @@
 #include <sstream>
 
 #define UNW_LOCAL_ONLY 1
+#include <libunwind-x86_64.h>
 #include <libunwind.h>
 #include <xxhash.h>
 
 namespace memhawk
 {
+
+#ifdef MEMHAWK_SELF_PROFILING
+ABSL_CONST_INIT static inline thread_local std::array<void*, 8> m_retPtrs = {};
+#endif
+
+RecursiveStacktrace::RecursiveStacktrace(size_t capacity, bool useAbsl)
+{
+#ifdef MEMHAWK_SELF_PROFILING
+    const auto level = guard.Level();
+    const auto unwindStacktrace = [&]() {
+        trace.UnwindStacktrace(capacity, useAbsl, 1);
+        const auto span = trace.GetTrace();
+        if (likely(span.size() > 1))
+        {
+            m_retPtrs[level] = span[1];
+        }
+    };
+    if (likely(guard))
+    {
+        unwindStacktrace();
+    }
+    else
+    {
+        // unwind for local allocations, perhaps frame pointer unwinding can be used, but i'm not sure
+        unwindStacktrace();
+
+        // shrink stacktrace in order to contain only memhawk frames
+        trace.ShrinkByPtr(m_retPtrs[level - 1]); // level can't be less than 1
+        if (level > 1 && !trace.GetTrace().empty())
+        {
+            // don't interested in previous memhawk call
+            // malloc->trace->malloc and free->trace->malloc will be squashed into trace->malloc
+            trace.ShrinkBySize(trace.GetTrace().size() - 1);
+        }
+    }
+#else
+    // unwind only for external allocations
+    if (likely(guard))
+    {
+        trace.UnwindStacktrace(capacity, useAbsl, 1);
+    }
+#endif
+}
+
+RecursiveStacktrace::~RecursiveStacktrace()
+{
+#ifdef MEMHAWK_SELF_PROFILING
+    m_retPtrs[guard.Level()] = nullptr;
+#endif
+}
 
 bool CompressedStacktrace::operator==(const CompressedStacktrace& other) const
 {

@@ -22,6 +22,6 @@ public:
     }
 
 private:
-    alignas(64) std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
+    std::atomic_flag m_lock = ATOMIC_FLAG_INIT;
 };
 } // namespace memhawk

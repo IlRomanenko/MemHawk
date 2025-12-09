@@ -40,7 +40,8 @@
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                 "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
-                "MEMHAWK_BUILD_TESTING": true
+                "MEMHAWK_BUILD_TESTING": true,
+                "MEMHAWK_BUILD_UI": true
             }
         },
         {

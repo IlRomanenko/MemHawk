@@ -130,7 +130,7 @@ TEST_F(MemHawkFixture, AccountAllocs_ExpectOk)
         {
             AllocInfo info{AllocationSize, Offset};
             Stacktrace stacktrace{};
-            m_memhawk->TrackAlloc(info, std::move(stacktrace));
+            m_memhawk->TrackAlloc(info, stacktrace, true);
         }
     };
 
@@ -169,8 +169,7 @@ TEST_F(MemHawkFixture, AccountDeallocs_ExpectOk)
         for (size_t i = 0; i < TestAllocations; i++)
         {
             AllocInfo info{AllocationSize, Offset};
-            Stacktrace stacktrace{};
-            m_memhawk->TrackDealloc(info, std::move(stacktrace));
+            m_memhawk->TrackDealloc(info, true);
         }
     };
     StartThreadsAndWaitForFinish(testLambda, TestThreads);
@@ -210,10 +209,9 @@ TEST_F(MemHawkFixture, AllocsAndDeallocs_ExpectOk)
         {
             AllocInfo info{AllocationSize, Offset};
             Stacktrace stacktrace{};
-            m_memhawk->TrackAlloc(info, std::move(stacktrace));
+            m_memhawk->TrackAlloc(info, stacktrace, true);
             // dealloc allocated memory
-            Stacktrace copyStacktrace{};
-            m_memhawk->TrackDealloc(info, std::move(copyStacktrace));
+            m_memhawk->TrackDealloc(info, true);
         }
     };
     StartThreadsAndWaitForFinish(testLambda, TestThreads);

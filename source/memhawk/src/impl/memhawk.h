@@ -36,8 +36,8 @@ public:
     void PostponedConstruct();
     void InvalidateModulesCache();
 
-    void TrackAlloc(AllocInfo& info, Stacktrace&& trace);
-    void TrackDealloc(AllocInfo& info, const Stacktrace& trace);
+    void TrackAlloc(AllocInfo& info, Stacktrace& trace, bool isExternal);
+    void TrackDealloc(AllocInfo& info, bool isExternal);
 
 private:
     class InnerStacktraceFinder : public IStacktraceFinder

@@ -28,3 +28,7 @@ target_include_directories(proto_files PUBLIC
 )
 
 add_subdirectory(memhawk)
+
+if (MEMHAWK_BUILD_UI)
+  add_subdirectory(symbolizer)
+endif()

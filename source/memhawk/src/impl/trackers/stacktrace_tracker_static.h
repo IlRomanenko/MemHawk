@@ -32,7 +32,7 @@ public:
     explicit StaticStacktraceTracker(StacktraceTrackerConfig cfg);
     ~StaticStacktraceTracker() override;
 
-    uint32_t InsertStacktrace(Stacktrace&& trace) override;
+    uint32_t InsertStacktrace(const Stacktrace& trace) override;
     std::optional<Stacktrace> GetStacktraceFromId(uint32_t traceId) override;
 
     size_t StacktracesCount() override;
@@ -40,7 +40,7 @@ public:
     size_t GetStorageSize();
 
 private:
-    uint32_t InsertStacktraceUnlocked(Stacktrace&& trace);
+    uint32_t InsertStacktraceUnlocked(absl::Span<void* const> trace);
     absl::Span<const uint32_t> GetTraceSpan(uint32_t traceId);
     Stacktrace GetStacktrace(uint32_t traceId);
 
