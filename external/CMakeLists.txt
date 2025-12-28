@@ -37,6 +37,19 @@ FetchContent_Declare(
 set(BOOST_INCLUDE_LIBRARIES container hana multi_index range algorithm circular_buffer concept_check)
 FetchContent_MakeAvailable(Boost)
 
+message(NOTICE "Enabling `zstd` dependency")
+FetchContent_Declare(
+    zstd
+    GIT_REPOSITORY https://github.com/facebook/zstd.git
+    GIT_TAG v1.5.7
+    SOURCE_SUBDIR "build/cmake"
+    EXCLUDE_FROM_ALL
+    SYSTEM
+)
+set(ZSTD_BUILD_STATIC ON)
+set(ZSTD_BUILD_SHARED OFF)
+FetchContent_MakeAvailable(zstd)
+
 if (MEMHAWK_BUILD_PROTOBUF)
     set(protobuf_BUILD_TESTS OFF CACHE BOOL "Disable tests" FORCE)
     set(protobuf_BUILD_EXAMPLES OFF CACHE BOOL "Disable examples" FORCE)

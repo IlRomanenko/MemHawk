@@ -31,6 +31,8 @@ public:
 
     size_t StacktracesCount() override;
 
+    void Describe();
+
 private:
     static constexpr uint64_t InvalidEdgeId = std::numeric_limits<uint32_t>::max();
 

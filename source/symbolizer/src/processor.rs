@@ -2,18 +2,21 @@ use anyhow::bail;
 use bitcode::{Decode, Encode};
 use rustc_hash::{FxHashMap, FxHashSet};
 use std::{cell::RefCell, rc::Rc, sync::Arc};
+use strum::IntoEnumIterator;
 use time::OffsetDateTime;
 use tokio::sync::RwLock;
+use tokio_util::task::TaskTracker;
 
 use crate::{
-    db::click_client::{ClickhouseClient, LocalizedNameRow, ProfileRow, StacktraceRow},
-    graph::{self, Graph, NodeId},
+    clickhouse::{client::ClickhouseClient, schema::*},
+    graph::{self, AggregatedAllocSummary, Graph, NodeId},
     localizer::{
         self, FrameLocalizer, LocalizedFrameId, LocalizedName, MEMHAWK_ROOT_LOCALIZED_ID,
         OnFrameLocalized, UNKNOWN_LOCALIZED_ID, VecRange,
     },
-    protos::{self, AllocSummary},
+    proto::schema::*,
     symbolizer::{self, SymbolizedFrame, Symbolizer},
+    value_selector,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Encode, Decode)]
@@ -54,6 +57,12 @@ impl OnFrameLocalized for FramesSubscription {
     }
 }
 
+#[derive(Clone, Encode, Decode)]
+struct PostponedRawData {
+    node_id: NodeId,
+    summary: AllocSummary,
+}
+
 #[derive(Encode, Decode)]
 pub struct RestorableState {
     process_id: i32,
@@ -64,7 +73,7 @@ pub struct RestorableState {
 
     ptr_id_to_addr_map: FxHashMap<u32, u64>,
     trace_id_to_leaf_id: FxHashMap<TraceId, NodeId>,
-    written_stacktraces: FxHashSet<NodeId>,
+    raw_data_to_save: Vec<PostponedRawData>,
 
     last_processed_timestamp: u64,
 }
@@ -72,7 +81,7 @@ pub struct RestorableState {
 pub struct Processor {
     process_id: i32,
 
-    click: Arc<ClickhouseClient>,
+    click: ClickhouseClient,
 
     symbolizer: Arc<RwLock<Symbolizer>>,
     localizer_sub: Rc<RefCell<FramesSubscription>>,
@@ -83,48 +92,49 @@ pub struct Processor {
     symbolized_graph: Graph, //  graph after symbolyzer for frames
 
     trace_id_to_leaf_id: FxHashMap<TraceId, NodeId>,
-    written_stacktraces: FxHashSet<NodeId>,
 
-    modified_nodes: FxHashSet<NodeId>,
+    raw_data_to_save: Vec<PostponedRawData>,
 
     last_processed_timestamp: u64,
 }
 
 impl Processor {
-    pub fn new(process_id: i32) -> Self {
+    pub fn new(task_tracker: &TaskTracker, process_id: i32) -> Self {
         let frames_sub = Rc::new(RefCell::new(FramesSubscription::new()));
-        let click = ClickhouseClient::new();
+        let click = ClickhouseClient::new(task_tracker);
         Self {
             process_id,
-            click: Arc::new(click),
+            click: click,
             symbolizer: Arc::new(RwLock::new(Symbolizer::new())),
             localizer_sub: frames_sub.clone(),
             localizer: FrameLocalizer::new(frames_sub),
             ptr_id_to_addr_map: FxHashMap::default(),
             symbolized_graph: Graph::new(),
             trace_id_to_leaf_id: FxHashMap::default(),
-            written_stacktraces: FxHashSet::default(),
-            modified_nodes: FxHashSet::default(),
+            raw_data_to_save: Vec::new(),
             last_processed_timestamp: 0,
         }
     }
 
-    pub async fn restore(state: RestorableState) -> anyhow::Result<Self> {
-        let frames_sub = Rc::new(RefCell::new(FramesSubscription::new()));
-        let click = ClickhouseClient::new();
+    pub async fn restore(
+        task_tracker: &TaskTracker,
+        state: RestorableState,
+    ) -> anyhow::Result<Self> {
+        let frames_sub: Rc<RefCell<FramesSubscription>> =
+            Rc::new(RefCell::new(FramesSubscription::new()));
+        let click = ClickhouseClient::new(task_tracker);
         let symbolizer = Symbolizer::restore(state.symbolizer_state).await;
 
         let processor = Self {
             process_id: state.process_id,
-            click: Arc::new(click),
+            click: click,
             symbolizer: Arc::new(RwLock::new(symbolizer)),
             localizer_sub: frames_sub.clone(),
             localizer: FrameLocalizer::restore(state.localizer_state, frames_sub),
             ptr_id_to_addr_map: state.ptr_id_to_addr_map,
             symbolized_graph: Graph::restore(state.graph_state),
             trace_id_to_leaf_id: state.trace_id_to_leaf_id,
-            written_stacktraces: state.written_stacktraces,
-            modified_nodes: FxHashSet::default(),
+            raw_data_to_save: state.raw_data_to_save,
             last_processed_timestamp: state.last_processed_timestamp,
         };
         Ok(processor)
@@ -138,16 +148,14 @@ impl Processor {
             graph_state: self.symbolized_graph.save(),
             ptr_id_to_addr_map: self.ptr_id_to_addr_map.clone(),
             trace_id_to_leaf_id: self.trace_id_to_leaf_id.clone(),
-            written_stacktraces: self.written_stacktraces.clone(),
+            raw_data_to_save: self.raw_data_to_save.clone(),
             last_processed_timestamp: self.last_processed_timestamp,
         }
     }
 
-    pub async fn process(&mut self, snapshot: &protos::Snapshot) -> anyhow::Result<()> {
-        log::info!(
-            "Processing : {}",
-            OffsetDateTime::from_unix_timestamp_nanos(snapshot.timestamp as i128)?
-        );
+    pub async fn process(&mut self, snapshot: &Snapshot) -> anyhow::Result<()> {
+        let timestamp = OffsetDateTime::from_unix_timestamp_nanos(snapshot.timestamp as i128)?;
+        log::info!("Processing : {}", timestamp);
 
         if snapshot.timestamp <= self.last_processed_timestamp {
             log::info!(
@@ -167,89 +175,126 @@ impl Processor {
                 .await;
         }
         self.process_stacktraces(snapshot).await;
-        self.process_allocations(snapshot).await?;
+        self.process_allocations(snapshot)?;
 
-        self.process_modifications(snapshot.timestamp).await?;
+        self.process_modifications(timestamp).await?;
         Ok(())
     }
 
-    async fn process_modifications(&mut self, timestamp: u64) -> anyhow::Result<()> {
-        let names = self.localizer_sub.borrow_mut().consume(self.process_id);
-        let (profiles, stacktraces) = self.consume_profiles(timestamp)?;
+    async fn process_modifications(&mut self, timestamp: OffsetDateTime) -> anyhow::Result<()> {
+        self.symbolized_graph.process_postponed_updates();
+        let graph_update = self.symbolized_graph.consume_modifications();
 
-        log::info!("Names: {}, profiles: {}, stacktraces: {}", names.len(), profiles.len(), stacktraces.len());
+        let localized_names = self.localizer_sub.borrow_mut().consume(self.process_id);
 
-        let names_click = self.click.clone();
-        let names_future =
-            tokio::spawn(async move { names_click.insert_localized_names(&names).await });
-        let profiles_click = self.click.clone();
-        let profiles_future =
-            tokio::spawn(async move { profiles_click.insert_profiles(profiles).await });
-        let stacktraces_click = self.click.clone();
-        let stacktraces_future =
-            tokio::spawn(async move { stacktraces_click.insert_stacktraces(stacktraces).await });
-        // todo: remove this ugly mess
-        let _ = tokio::try_join!(names_future, profiles_future, stacktraces_future)?;
+        let stacktraces = self.prepare_stacktraces(graph_update.new_nodes);
+        let flamegraphs = self.prepare_flamegraphs(timestamp);
+        let timeseries = self.prepare_timeseries(timestamp, graph_update.modified_frames);
+
+        let raw_data_to_save = std::mem::take(&mut self.raw_data_to_save);
+        let raw_data = self.prepare_raw_data(raw_data_to_save, timestamp);
+
+        let update = UpdateData {
+            raw_data,
+            flamegraphs,
+            timeseries,
+            localized_names,
+            stacktraces,
+        };
+        log::info!("Update: {:?}", &update);
+
+        self.click.send(update).await?;
+
         Ok(())
     }
 
-    fn consume_profiles(
-        &mut self,
-        timestamp: u64,
-    ) -> anyhow::Result<(Vec<ProfileRow>, Vec<StacktraceRow>)> {
-        let mut profiles = Vec::new();
-        let mut stacktraces = Vec::new();
-
-        self.modified_nodes = self.symbolized_graph.process_postponed_updates();
-        if self.modified_nodes.is_empty() {
-            self.modified_nodes.insert(NodeId::from(0)); // add root node
+    fn prepare_raw_data(
+        &self,
+        raw_data: Vec<PostponedRawData>,
+        timestamp: OffsetDateTime,
+    ) -> Vec<RawDataRow> {
+        let mut result = Vec::new();
+        for raw in raw_data.into_iter() {
+            result.push(RawDataRow {
+                process_id: self.process_id,
+                timestamp,
+                leaf_node_id: raw.node_id.into(),
+                active_size: raw.summary.size,
+                active_count: raw.summary.active,
+                overhead: raw.summary.overhead,
+                total_size: raw.summary.total_bytes,
+                total_count: raw.summary.total_count,
+            })
         }
 
-        log::info!("Modified nodes: {}", self.modified_nodes.len());
+        result
+    }
 
-        for node_id in self.modified_nodes.iter().copied() {
+    fn prepare_stacktraces(&self, new_nodes: FxHashSet<NodeId>) -> Vec<StacktraceRow> {
+        let mut result = Vec::new();
+
+        for node_id in new_nodes {
             let node = self.symbolized_graph.inspect(node_id);
-            let self_value: AllocSummary = match &node.self_value {
-                Some(alloc_summary) => **alloc_summary,
-                None => AllocSummary::default(),
-            };
-            profiles.push(ProfileRow {
+            result.push(StacktraceRow {
                 process_id: self.process_id,
-                timestamp: OffsetDateTime::from_unix_timestamp_nanos(timestamp as i128)?,
-                node_id: node_id.into(),
                 label_id: node.key.into(),
-                self_active_size: self_value.size,
-                self_active_count: self_value.active,
-                self_overhead: self_value.overhead,
-                self_total_size: self_value.total_bytes,
-                self_total_count: self_value.total_count,
-                total_active_size: node.total_value.size,
-                total_active_count: node.total_value.active,
-                total_overhead: node.total_value.overhead,
-                total_total_size: node.total_value.total_bytes,
-                total_total_count: node.total_value.total_count,
-            });
+                node_id: node_id.into(),
+                parent_node_id: node.parent.into(),
+            })
+        }
 
-            if !self.written_stacktraces.contains(&node_id) {
-                self.written_stacktraces.insert(node_id);
+        result
+    }
 
-                let node_key = node.key;
-                let mut path = Vec::new();
-                self.symbolized_graph.backtrace(node_id, &mut path);
+    fn prepare_flamegraphs(&self, timestamp: OffsetDateTime) -> Vec<FlamegraphRow> {
+        let mut result = Vec::new();
 
-                stacktraces.push(StacktraceRow {
+        for value_type in ValueType::iter() {
+            let nodes = self.symbolized_graph.get_top(1000, value_type);
+            for (order_id, element) in nodes.into_iter().enumerate() {
+                let node = self.symbolized_graph.inspect(element.node_id);
+                result.push(FlamegraphRow {
                     process_id: self.process_id,
-                    label_id: node_key.into(),
-                    node_id: node_id.into(),
-                    path: path.into_iter().map(|x| x.into()).collect::<Vec<_>>(),
-                });
+                    timestamp,
+                    order_id: order_id as u32,
+                    label_id: node.key.into(),
+                    level: node.level.into(),
+                    value_type,
+                    self_value: element.self_value,
+                    total_value: element.total_value,
+                })
             }
         }
-        self.modified_nodes.clear();
-        Ok((profiles, stacktraces))
+        result
     }
 
-    async fn process_allocations(&mut self, snapshot: &protos::Snapshot) -> anyhow::Result<()> {
+    fn prepare_timeseries(
+        &self,
+        timestamp: OffsetDateTime,
+        modified_frames: FxHashMap<LocalizedFrameId, AggregatedAllocSummary>,
+    ) -> Vec<TimeseriesRow> {
+        let mut result = Vec::new();
+
+        for (frame_id, summary) in modified_frames.into_iter() {
+            for value_type in ValueType::iter() {
+                result.push(TimeseriesRow {
+                    process_id: self.process_id,
+                    timestamp,
+                    label_id: frame_id.into(),
+                    value_type,
+                    self_value: summary
+                        .self_value
+                        .as_ref()
+                        .map_or(0, |x| value_selector(&x, value_type)),
+                    total_value: value_selector(&summary.total_value, value_type),
+                })
+            }
+        }
+
+        result
+    }
+
+    fn process_allocations(&mut self, snapshot: &Snapshot) -> anyhow::Result<()> {
         for summary in snapshot.changed.iter() {
             match self.process_alloc_summary(summary) {
                 Ok(rows) => rows,
@@ -263,16 +308,19 @@ impl Processor {
     }
 
     pub async fn stats(&self) {
-        log::info!("Processor::trace_id_to_leaf_id.len(): {}", self.trace_id_to_leaf_id.len());
-        log::info!("Processor::ptr_id_to_addr_map.len(): {}", self.ptr_id_to_addr_map.len());
+        log::info!(
+            "Processor::trace_id_to_leaf_id.len(): {}",
+            self.trace_id_to_leaf_id.len()
+        );
+        log::info!(
+            "Processor::ptr_id_to_addr_map.len(): {}",
+            self.ptr_id_to_addr_map.len()
+        );
         self.localizer.stats();
         self.symbolized_graph.stats();
     }
 
-    fn process_alloc_summary(
-        &mut self,
-        summary: &protos::TracedAllocSummary,
-    ) -> anyhow::Result<()> {
+    fn process_alloc_summary(&mut self, summary: &TracedAllocSummary) -> anyhow::Result<()> {
         let actual = match summary.actual {
             Some(actual) => actual,
             None => bail!(
@@ -292,16 +340,20 @@ impl Processor {
                     .construct_path(&vec![UNKNOWN_LOCALIZED_ID])
             }
         };
+        self.raw_data_to_save.push(PostponedRawData {
+            node_id: leaf_id,
+            summary: actual,
+        });
         self.symbolized_graph.postpone_update(leaf_id, actual);
         Ok(())
     }
 
-    async fn symbolize_new_addrs(&mut self, snapshot: &protos::Snapshot) {
+    async fn symbolize_new_addrs(&mut self, snapshot: &Snapshot) {
         // todo: Rewrite in more idiomatic style
         let mut tasks = Vec::new();
         for elem in snapshot.ptr_ids.iter() {
             let symbolizer = Arc::clone(&self.symbolizer);
-            let addr = elem.ptr_addr - 1;
+            let addr = elem.ptr_addr;
             tasks.push(tokio::spawn(async move {
                 let read_lock = symbolizer.read().await;
                 (addr, read_lock.lookup_symbol(addr).await)
@@ -312,7 +364,7 @@ impl Processor {
             let frame = match frame_res {
                 Ok(frame) => frame,
                 Err(err) => {
-                    log::debug!("Failed to find frame for addr: {addr:x}, err: {err}");
+                    log::info!("Failed to find frame for addr: {addr:x}, err: {err}");
                     SymbolizedFrame {
                         symbol_name: "unknown".to_owned(),
                         library_name: Arc::new("unknown".to_owned()),
@@ -326,9 +378,9 @@ impl Processor {
         }
     }
 
-    async fn process_stacktraces(&mut self, snapshot: &protos::Snapshot) {
+    async fn process_stacktraces(&mut self, snapshot: &Snapshot) {
         for pair in snapshot.ptr_ids.iter() {
-            self.ptr_id_to_addr_map.insert(pair.ptr_id, pair.ptr_addr - 1);
+            self.ptr_id_to_addr_map.insert(pair.ptr_id, pair.ptr_addr);
         }
 
         self.symbolize_new_addrs(snapshot).await;

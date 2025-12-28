@@ -46,6 +46,7 @@ PUBLIC
     absl::span
     absl::cleanup
     absl::stacktrace
+    libzstd_static
     proto_files
     dl
 )

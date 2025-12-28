@@ -27,6 +27,12 @@ void ThreadTracker::LockedTracker::PrintTracker()
             m_tracker.m_totalAllocs, m_tracker.m_totalDeallocs);
 }
 
+void ThreadTracker::UnlockTrackerUnsafe()
+{
+    // manually unlock tracker, that can be locked
+    m_mt.unlock();
+}
+
 void ThreadTracker::LockedTracker::SaveTraceId(AllocInfo& info, Stacktrace& trace)
 {
     m_tracker.m_cacheUsages++;

@@ -11,9 +11,11 @@
 #include <google/protobuf/arena.h>
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
-#include <protos/snapshot.pb.h>
+#include <google/protobuf/message_lite.h>
+#include <proto/snapshot.pb.h>
 
 #include <chrono>
+#include <cstdint>
 #include <fstream>
 
 namespace memhawk
@@ -36,19 +38,22 @@ public:
 
 private:
 
-    void FillAllocSummary(protos::AllocSummary* protoSummary, const AllocSummary& summary);
-    void FillProcessInfo(protos::ProcessInfo* info);
-    void FillChangedSummary(uint32_t traceId, protos::TracedAllocSummary* tracedSummary);
+    void WriteUint64BigEndian(uint64_t value);
+    void WriteProcessInfo();
+    void WriteMessage(google::protobuf::MessageLite* message);
+    void FillAllocSummary(proto::AllocSummary* protoSummary, const AllocSummary& summary);
+    void FillProcessInfo(proto::ProcessInfo* info);
+    void FillChangedSummary(uint32_t traceId, proto::TracedAllocSummary* tracedSummary);
 
-    void AddStacktrace(uint32_t traceId, protos::Snapshot* snapshot);
+    void AddStacktrace(uint32_t traceId, proto::Snapshot* snapshot);
 
 private:
     ProtobufWriterConfig m_cfg;
     std::shared_ptr<IStacktraceFinder> m_finder;
 
     std::unique_ptr<std::ofstream> m_ofstream;
-    std::unique_ptr<google::protobuf::io::OstreamOutputStream> m_ostream;
-    std::unique_ptr<google::protobuf::io::CodedOutputStream> m_codedStream;
+    std::vector<uint8_t> m_serializationBuffer;
+    std::vector<char> m_compressionBuffer;
 
     google::protobuf::Arena m_arena;
 

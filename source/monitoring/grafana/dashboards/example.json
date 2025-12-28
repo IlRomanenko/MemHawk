@@ -1,18 +1,660 @@
 {
-  "title": "Stacktrace Overview",
-  "panels": [
+  "__inputs": [
     {
-      "type": "table",
-      "title": "Stacktrace Data",
-      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "ClickHouse" },
-      "targets": [
-        {
-          "query": "SELECT timestamp, function, file, line, value FROM profiling.stacktraces ORDER BY timestamp DESC LIMIT 100"
-        }
-      ],
-      "options": { "showHeader": true }
+      "name": "DS_CLICKHOUSE",
+      "label": "ClickHouse",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "grafana-clickhouse-datasource",
+      "pluginName": "ClickHouse"
+    },
+    {
+      "name": "DS_GRAFANA-POSTGRESQL-DATASOURCE",
+      "label": "grafana-postgresql-datasource",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "grafana-postgresql-datasource",
+      "pluginName": "PostgreSQL"
     }
   ],
-  "schemaVersion": 39,
-  "version": 1
+  "__elements": {},
+  "__requires": [
+    {
+      "type": "panel",
+      "id": "flamegraph",
+      "name": "Flame Graph",
+      "version": ""
+    },
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "12.2.1"
+    },
+    {
+      "type": "datasource",
+      "id": "grafana-clickhouse-datasource",
+      "name": "ClickHouse",
+      "version": "4.11.2"
+    },
+    {
+      "type": "datasource",
+      "id": "grafana-postgresql-datasource",
+      "name": "PostgreSQL",
+      "version": "12.2.1"
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 6,
+      "panels": [],
+      "title": "Row title",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "always",
+            "showValues": false,
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.2.1",
+      "targets": [
+        {
+          "builderOptions": {
+            "aggregates": [],
+            "columns": [
+              {
+                "alias": "total_value",
+                "custom": false,
+                "name": "total_value",
+                "type": "Int64"
+              },
+              {
+                "hint": "time",
+                "name": "timestamp",
+                "type": "DateTime64(9)"
+              }
+            ],
+            "database": "profiling",
+            "filters": [
+              {
+                "condition": "AND",
+                "filterType": "custom",
+                "hint": "time",
+                "key": "",
+                "operator": "WITH IN DASHBOARD TIME RANGE",
+                "type": "datetime"
+              },
+              {
+                "condition": "AND",
+                "filterType": "custom",
+                "key": "process_id",
+                "label": "process_id",
+                "operator": "=",
+                "type": "Int32",
+                "value": 0
+              }
+            ],
+            "groupBy": [],
+            "limit": 1000,
+            "meta": {},
+            "mode": "aggregate",
+            "orderBy": [
+              {
+                "default": true,
+                "dir": "ASC",
+                "hint": "time",
+                "name": ""
+              }
+            ],
+            "queryType": "timeseries",
+            "table": "timeseries"
+          },
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "meta": {
+            "builderOptions": {
+              "aggregates": [],
+              "columns": [
+                {
+                  "alias": "total_value",
+                  "custom": false,
+                  "name": "total_value",
+                  "type": "Int64"
+                },
+                {
+                  "hint": "time",
+                  "name": "timestamp",
+                  "type": "DateTime64(9)"
+                }
+              ],
+              "database": "profiling",
+              "filters": [
+                {
+                  "condition": "AND",
+                  "filterType": "custom",
+                  "hint": "time",
+                  "key": "",
+                  "operator": "WITH IN DASHBOARD TIME RANGE",
+                  "type": "datetime"
+                },
+                {
+                  "condition": "AND",
+                  "filterType": "custom",
+                  "key": "process_id",
+                  "label": "process_id",
+                  "operator": "=",
+                  "type": "Int32",
+                  "value": 0
+                }
+              ],
+              "groupBy": [],
+              "limit": 1000,
+              "meta": {},
+              "mode": "aggregate",
+              "orderBy": [
+                {
+                  "default": true,
+                  "dir": "ASC",
+                  "hint": "time",
+                  "name": ""
+                }
+              ],
+              "queryType": "timeseries",
+              "table": "timeseries"
+            }
+          },
+          "pluginVersion": "4.11.2",
+          "queryType": "timeseries",
+          "rawSql": "SELECT\n    timestamp as \"time\",\n    total_value as rss\nFROM\n    \"profiling\".\"timeseries\"\nWHERE \n    ( time >= $__fromTime AND time <= $__toTime )\n    AND ( process_id = $process_id )\n    AND label_id = 0\n    AND value_type = 'active_size'\nORDER BY time\nASC LIMIT 1000",
+          "refId": "A"
+        }
+      ],
+      "title": "Total memory consumption",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "id": 5,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "total_value_diff"
+          }
+        ]
+      },
+      "pluginVersion": "12.2.1",
+      "targets": [
+        {
+          "builderOptions": {
+            "aggregates": [],
+            "columns": [
+              {
+                "alias": "total_value",
+                "custom": false,
+                "name": "total_value",
+                "type": "Int64"
+              },
+              {
+                "hint": "time",
+                "name": "timestamp",
+                "type": "DateTime64(9)"
+              }
+            ],
+            "database": "profiling",
+            "filters": [
+              {
+                "condition": "AND",
+                "filterType": "custom",
+                "hint": "time",
+                "key": "",
+                "operator": "WITH IN DASHBOARD TIME RANGE",
+                "type": "datetime"
+              },
+              {
+                "condition": "AND",
+                "filterType": "custom",
+                "key": "process_id",
+                "label": "process_id",
+                "operator": "=",
+                "type": "Int32",
+                "value": 0
+              }
+            ],
+            "groupBy": [],
+            "limit": 1000,
+            "meta": {},
+            "mode": "aggregate",
+            "orderBy": [
+              {
+                "default": true,
+                "dir": "ASC",
+                "hint": "time",
+                "name": ""
+              }
+            ],
+            "queryType": "timeseries",
+            "table": "timeseries"
+          },
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "meta": {
+            "builderOptions": {
+              "aggregates": [],
+              "columns": [
+                {
+                  "alias": "total_value",
+                  "custom": false,
+                  "name": "total_value",
+                  "type": "Int64"
+                },
+                {
+                  "hint": "time",
+                  "name": "timestamp",
+                  "type": "DateTime64(9)"
+                }
+              ],
+              "database": "profiling",
+              "filters": [
+                {
+                  "condition": "AND",
+                  "filterType": "custom",
+                  "hint": "time",
+                  "key": "",
+                  "operator": "WITH IN DASHBOARD TIME RANGE",
+                  "type": "datetime"
+                },
+                {
+                  "condition": "AND",
+                  "filterType": "custom",
+                  "key": "process_id",
+                  "label": "process_id",
+                  "operator": "=",
+                  "type": "Int32",
+                  "value": 0
+                }
+              ],
+              "groupBy": [],
+              "limit": 1000,
+              "meta": {},
+              "mode": "aggregate",
+              "orderBy": [
+                {
+                  "default": true,
+                  "dir": "ASC",
+                  "hint": "time",
+                  "name": ""
+                }
+              ],
+              "queryType": "timeseries",
+              "table": "timeseries"
+            }
+          },
+          "pluginVersion": "4.11.2",
+          "queryType": "timeseries",
+          "rawSql": "\nSELECT\n    label_id,\n    label || location || library,\n    total_value_diff,\n    self_value_diff\nFROM (\n    SELECT\n        label_id,\n        to.total_value - from.total_value as total_value_diff,\n        to.self_value - from.self_value as self_value_diff\n    FROM (\n        SELECT\n            label_id,\n            argMax(self_value, timestamp) as self_value,\n            argMax(total_value, timestamp) as total_value\n        FROM\n            \"profiling\".\"timeseries\"\n        WHERE \n            ( timestamp <= $__toTime )\n            AND ( process_id = $process_id )\n            AND value_type = 'active_size'\n        GROUP BY (label_id)\n    ) as to\n    LEFT JOIN (\n        SELECT\n            label_id,\n            argMax(self_value, timestamp) as self_value,\n            argMax(total_value, timestamp) as total_value\n        FROM\n            \"profiling\".\"timeseries\"\n        WHERE \n            ( timestamp <= $__fromTime )\n            AND ( process_id = $process_id )\n            AND value_type = 'active_size'\n        GROUP BY (label_id)\n    ) as from\n    ON to.label_id == from.label_id\n    WHERE total_value_diff != 0\n) as diffs\nINNER JOIN (\n    SELECT\n        label_id,\n        label,\n        location,\n        library\n    FROM\n        localized_name\n    WHERE\n        process_id = $process_id\n) as names\nON diffs.label_id == names.label_id\nORDER BY total_value_diff DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Total memory consumption",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "${DS_CLICKHOUSE}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 2,
+      "pluginVersion": "12.2.1",
+      "targets": [
+        {
+          "builderOptions": {
+            "columns": [
+              {
+                "hint": "time",
+                "name": "timestamp",
+                "type": "DateTime64(9)"
+              }
+            ],
+            "database": "profiling",
+            "filters": [
+              {
+                "condition": "AND",
+                "filterType": "custom",
+                "hint": "time",
+                "key": "",
+                "operator": "WITH IN DASHBOARD TIME RANGE",
+                "type": "datetime"
+              }
+            ],
+            "limit": 1000,
+            "meta": {},
+            "mode": "list",
+            "orderBy": [
+              {
+                "default": true,
+                "dir": "ASC",
+                "hint": "time",
+                "name": ""
+              }
+            ],
+            "queryType": "timeseries",
+            "table": "flamegraphs"
+          },
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "${DS_CLICKHOUSE}"
+          },
+          "editorType": "sql",
+          "format": 0,
+          "meta": {
+            "builderOptions": {
+              "columns": [
+                {
+                  "hint": "time",
+                  "name": "timestamp",
+                  "type": "DateTime64(9)"
+                }
+              ],
+              "database": "profiling",
+              "filters": [
+                {
+                  "condition": "AND",
+                  "filterType": "custom",
+                  "hint": "time",
+                  "key": "",
+                  "operator": "WITH IN DASHBOARD TIME RANGE",
+                  "type": "datetime"
+                }
+              ],
+              "limit": 1000,
+              "meta": {},
+              "mode": "list",
+              "orderBy": [
+                {
+                  "default": true,
+                  "dir": "ASC",
+                  "hint": "time",
+                  "name": ""
+                }
+              ],
+              "queryType": "timeseries",
+              "table": "flamegraphs"
+            }
+          },
+          "pluginVersion": "4.11.2",
+          "queryType": "timeseries",
+          "rawSql": "WITH (\n    SELECT\n        argMaxMerge(peak_ts) as peak_ts\n    FROM\n        profiling.memory_peaks\n    WHERE\n        process_id == ${process_id}\n        AND value_type == 'active_size'\n) as max_rss\nSELECT\n    b.label ||'::'|| b.location as label,\n    level,\n    total_value as value,\n    self_value as self,\n    label_id\nFROM \n(\n    SELECT\n        label_id,\n        order_id,\n        level,\n        self_value,\n        total_value\n    FROM\n        profiling.flamegraphs\n    WHERE\n        timestamp == max_rss\n        AND process_id = ${process_id}\n        AND value_type == 'active_size'\n) as a\nINNER JOIN \n(\n    SELECT\n        label_id,\n        label,\n        location\n    FROM\n        profiling.localized_name\n    WHERE\n        process_id = ${process_id}\n) as b\nON (a.label_id == b.label_id)\nORDER BY (order_id)",
+          "refId": "A"
+        }
+      ],
+      "title": "Peak rss flamegraph (all time)",
+      "type": "flamegraph"
+    }
+  ],
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${DS_GRAFANA-POSTGRESQL-DATASOURCE}"
+        },
+        "definition": "select distinct process_name from profiling.processes;",
+        "label": "Process name",
+        "name": "process_name",
+        "options": [],
+        "query": "select distinct process_name from profiling.processes;",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${DS_GRAFANA-POSTGRESQL-DATASOURCE}"
+        },
+        "definition": "SELECT 'value: ' || start_time || ', text: ' || TO_TIMESTAMP(start_time / 1000000000) FROM profiling.processes WHERE process_name = '$process_name';",
+        "label": "Start time",
+        "name": "start_time",
+        "options": [],
+        "query": "SELECT 'value: ' || start_time || ', text: ' || TO_TIMESTAMP(start_time / 1000000000) FROM profiling.processes WHERE process_name = '$process_name';",
+        "refresh": 2,
+        "regex": "/value:\\s+(?<value>\\d+),\\s+|text:\\s+(?<text>.*)/g",
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${DS_GRAFANA-POSTGRESQL-DATASOURCE}"
+        },
+        "definition": "SELECT process_id from profiling.processes where process_name = '$process_name' and start_time = '$start_time'",
+        "label": "[Debug] process_id",
+        "name": "process_id",
+        "options": [],
+        "query": "SELECT process_id from profiling.processes where process_name = '$process_name' and start_time = '$start_time'",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "allowCustomValue": false,
+        "current": {},
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "${DS_CLICKHOUSE}"
+        },
+        "definition": "SELECT toString(argMaxMerge(peak_ts)) AS peak_ts\nFROM profiling.memory_peaks\nWHERE \nvalue_type = 'active_size' and process_id = ${process_id}\n",
+        "hide": 2,
+        "label": "Max RSS timestamp",
+        "name": "max_rss_ts",
+        "options": [],
+        "query": "SELECT toString(argMaxMerge(peak_ts)) AS peak_ts\nFROM profiling.memory_peaks\nWHERE \nvalue_type = 'active_size' and process_id = ${process_id}\n",
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "2025-12-27T20:42:40.257Z",
+    "to": "2025-12-27T20:43:03.901Z"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Main profiling dashboard",
+  "uid": "adkvncw",
+  "version": 21,
+  "weekStart": ""
 }

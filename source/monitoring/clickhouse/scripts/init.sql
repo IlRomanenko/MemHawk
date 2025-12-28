@@ -1,50 +1,106 @@
 CREATE DATABASE IF NOT EXISTS profiling;
 
-CREATE TABLE IF NOT EXISTS profiling.profiles
+use profiling;
+
+CREATE TABLE IF NOT EXISTS raw_data
 (
 -- Process selectors
     process_id Int32, -- fkey on postgres processes
 
 -- Frame data
     timestamp DateTime64(9),
-    node_id UInt32,
-    label_id UInt32,
+    leaf_node_id UInt32,
 
 -- Actual memory profiling data
-    self_active_size Int64,
-    self_active_count Int64,
-    self_overhead Int64,
-    self_total_size UInt64,
-    self_total_count UInt64,
-
-    total_active_size Int64,
-    total_active_count Int64,
-    total_overhead Int64,
-    total_total_size UInt64,
-    total_total_count UInt64,
+    active_size Int64 ,
+    active_count Int64,
+    overhead Int64,
+    total_size UInt64,
+    total_count UInt64,
 )
 ENGINE = MergeTree()
-ORDER BY (process_id, node_id, timestamp);
+ORDER BY (process_id, leaf_node_id, timestamp);
 
-CREATE TABLE IF NOT EXISTS profiling.stacktraces
+
+-- Top 10k nodes from symbolized graph by value_type stored in dfs order
+CREATE TABLE IF NOT EXISTS flamegraphs
 (
 -- Process selectors
     process_id Int32, -- fkey on postgres processes
 
--- Stacktrace
+-- Frame data
+    timestamp DateTime64(9),
     label_id UInt32,
-    node_id UInt32, -- last node in node_path
-    path Array(UInt32),
+    order_id UInt32, -- dfs order on nodes
+    level UInt32,
+
+    value_type Enum('active_size' = 1, 'active_count' = 2, 'total_size' = 3, 'total_count' = 4),
+
+-- Actual memory profiling data
+    self_value Int64, -- value associated with node
+    total_value Int64, -- value associated with subtree
 )
 ENGINE = MergeTree()
-ORDER BY (process_id, path);
+ORDER BY (process_id, value_type, timestamp, order_id);
 
-CREATE TABLE IF NOT EXISTS profiling.localized_name
+-- Aggregated value for each label -> self value and all subtree, for each path first occurence is used
+CREATE TABLE IF NOT EXISTS timeseries
 (
 -- Process selectors
     process_id Int32, -- fkey on postgres processes
 
--- Stacktraces data
+-- Frame data
+    timestamp DateTime64(9),
+    label_id UInt32,
+
+    value_type Enum('active_size' = 1, 'active_count' = 2, 'total_size' = 3, 'total_count' = 4),
+
+-- Actual memory profiling data
+    self_value Int64, -- value associated with node
+    total_value Int64, -- value associated with subtree
+)
+ENGINE = MergeTree()
+ORDER BY (process_id, value_type, label_id, timestamp);
+
+
+CREATE TABLE memory_peaks
+(
+    process_id Int32,
+    value_type Enum('active_size' = 1, 'active_count' = 2, 'total_size' = 3, 'total_count' = 4),
+    peak_ts AggregateFunction(argMax, DateTime64(9), Int64)
+)
+ENGINE = AggregatingMergeTree
+ORDER BY (process_id, value_type);
+
+CREATE MATERIALIZED VIEW memory_peaks_mv TO memory_peaks AS
+SELECT
+    process_id,
+    value_type,
+    argMaxState(timestamp, total_value) AS peak_ts
+FROM flamegraphs
+WHERE order_id = 0 -- root node
+GROUP BY (process_id, value_type);
+
+
+CREATE TABLE IF NOT EXISTS stacktraces
+(
+-- Process selectors
+    process_id Int32, -- fkey on postgres processes
+
+-- Stacktrace edge
+    label_id UInt32,
+    node_id UInt32,
+    parent_node_id UInt32,
+)
+ENGINE = MergeTree()
+ORDER BY (process_id, parent_node_id, node_id);
+
+CREATE TABLE IF NOT EXISTS localized_name
+(
+-- Process selectors
+    process_id Int32, -- fkey on postgres processes
+
+-- Labels data
     label_id UInt32,
 
     label String,

@@ -39,6 +39,11 @@ public:
     void TrackAlloc(AllocInfo& info, Stacktrace& trace, bool isExternal);
     void TrackDealloc(AllocInfo& info, bool isExternal);
 
+
+    void PreFork();
+    void ParentPostFork();
+    void ChildPostFork();
+
 private:
     class InnerStacktraceFinder : public IStacktraceFinder
     {

@@ -80,9 +80,18 @@ impl FrameLocalizer {
     }
 
     pub fn stats(&self) {
-        log::info!("FrameLocalizer::addr_to_localized_range.len(): {}", self.addr_to_localized_range.len());
-        log::info!("FrameLocalizer::localized_frames.len(): {}", self.localized_frames.len());
-        log::info!("FrameLocalizer::localized_names.len(): {}", self.localized_names.len());
+        log::info!(
+            "FrameLocalizer::addr_to_localized_range.len(): {}",
+            self.addr_to_localized_range.len()
+        );
+        log::info!(
+            "FrameLocalizer::localized_frames.len(): {}",
+            self.localized_frames.len()
+        );
+        log::info!(
+            "FrameLocalizer::localized_names.len(): {}",
+            self.localized_names.len()
+        );
     }
 
     fn add_predefined_node(&mut self, node_name: String, frame_id: LocalizedFrameId) {

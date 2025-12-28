@@ -52,6 +52,16 @@ public:
         return nodeId;
     }
 
+    size_t GetEdgesCount()
+    {
+        return m_edges.size();
+    }
+
+    size_t GetPtrMapSize()
+    {
+        return m_ptrMap.size();
+    }
+
 private:
     using PtrId = IdTagType<struct PtrIdTag, uint32_t>;
 

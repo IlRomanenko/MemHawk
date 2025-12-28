@@ -3,7 +3,7 @@ use bitcode::{Decode, Encode};
 use rustc_hash::FxHashSet;
 use std::sync::Arc;
 
-use crate::protos;
+use crate::proto::schema::ElfInfo;
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct InlinedFrame {
@@ -36,7 +36,7 @@ struct LoadedBinary {
 struct RestorableBinary {
     filename: String,
     binary_addr: u64,
-    first_segment_offset: u64,
+    first_segment_offset: u64, // only for debug purposes
 }
 
 #[derive(Encode, Decode)]
@@ -89,13 +89,13 @@ impl Symbolizer {
     pub async fn lookup_symbol(&self, addr: u64) -> Result<SymbolizedFrame> {
         let index = self
             .symbol_maps
-            .partition_point(|binary| binary.interval.start <= addr);
+            .partition_point(|binary| binary.interval.start + binary.first_segment_offset <= addr);
         let slice = &self.symbol_maps[..index];
         let binary = match slice.last() {
             Some(value) => value,
             None => anyhow::bail!("No segments containing vaddr: 0x{:x}", addr),
         };
-        let offset = (addr - binary.first_segment_offset - binary.interval.start) as u32;
+        let offset = (addr - binary.interval.start) as u32;
 
         let symbol_map = match &binary.symbol_map {
             Some(symbol_map) => symbol_map,
@@ -189,6 +189,12 @@ impl Symbolizer {
                     filepath,
                     err
                 );
+                log::info!(
+                    "Creating empty symbol map for {:?}, start: 0x{:x}, first_segment: 0x{:x}",
+                    filepath,
+                    binary_addr,
+                    first_segment_offset
+                );
                 self.symbol_maps.push(LoadedBinary {
                     filename: Arc::new(filename.clone()),
                     interval: Interval {
@@ -202,7 +208,7 @@ impl Symbolizer {
         }
     }
 
-    pub async fn update_symbols(&mut self, loaded_so: &[protos::ElfInfo]) {
+    pub async fn update_symbols(&mut self, loaded_so: &[ElfInfo]) {
         let orig_symbols_set =
             FxHashSet::from_iter(self.symbol_maps.iter().map(|x| x.filename.as_ref().clone()));
         let new_symbols_set = FxHashSet::from_iter(loaded_so.iter().map(|x| x.filename.clone()));

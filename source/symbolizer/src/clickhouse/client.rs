@@ -1,0 +1,45 @@
+use tokio_util::task::TaskTracker;
+
+use crate::clickhouse::{schema::*, table_worker::TableWorker};
+
+pub struct ClickhouseClient {
+    raw_data_worker: TableWorker<RawDataRow>,
+    flamegraph_worker: TableWorker<FlamegraphRow>,
+    timeseries_worker: TableWorker<TimeseriesRow>,
+    localized_name_worker: TableWorker<LocalizedNameRow>,
+    stacktraces_worker: TableWorker<StacktraceRow>,
+}
+
+impl ClickhouseClient {
+    pub fn new(task_tracker: &TaskTracker) -> Self {
+        let client = clickhouse::Client::default()
+            .with_url("http://localhost:8123")
+            .with_user("admin")
+            .with_password("admin")
+            .with_database("profiling");
+
+        ClickhouseClient {
+            raw_data_worker: TableWorker::new(task_tracker, client.clone(), "raw_data", 2),
+            flamegraph_worker: TableWorker::new(task_tracker, client.clone(), "flamegraphs", 2),
+            timeseries_worker: TableWorker::new(task_tracker, client.clone(), "timeseries", 2),
+            localized_name_worker: TableWorker::new(
+                task_tracker,
+                client.clone(),
+                "localized_name",
+                2,
+            ),
+            stacktraces_worker: TableWorker::new(task_tracker, client.clone(), "stacktraces", 2),
+        }
+    }
+
+    pub async fn send(&self, update: UpdateData) -> anyhow::Result<()> {
+        self.raw_data_worker.send(update.raw_data).await?;
+        self.flamegraph_worker.send(update.flamegraphs).await?;
+        self.timeseries_worker.send(update.timeseries).await?;
+        self.localized_name_worker
+            .send(update.localized_names)
+            .await?;
+        self.stacktraces_worker.send(update.stacktraces).await?;
+        Ok(())
+    }
+}

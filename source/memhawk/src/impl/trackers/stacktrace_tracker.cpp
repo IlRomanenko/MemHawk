@@ -36,6 +36,12 @@ StacktraceTracker::StacktraceTracker(StacktraceTrackerConfig cfg) : m_cfg{std::m
 {
 }
 
+void StacktraceTracker::Describe()
+{
+    LogInfo("StacktraceTracker: nodes: " fSzt ", edges: " fSzt ", ptrMap: " fSzt, m_storage->nodes.size(),
+            m_storage->tree.GetEdgesCount(), m_storage->tree.GetPtrMapSize());
+}
+
 StacktraceTracker::~StacktraceTracker()
 {
     if (!*m_cfg.DumpStacktraces)

@@ -67,7 +67,9 @@ void MemHawk::Stop()
             m_finishedTrackers.size(), m_maxPostponedSize);
     LogInfo("Inner traces: (" fSzt ", " fSzt "), external: " fSzt, m_innerBtTracker.StacktracesCount(),
             m_innerBtTracker.GetStorageSize(), m_btTracker.StacktracesCount());
+    m_btTracker.Describe();
 
+    LogInfo("ExternalTrackers");
     for (const auto& tracker : m_thTrackers)
     {
         tracker->LockTracker().PrintTracker();
@@ -211,6 +213,32 @@ void MemHawk::InvalidateModulesCache()
     m_modulesCacheInvalidated.store(true);
 }
 
+void MemHawk::PreFork()
+{
+    // manually lock mutex for tracking worker
+    m_mt.lock();
+}
+
+void MemHawk::ParentPostFork()
+{
+    // not necessary to change state of thread trackers,
+    // because all threads are preserved in parent process
+
+    // safe, because was locked in PreFork
+    m_mt.unlock();
+}
+
+void MemHawk::ChildPostFork()
+{
+    // unlock all thread trackers first
+    m_innerTracker->UnlockTrackerUnsafe();
+    for (auto& tracker: m_thTrackers) {
+        tracker->UnlockTrackerUnsafe();
+    }
+    // safe, because was locked in PreFork
+    m_mt.unlock();
+}
+
 void MemHawk::ProcessPostponed()
 {
     do
@@ -278,13 +306,13 @@ void MemHawk::TrackingWorker()
     m_workerStorage->writer =
         m_writersFactory->CreateWritersAdaptor(*m_cfg.Writers, std::make_shared<InnerStacktraceFinder>(*this));
 
+    const auto waitingDelay = std::chrono::milliseconds{*m_cfg.TrackerDumpingPeriodMs};
+    auto nextTimepoint = std::chrono::steady_clock::now() + waitingDelay;
     while (!m_stopped)
     {
-        {
-            std::unique_lock lock(m_mt);
-            m_cv.wait_for(lock, std::chrono::milliseconds{*m_cfg.TrackerDumpingPeriodMs},
-                          [this]() { return m_stopped.load(); });
-        }
+        std::unique_lock lock(m_mt);
+        m_cv.wait_until(lock, nextTimepoint, [this]() { return m_stopped.load(); });
+        nextTimepoint += waitingDelay;
         WorkerUpdateData();
         WorkerPrintData();
     }

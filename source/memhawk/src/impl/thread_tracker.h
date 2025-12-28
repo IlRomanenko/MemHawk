@@ -62,6 +62,9 @@ public:
         return m_trackerId;
     }
 
+    // Should be called only in PostFork
+    void UnlockTrackerUnsafe();
+
 private:
     SpinLock m_mt;
 

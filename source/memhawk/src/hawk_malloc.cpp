@@ -21,6 +21,7 @@
 #include <cstring>
 #include <dlfcn.h>
 #include <exception>
+#include <pthread.h>
 #include <regex>
 #include <unistd.h>
 
@@ -141,6 +142,21 @@ catch (const std::exception& ex)
     abort();
 }
 
+static void PreFork()
+{
+    gl_memhawk->PreFork();
+}
+
+static void ParentPostFork()
+{
+    gl_memhawk->ParentPostFork();
+}
+
+static void ChildPostFork()
+{
+    gl_memhawk->ChildPostFork();
+}
+
 __attribute__((__constructor__)) void init_memhawk()
 {
     InitHooks();
@@ -159,6 +175,9 @@ __attribute__((__constructor__)) void init_memhawk()
         // after that can save traces as postponed into memhawk
         gl_initialised = true;
         gl_memhawk->PostponedConstruct();
+
+        // setup atfork handlers
+        pthread_atfork(PreFork, ParentPostFork, ChildPostFork);
     }
     else
     {

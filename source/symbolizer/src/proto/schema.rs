@@ -5,7 +5,7 @@ use std::ops::{Add, AddAssign, Sub, SubAssign};
 
 use serde::{Deserialize, Serialize, ser::SerializeStruct};
 // Include the generated files from OUT_DIR
-include!(concat!("../protos/memhawk.protos.rs"));
+include!(concat!("gen/memhawk.proto.rs"));
 
 impl Sub for AllocSummary {
     type Output = AllocSummary;

@@ -1,12 +1,14 @@
-use anyhow::bail;
 use clap::Parser;
 use std::env::args;
+use tokio_util::task::TaskTracker;
 
 use symbolizer::{
-    db::postgres_client::{PostgresClient, SavedState},
+    postgres::client::PostgresClient,
     processor::{self, Processor},
-    protos::{self, ElfInfo, elf_info},
-    repository,
+    proto::{
+        reader::ProtoReader,
+        schema::{ElfInfo, ProcessInfo, Snapshot, elf_info},
+    },
     symbolizer::Symbolizer,
 };
 
@@ -17,27 +19,23 @@ struct Args {
     filename: String,
 }
 
-async fn process() -> anyhow::Result<()> {
+async fn process(task_tracker: &TaskTracker) -> anyhow::Result<()> {
     let args = Args::parse();
     let filename = args.filename;
 
     log::info!("Starting");
 
-    let messages = repository::ProtosRepository::read_messages::<protos::Snapshot>(&filename)?;
-    let first_message = match messages.first() {
-        Some(msg) => msg,
-        None => return Ok(()),
-    };
-
-    let process_info = match &first_message.process {
-        Some(process_info) => process_info,
-        None => {
-            bail!("Incorrect first message")
-        }
-    };
+    let mut reader = ProtoReader::new(&filename).await?;
+    let process_info = reader.read_message::<ProcessInfo>().await?;
 
     let postgres_client = PostgresClient::new().await?;
-    let process_id = postgres_client.get_process_id(&process_info).await?;
+    let process_id = postgres_client
+        .get_process_id(
+            &process_info.process_short_name,
+            process_info.pid as i32,
+            process_info.start_timestamp as i64,
+        )
+        .await?;
 
     let state = postgres_client.read_process_state(process_id).await?;
 
@@ -47,13 +45,13 @@ async fn process() -> anyhow::Result<()> {
         Some(state) => {
             let encoded = state.decompress()?;
             let processor_state = bitcode::decode::<processor::RestorableState>(&encoded)?;
-            Processor::restore(processor_state).await?
+            Processor::restore(task_tracker, processor_state).await?
         }
-        None => Processor::new(process_id),
+        None => Processor::new(task_tracker, process_id),
     };
     log::info!("Restored state");
 
-    for message in messages {
+    while let Ok(message) = reader.read_message::<Snapshot>().await {
         let _ = processor.process(&message).await?;
     }
 
@@ -61,17 +59,17 @@ async fn process() -> anyhow::Result<()> {
 
     processor.stats().await;
 
-    let processor_state = processor.save().await;
-    let encoded = bitcode::encode(&processor_state);
-    let state = SavedState::compress(encoded)?;
+    // let processor_state = processor.save().await;
+    // let encoded = bitcode::encode(&processor_state);
+    // let state = SavedState::compress(encoded)?;
 
-    log::info!("Encoded state");
+    // log::info!("Encoded state");
 
-    postgres_client
-        .save_process_state(process_id, state)
-        .await?;
+    // postgres_client
+    //     .save_process_state(process_id, state)
+    //     .await?;
 
-    log::info!("Saved state");
+    // log::info!("Saved state");
     Ok(())
 }
 
@@ -97,6 +95,10 @@ async fn test_symbolizer() {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    env_logger::init();
-    process().await
+    env_logger::init_from_env(env_logger::Env::default().default_filter_or("info"));
+    let tracker = TaskTracker::new();
+    process(&tracker).await?;
+    tracker.close();
+    tracker.wait().await;
+    Ok(())
 }

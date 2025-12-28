@@ -2,13 +2,11 @@
 #include "proto_writer.h"
 
 #include "logging.h"
-#include "recursion_guard.h"
 
 #include <google/protobuf/arena.h>
 #include <google/protobuf/io/coded_stream.h>
 #include <google/protobuf/io/zero_copy_stream_impl.h>
 #include <google/protobuf/util/delimited_message_util.h>
-#include <protos/snapshot.pb.h>
 
 #include <chrono>
 #include <cstdint>
@@ -19,6 +17,7 @@
 #include <link.h>
 #include <system_error>
 #include <unistd.h>
+#include <zstd.h>
 
 namespace memhawk
 {
@@ -40,7 +39,7 @@ std::string GetPrognameFullPath()
 
 int iterate_dl_headers(struct dl_phdr_info* info, size_t /*size*/, void* data)
 {
-    auto snapshot = reinterpret_cast<protos::Snapshot*>(data);
+    auto snapshot = reinterpret_cast<proto::Snapshot*>(data);
     auto* loadedSo = snapshot->add_loadedso();
     loadedSo->set_addr(info->dlpi_addr);
     std::string fileName{info->dlpi_name};
@@ -71,13 +70,50 @@ ProtobufWriter::ProtobufWriter(ProtobufWriterConfig cfg, std::shared_ptr<IStackt
         filename = m_cfg.Filename->value(); // NOLINT(bugprone-unchecked-optional-access)
     }
     m_ofstream = std::make_unique<std::ofstream>(filename, std::ios_base::out | std::ios_base::binary);
-    m_ostream = std::make_unique<google::protobuf::io::OstreamOutputStream>(m_ofstream.get());
-    m_codedStream = std::make_unique<google::protobuf::io::CodedOutputStream>(m_ostream.get());
+    WriteProcessInfo();
 }
 
 void ProtobufWriter::UpdateModules()
 {
     m_updateModules = true;
+}
+
+void ProtobufWriter::WriteUint64BigEndian(uint64_t value)
+{
+    char buf[sizeof(value) + 1]{};
+    uint8_t* begin = reinterpret_cast<uint8_t*>(buf);
+    while (value > 0)
+    {
+        *begin = static_cast<uint8_t>(value & 0xFF);
+        value >>= 8;
+        begin++;
+    }
+    std::reverse(buf, buf + sizeof(value));
+    m_ofstream->write(buf, sizeof(value));
+}
+
+void ProtobufWriter::WriteMessage(google::protobuf::MessageLite* message)
+{
+    const auto originalSize = message->ByteSizeLong();
+    m_serializationBuffer.resize(originalSize);
+    message->SerializeWithCachedSizesToArray(m_serializationBuffer.data());
+
+    const auto compressBound = ZSTD_compressBound(originalSize);
+    m_compressionBuffer.resize(compressBound);
+    const auto compressedSize =
+        ZSTD_compress(m_compressionBuffer.data(), compressBound, m_serializationBuffer.data(), originalSize, ZSTD_fast);
+
+    WriteUint64BigEndian(compressedSize);
+    m_ofstream->write(m_compressionBuffer.data(), static_cast<std::streamsize>(compressedSize));
+    m_ofstream->flush();
+}
+
+void ProtobufWriter::WriteProcessInfo()
+{
+    auto processInfo = google::protobuf::Arena::Create<proto::ProcessInfo>(&m_arena);
+    FillProcessInfo(processInfo);
+    WriteMessage(processInfo);
+    m_arena.Reset();
 }
 
 void ProtobufWriter::AccountSnapshot(const SummariesMap& summaries, const AllocSummary& total)
@@ -98,7 +134,7 @@ void ProtobufWriter::AccountSnapshot(const SummariesMap& summaries, const AllocS
 
 void ProtobufWriter::FlushData()
 {
-    protos::Snapshot* snapshot = google::protobuf::Arena::Create<protos::Snapshot>(&m_arena);
+    proto::Snapshot* snapshot = google::protobuf::Arena::Create<proto::Snapshot>(&m_arena);
 
     if (m_updateModules)
     {
@@ -110,7 +146,6 @@ void ProtobufWriter::FlushData()
     const auto nowNs = std::chrono::duration_cast<std::chrono::nanoseconds>(now.time_since_epoch()).count();
     snapshot->set_timestamp(static_cast<uint64_t>(nowNs));
 
-    FillProcessInfo(snapshot->mutable_process());
     FillAllocSummary(snapshot->mutable_total(), m_total);
     for (const auto& traceId : m_changedSummaries)
     {
@@ -122,13 +157,13 @@ void ProtobufWriter::FlushData()
         auto* changedSummary = snapshot->add_changed();
         FillChangedSummary(traceId, changedSummary);
     }
-    google::protobuf::util::SerializeDelimitedToCodedStream(*snapshot, m_codedStream.get());
-    m_ofstream->flush();
+
+    WriteMessage(snapshot);
     m_changedSummaries.clear();
     m_arena.Reset();
 }
 
-void ProtobufWriter::FillProcessInfo(protos::ProcessInfo* info)
+void ProtobufWriter::FillProcessInfo(proto::ProcessInfo* info)
 {
     *info->mutable_processshortname() = program_invocation_short_name;
     *info->mutable_processfullpath() = GetPrognameFullPath();
@@ -137,7 +172,7 @@ void ProtobufWriter::FillProcessInfo(protos::ProcessInfo* info)
     info->set_starttimestamp(static_cast<uint64_t>(startNs));
 }
 
-void ProtobufWriter::FillAllocSummary(protos::AllocSummary* protoSummary, const AllocSummary& summary)
+void ProtobufWriter::FillAllocSummary(proto::AllocSummary* protoSummary, const AllocSummary& summary)
 {
     protoSummary->set_active(summary.active);
     protoSummary->set_overhead(summary.overhead);
@@ -146,14 +181,14 @@ void ProtobufWriter::FillAllocSummary(protos::AllocSummary* protoSummary, const 
     protoSummary->set_totalcount(summary.totalCount);
 }
 
-void ProtobufWriter::FillChangedSummary(uint32_t traceId, protos::TracedAllocSummary* tracedSummary)
+void ProtobufWriter::FillChangedSummary(uint32_t traceId, proto::TracedAllocSummary* tracedSummary)
 {
     const auto& summary = m_localSummaries[traceId];
     tracedSummary->set_traceid(traceId);
     FillAllocSummary(tracedSummary->mutable_actual(), summary);
 }
 
-void ProtobufWriter::AddStacktrace(uint32_t traceId, protos::Snapshot* snapshot)
+void ProtobufWriter::AddStacktrace(uint32_t traceId, proto::Snapshot* snapshot)
 {
     auto trace = m_finder->GetStacktraceFromId(traceId);
     if (!trace)

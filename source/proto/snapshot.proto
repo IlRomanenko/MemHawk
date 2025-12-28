@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package memhawk.protos;
+package memhawk.proto;
 
 message AllocSummary
 {

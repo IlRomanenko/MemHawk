@@ -2,7 +2,7 @@
 #include "config.h"
 #include "gmock/gmock.h"
 #include "mock.h"
-#include "protos/snapshot.pb.h"
+#include "proto/snapshot.pb.h"
 #include "writers/proto_writer.h"
 
 #include <gmock/gmock-actions.h>
@@ -65,13 +65,13 @@ public:
         }
     }
 
-    void ReadSnapshots(std::vector<protos::Snapshot>& snapshots)
+    void ReadSnapshots(std::vector<proto::Snapshot>& snapshots)
     {
         std::ifstream stream(m_filename, std::ios_base::in | std::ios_base::binary);
         google::protobuf::io::IstreamInputStream inputStream(&stream);
         google::protobuf::io::CodedInputStream codedStream(&inputStream);
 
-        protos::Snapshot snapshot{};
+        proto::Snapshot snapshot{};
         while (google::protobuf::util::ParseDelimitedFromCodedStream(&snapshot, &codedStream, nullptr))
         {
             snapshots.push_back(std::move(snapshot));
@@ -99,7 +99,7 @@ TEST_F(ProtobufWriterFixture, AccountSnapshot_ExpectOk)
         writer.AccountSnapshot({{TraceId1, Summary1}}, Summary1);
         writer.FlushData();
     }
-    std::vector<protos::Snapshot> snapshots;
+    std::vector<proto::Snapshot> snapshots;
     ReadSnapshots(snapshots);
 
     EXPECT_EQ(snapshots.size(), 1);
@@ -117,7 +117,7 @@ TEST_F(ProtobufWriterFixture, AccountSnapshot_MultipleCalls_ExpectOk)
         writer.AccountSnapshot({{TraceId3, Summary3}}, Summary3);
         writer.FlushData();
     }
-    std::vector<protos::Snapshot> snapshots;
+    std::vector<proto::Snapshot> snapshots;
     ReadSnapshots(snapshots);
 
     ASSERT_EQ(snapshots.size(), 1);
@@ -140,7 +140,7 @@ TEST_F(ProtobufWriterFixture, AccountSnapshot_MultipleWrites_ExpectOk)
         writer.AccountSnapshot({{TraceId3, Summary3}}, Summary3);
         writer.FlushData();
     }
-    std::vector<protos::Snapshot> snapshots;
+    std::vector<proto::Snapshot> snapshots;
     ReadSnapshots(snapshots);
 
     ASSERT_EQ(snapshots.size(), 3);
