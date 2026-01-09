@@ -7,8 +7,8 @@ use time::OffsetDateTime;
 use tokio::sync::RwLock;
 use tokio_util::task::TaskTracker;
 
-use crate::{
-    clickhouse::{client::ClickhouseClient, schema::*},
+use crate::clickhouse::{client::ClickhouseClient, schema::*};
+use memhawk_core::{
     graph::{self, AggregatedAllocSummary, Graph, NodeId},
     localizer::{
         self, FrameLocalizer, LocalizedFrameId, LocalizedName, MEMHAWK_ROOT_LOCALIZED_ID,
@@ -16,7 +16,6 @@ use crate::{
     },
     proto::schema::*,
     symbolizer::{self, SymbolizedFrame, Symbolizer},
-    value_selector,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Encode, Decode)]
@@ -264,7 +263,7 @@ impl Processor {
     fn prepare_flamegraphs(&self, timestamp: OffsetDateTime) -> Vec<FlamegraphRow> {
         let mut result = Vec::new();
 
-        for value_type in ValueType::iter() {
+        for value_type in memhawk_core::proto::schema::ValueType::iter() {
             let nodes = self.symbolized_graph.get_top(1000, value_type);
             for (order_id, element) in nodes.into_iter().enumerate() {
                 let node = self.symbolized_graph.inspect(element.node_id);
@@ -274,7 +273,7 @@ impl Processor {
                     order_id: order_id as u32,
                     label_id: node.key.into(),
                     level: node.level.into(),
-                    value_type,
+                    value_type: value_type.into(),
                     self_value: element.self_value,
                     total_value: element.total_value,
                 })
@@ -291,12 +290,12 @@ impl Processor {
         let mut result = Vec::new();
 
         for (frame_id, summary) in modified_frames.into_iter() {
-            for value_type in ValueType::iter() {
+            for value_type in memhawk_core::proto::schema::ValueType::iter() {
                 result.push(TimeseriesRow {
                     process_id: self.process_id,
                     timestamp,
                     label_id: frame_id.into(),
-                    value_type,
+                    value_type: value_type.into(),
                     self_value: summary
                         .self_value
                         .as_ref()

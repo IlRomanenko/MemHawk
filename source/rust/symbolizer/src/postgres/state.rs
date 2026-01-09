@@ -1,5 +1,5 @@
-use sqlx::FromRow;
 use sha2::Digest;
+use sqlx::FromRow;
 
 #[derive(FromRow)]
 pub struct SavedState {

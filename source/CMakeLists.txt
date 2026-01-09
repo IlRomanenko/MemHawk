@@ -1,6 +1,4 @@
 add_subdirectory(proto)
 add_subdirectory(memhawk)
+add_subdirectory(rust)
 
-if (MEMHAWK_BUILD_UI)
-  add_subdirectory(symbolizer)
-endif()

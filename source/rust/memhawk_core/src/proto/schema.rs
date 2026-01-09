@@ -46,3 +46,20 @@ impl SubAssign for AllocSummary {
         *self = *self - rhs;
     }
 }
+
+#[derive(Clone, Copy, PartialEq, Eq, strum::EnumIter)]
+pub enum ValueType {
+    ActiveSize = 1,
+    ActiveCount = 2,
+    TotalSize = 3,
+    TotalCount = 4,
+}
+
+pub fn value_selector(summary: &AllocSummary, value_type: ValueType) -> i64 {
+    match value_type {
+        ValueType::ActiveSize => summary.size,
+        ValueType::ActiveCount => summary.active,
+        ValueType::TotalCount => summary.total_count as i64,
+        ValueType::TotalSize => summary.total_bytes as i64,
+    }
+}

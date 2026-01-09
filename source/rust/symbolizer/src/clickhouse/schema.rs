@@ -22,13 +22,24 @@ pub struct RawDataRow {
     pub total_count: u64,
 }
 
-#[derive(Clone, Copy, Serialize_repr, Deserialize_repr, strum::EnumIter)]
+#[derive(Clone, Copy, Serialize_repr, Deserialize_repr)]
 #[repr(i8)]
 pub enum ValueType {
     ActiveSize = 1,
     ActiveCount = 2,
     TotalSize = 3,
     TotalCount = 4,
+}
+
+impl From<memhawk_core::proto::schema::ValueType> for ValueType {
+    fn from(value: memhawk_core::proto::schema::ValueType) -> Self {
+        match value {
+            memhawk_core::proto::schema::ValueType::ActiveSize => Self::ActiveSize,
+            memhawk_core::proto::schema::ValueType::ActiveCount => Self::ActiveCount,
+            memhawk_core::proto::schema::ValueType::TotalSize => Self::TotalSize,
+            memhawk_core::proto::schema::ValueType::TotalCount => Self::TotalCount,
+        }
+    }
 }
 
 #[derive(Row, Serialize, Deserialize, Clone)]

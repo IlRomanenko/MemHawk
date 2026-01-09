@@ -8,10 +8,8 @@ use derive_more::{Add, From, Into};
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
-    clickhouse::schema::ValueType,
     localizer::{LocalizedFrameId, ROOT_LOCALIZED_ID},
-    proto::schema::AllocSummary,
-    value_selector,
+    proto::schema::{AllocSummary, ValueType, value_selector},
 };
 
 #[derive(

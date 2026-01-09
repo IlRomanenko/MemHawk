@@ -1,5 +1,5 @@
 fn main() {
-    let proto_dir = "../proto";
+    let proto_dir = "../../proto";
     let proto_file = "snapshot.proto";
 
     println!("cargo:rerun-if-changed={}", proto_dir);
