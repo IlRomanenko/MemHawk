@@ -19,8 +19,9 @@ add_custom_target(${PROJECT_NAME} ALL
     COMMENT "Building Rust binary: ${RUST_BINARY_NAME}"
 )
 
+# todo: Replace full path with path from target if it's possible
 install(PROGRAMS ${RUST_BINARY_PATH}
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/memhawk/bin
+    DESTINATION ${CMAKE_INSTALL_PREFIX}/memhawk/monitoring/clickhouse/udfs
 )
 
 add_dependencies(memhawk_all ${PROJECT_NAME})
