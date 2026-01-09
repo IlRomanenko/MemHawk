@@ -7,6 +7,7 @@ pub struct ClickhouseClient {
     flamegraph_worker: TableWorker<FlamegraphRow>,
     timeseries_worker: TableWorker<TimeseriesRow>,
     localized_name_worker: TableWorker<LocalizedNameRow>,
+    graph_edges_worker: TableWorker<GraphEdgeRow>,
     stacktraces_worker: TableWorker<StacktraceRow>,
 }
 
@@ -28,6 +29,7 @@ impl ClickhouseClient {
                 "localized_name",
                 2,
             ),
+            graph_edges_worker: TableWorker::new(task_tracker, client.clone(), "graph_edges", 2),
             stacktraces_worker: TableWorker::new(task_tracker, client.clone(), "stacktraces", 2),
         }
     }
@@ -39,6 +41,7 @@ impl ClickhouseClient {
         self.localized_name_worker
             .send(update.localized_names)
             .await?;
+        self.graph_edges_worker.send(update.graph_edges).await?;
         self.stacktraces_worker.send(update.stacktraces).await?;
         Ok(())
     }

@@ -57,12 +57,6 @@ impl OnFrameLocalized for FramesSubscription {
     }
 }
 
-#[derive(Clone, Encode, Decode)]
-struct PostponedRawData {
-    node_id: NodeId,
-    summary: AllocSummary,
-}
-
 #[derive(Encode, Decode)]
 pub struct RestorableState {
     process_id: i32,
@@ -73,7 +67,7 @@ pub struct RestorableState {
 
     ptr_id_to_addr_map: FxHashMap<u32, u64>,
     trace_id_to_leaf_id: FxHashMap<TraceId, NodeId>,
-    raw_data_to_save: Vec<PostponedRawData>,
+    raw_data_to_save: FxHashMap<NodeId, AllocSummary>,
 
     last_processed_timestamp: u64,
 }
@@ -93,7 +87,7 @@ pub struct Processor {
 
     trace_id_to_leaf_id: FxHashMap<TraceId, NodeId>,
 
-    raw_data_to_save: Vec<PostponedRawData>,
+    raw_data_to_save: FxHashMap<NodeId, AllocSummary>,
 
     last_processed_timestamp: u64,
 }
@@ -111,7 +105,7 @@ impl Processor {
             ptr_id_to_addr_map: FxHashMap::default(),
             symbolized_graph: Graph::new(),
             trace_id_to_leaf_id: FxHashMap::default(),
-            raw_data_to_save: Vec::new(),
+            raw_data_to_save: FxHashMap::default(),
             last_processed_timestamp: 0,
         }
     }
@@ -187,7 +181,8 @@ impl Processor {
 
         let localized_names = self.localizer_sub.borrow_mut().consume(self.process_id);
 
-        let stacktraces = self.prepare_stacktraces(graph_update.new_nodes);
+        let stacktraces = self.prepare_stacktraces(graph_update.new_leaf_nodes);
+        let graph_edges = self.prepare_graph_edges(graph_update.new_nodes);
         let flamegraphs = self.prepare_flamegraphs(timestamp);
         let timeseries = self.prepare_timeseries(timestamp, graph_update.modified_frames);
 
@@ -200,6 +195,7 @@ impl Processor {
             timeseries,
             localized_names,
             stacktraces,
+            graph_edges,
         };
         log::info!("Update: {:?}", &update);
 
@@ -210,32 +206,51 @@ impl Processor {
 
     fn prepare_raw_data(
         &self,
-        raw_data: Vec<PostponedRawData>,
+        raw_data: FxHashMap<NodeId, AllocSummary>,
         timestamp: OffsetDateTime,
     ) -> Vec<RawDataRow> {
         let mut result = Vec::new();
-        for raw in raw_data.into_iter() {
+        for (node_id, summary) in raw_data.into_iter() {
             result.push(RawDataRow {
                 process_id: self.process_id,
                 timestamp,
-                leaf_node_id: raw.node_id.into(),
-                active_size: raw.summary.size,
-                active_count: raw.summary.active,
-                overhead: raw.summary.overhead,
-                total_size: raw.summary.total_bytes,
-                total_count: raw.summary.total_count,
+                leaf_node_id: node_id.into(),
+                active_size: summary.size,
+                active_count: summary.active,
+                overhead: summary.overhead,
+                total_size: summary.total_bytes,
+                total_count: summary.total_count,
             })
         }
 
         result
     }
 
-    fn prepare_stacktraces(&self, new_nodes: FxHashSet<NodeId>) -> Vec<StacktraceRow> {
+    fn prepare_stacktraces(&self, new_leaf_nodes: FxHashSet<NodeId>) -> Vec<StacktraceRow> {
+        let mut result = Vec::new();
+        let mut path_nodes = Vec::new();
+        for node_id in new_leaf_nodes {
+            self.symbolized_graph.backtrace(node_id, &mut path_nodes);
+            let path = path_nodes
+                .iter()
+                .copied()
+                .map(|x| self.symbolized_graph.inspect(x).key.into())
+                .collect::<Vec<_>>();
+            result.push(StacktraceRow {
+                process_id: self.process_id,
+                leaf_node_id: node_id.into(),
+                path: path,
+            })
+        }
+        result
+    }
+
+    fn prepare_graph_edges(&self, new_nodes: FxHashSet<NodeId>) -> Vec<GraphEdgeRow> {
         let mut result = Vec::new();
 
         for node_id in new_nodes {
             let node = self.symbolized_graph.inspect(node_id);
-            result.push(StacktraceRow {
+            result.push(GraphEdgeRow {
                 process_id: self.process_id,
                 label_id: node.key.into(),
                 node_id: node_id.into(),
@@ -340,10 +355,10 @@ impl Processor {
                     .construct_path(&vec![UNKNOWN_LOCALIZED_ID])
             }
         };
-        self.raw_data_to_save.push(PostponedRawData {
-            node_id: leaf_id,
-            summary: actual,
-        });
+        self.raw_data_to_save
+            .entry(leaf_id)
+            .and_modify(|x| *x += actual)
+            .or_insert(actual);
         self.symbolized_graph.postpone_update(leaf_id, actual);
         Ok(())
     }

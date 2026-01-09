@@ -127,12 +127,14 @@ pub struct RestorableState {
     localized_frame_agg: FxHashMap<LocalizedFrameId, AggregatedAllocSummary>,
     postponed_updates: FxHashMap<u32, FxHashMap<NodeId, AllocSummary>>,
     new_nodes: FxHashSet<NodeId>,
+    new_leaf_nodes: FxHashSet<NodeId>,
     modified_nodes: FxHashSet<NodeId>,
     modified_frames: FxHashSet<LocalizedFrameId>,
 }
 
 pub struct AggregatedModifications {
     pub new_nodes: FxHashSet<NodeId>,
+    pub new_leaf_nodes: FxHashSet<NodeId>,
     pub modified_nodes: FxHashSet<NodeId>,
     pub modified_frames: FxHashMap<LocalizedFrameId, AggregatedAllocSummary>,
 }
@@ -150,6 +152,7 @@ pub struct Graph {
     localized_frame_agg: FxHashMap<LocalizedFrameId, AggregatedAllocSummary>,
     postponed_updates: FxHashMap<u32, FxHashMap<NodeId, AllocSummary>>,
     new_nodes: FxHashSet<NodeId>,
+    new_leaf_nodes: FxHashSet<NodeId>,
     modified_nodes: FxHashSet<NodeId>,
     modified_frames: FxHashSet<LocalizedFrameId>,
 }
@@ -164,6 +167,7 @@ impl Graph {
             postponed_updates: FxHashMap::default(),
 
             new_nodes: FxHashSet::default(),
+            new_leaf_nodes: FxHashSet::default(),
             modified_nodes: FxHashSet::default(),
             modified_frames: FxHashSet::default(),
         };
@@ -188,6 +192,7 @@ impl Graph {
             localized_frame_agg: self.localized_frame_agg.clone(),
             postponed_updates: self.postponed_updates.clone(),
             new_nodes: self.new_nodes.clone(),
+            new_leaf_nodes: self.new_leaf_nodes.clone(),
             modified_nodes: self.modified_nodes.clone(),
             modified_frames: self.modified_frames.clone(),
         }
@@ -201,6 +206,7 @@ impl Graph {
             localized_frame_agg: state.localized_frame_agg,
             postponed_updates: state.postponed_updates,
             new_nodes: state.new_nodes,
+            new_leaf_nodes: state.new_leaf_nodes,
             modified_nodes: state.modified_nodes,
             modified_frames: state.modified_frames,
         }
@@ -308,7 +314,10 @@ impl Graph {
                 None => self.add_node(node_id, edge, is_first_on_path),
             };
         }
-        self.inspect_mut(node_id).is_leaf = true;
+        if !self.inspect(node_id).is_leaf {
+            self.new_leaf_nodes.insert(node_id);
+            self.inspect_mut(node_id).is_leaf = true;
+        }
         node_id
     }
 
@@ -419,10 +428,12 @@ impl Graph {
     pub fn consume_modifications(&mut self) -> AggregatedModifications {
         let mut result = AggregatedModifications {
             new_nodes: FxHashSet::default(),
+            new_leaf_nodes: FxHashSet::default(),
             modified_nodes: FxHashSet::default(),
             modified_frames: FxHashMap::default(),
         };
         std::mem::swap(&mut result.new_nodes, &mut self.new_nodes);
+        std::mem::swap(&mut result.new_leaf_nodes, &mut self.new_leaf_nodes);
         std::mem::swap(&mut result.modified_nodes, &mut self.modified_nodes);
         for frame_id in self.modified_frames.drain() {
             result.modified_frames.insert(

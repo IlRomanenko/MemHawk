@@ -81,13 +81,24 @@ FROM flamegraphs
 WHERE order_id = 0 -- root node
 GROUP BY (process_id, value_type);
 
-
 CREATE TABLE IF NOT EXISTS stacktraces
 (
 -- Process selectors
     process_id Int32, -- fkey on postgres processes
 
--- Stacktrace edge
+-- Stacktrace
+    leaf_node_id UInt32,
+    path Array(UInt32), -- label_id, from root to leaf node included
+)
+ENGINE = MergeTree()
+ORDER BY (process_id, leaf_node_id);
+
+CREATE TABLE IF NOT EXISTS graph_edges
+(
+-- Process selectors
+    process_id Int32, -- fkey on postgres processes
+
+-- Graph edge
     label_id UInt32,
     node_id UInt32,
     parent_node_id UInt32,

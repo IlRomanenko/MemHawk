@@ -73,6 +73,16 @@ pub struct StacktraceRow {
     pub process_id: i32,
 
     // Stacktraces data
+    pub leaf_node_id: u32,
+    pub path: Vec<u32>,
+}
+
+#[derive(Row, Serialize, Deserialize, Clone)]
+pub struct GraphEdgeRow {
+    // Process selectors
+    pub process_id: i32,
+
+    // Stacktraces data
     pub label_id: u32,
     pub node_id: u32,
     pub parent_node_id: u32,
@@ -97,6 +107,7 @@ pub struct UpdateData {
     pub flamegraphs: Vec<FlamegraphRow>,
     pub timeseries: Vec<TimeseriesRow>,
     pub localized_names: Vec<LocalizedNameRow>,
+    pub graph_edges: Vec<GraphEdgeRow>,
     pub stacktraces: Vec<StacktraceRow>,
 }
 
@@ -107,6 +118,7 @@ impl Debug for UpdateData {
             .field("flamegraphs", &self.flamegraphs.len())
             .field("timeseries", &self.timeseries.len())
             .field("localized_names", &self.localized_names.len())
+            .field("graph_edges", &self.graph_edges.len())
             .field("stacktraces", &self.stacktraces.len())
             .finish()
     }

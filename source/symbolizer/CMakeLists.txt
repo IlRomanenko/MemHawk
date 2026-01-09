@@ -5,7 +5,6 @@ find_program(CARGO cargo REQUIRED)
 # Track Rust source files for rebuilds
 file(GLOB_RECURSE RUST_SOURCES 
     "src/*.rs"
-    "protos"
     "Cargo.toml"
     "Cargo.lock"
 )

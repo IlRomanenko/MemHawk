@@ -30,6 +30,7 @@ services:
       - ./clickhouse/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./clickhouse/config.xml:/etc/clickhouse-server/config.d/custom.xml
       - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/udfs:/var/lib/clickhouse/user_scripts
     ports:
       - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
       - "${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
