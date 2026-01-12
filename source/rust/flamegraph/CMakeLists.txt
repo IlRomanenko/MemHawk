@@ -13,9 +13,9 @@ set(RUST_BINARY_PATH ${MEMHAWK_ROOT_DIR}/target/release/${RUST_BINARY_NAME})
 
 add_custom_target(${PROJECT_NAME} ALL
     BYPRODUCTS ${RUST_BINARY_PATH}
-    COMMAND ${CARGO} build --release
+    COMMAND ${CARGO} build --release --package ${PROJECT_NAME}
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    DEPENDS ${RUST_SOURCES}
+    DEPENDS ${RUST_SOURCES} memhawk_core
     COMMENT "Building Rust binary: ${RUST_BINARY_NAME}"
 )
 
