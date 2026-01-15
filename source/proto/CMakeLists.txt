@@ -1,7 +1,7 @@
 set(PROTO_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(PROTO_FILES ${PROTO_DIR}/snapshot.proto)
 set(PROTO_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}")
-make_directory(${PROTO_BINARY_DIR})
+make_directory(${PROTO_BINARY_DIR}/proto)
 
 set(PROTO_GENERATED_SRCS 
     "${PROTO_BINARY_DIR}/proto/snapshot.pb.h"

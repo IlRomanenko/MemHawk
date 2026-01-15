@@ -13,9 +13,11 @@ set(RUST_BINARY_PATH ${MEMHAWK_ROOT_DIR}/target/release/${RUST_BINARY_NAME})
 
 add_custom_target(${PROJECT_NAME} ALL
     BYPRODUCTS ${RUST_BINARY_PATH}
-    COMMAND ${CARGO} build --release --package ${PROJECT_NAME}
+    COMMAND 
+        ${CMAKE_COMMAND} -E env PROTOC=$<TARGET_FILE:protobuf::protoc> 
+        ${CARGO} build --release --package ${PROJECT_NAME}
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    DEPENDS ${RUST_SOURCES}
+    DEPENDS ${RUST_SOURCES} $<TARGET_FILE:protobuf::protoc>
     COMMENT "Building Rust binary: ${RUST_BINARY_NAME}"
 )
 

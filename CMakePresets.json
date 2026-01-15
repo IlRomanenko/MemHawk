@@ -8,6 +8,8 @@
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "clang++",
+                "CMAKE_C_COMPILER": "clang",
                 "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
@@ -16,28 +18,24 @@
             }
         },
         {
-            "name": "RelWithDebInfo",
-            "displayName": "DevBuild Release",
-            "description": "Create release build",
-            "binaryDir": "${sourceDir}/out/build/${presetName}",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
-                "MEMHAWK_BUILD_TESTING": true
-            }
-        },
-        {
-            "name": "ReleaseClang",
+            "name": "Release",
             "displayName": "Clang Release",
-            "description": "Create release build",
+            "description": "Create release build without tests",
             "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "generator": "Ninja",
             "cacheVariables": {
                 "CMAKE_CXX_COMPILER": "clang++",
                 "CMAKE_C_COMPILER": "clang",
                 "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+            }
+        },
+        {
+            "name": "ReleaseWithTests",
+            "displayName": "Clang Release with tests",
+            "description": "Create release build with tests",
+            "inherits": ["Release"],
+            "cacheVariables": {
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
                 "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
                 "MEMHAWK_BUILD_TESTING": true
@@ -47,15 +45,8 @@
             "name": "ClangTidy",
             "displayName": "clang-tidy",
             "description": "Create clang-tidy build",
-            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "inherits": ["ReleaseWithTests"],
             "cacheVariables": {
-                "CMAKE_CXX_COMPILER": "clang++",
-                "CMAKE_C_COMPILER": "clang",
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
-                "MEMHAWK_BUILD_TESTING": true,
                 "MEMHAWK_USE_CLANG_TIDY": true
             }
         },
@@ -63,15 +54,8 @@
             "name": "SanitizeAsan",
             "displayName": "Asan build",
             "description": "Compile with -fsanitize=address,undefined",
-            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "inherits": ["ReleaseWithTests"],
             "cacheVariables": {
-                "CMAKE_CXX_COMPILER": "clang++",
-                "CMAKE_C_COMPILER": "clang",
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
-                "MEMHAWK_BUILD_TESTING": true,
                 "ASAN": true
             }
         },
@@ -79,15 +63,8 @@
             "name": "SanitizeTsan",
             "displayName": "Tsan build",
             "description": "Compile with -fsanitize=thread",
-            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "inherits": ["ReleaseWithTests"],
             "cacheVariables": {
-                "CMAKE_CXX_COMPILER": "clang++",
-                "CMAKE_C_COMPILER": "clang",
-                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "DIST_DEVBUILD_DIR": "${sourceDir}/out/dev",
-                "MEMHAWK_BUILD_TESTING": true,
                 "TSAN": true
             }
         }

@@ -1,5 +1,7 @@
 build*/
 out*/
+target*/
 .vscode
 .git
 .cache/
+.notes
