@@ -17,7 +17,7 @@ add_custom_target(${PROJECT_NAME} ALL
         ${CMAKE_COMMAND} -E env PROTOC=$<TARGET_FILE:protobuf::protoc> 
         ${CARGO} build --release --package ${PROJECT_NAME}
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    DEPENDS ${RUST_SOURCES} $<TARGET_FILE:protobuf::protoc>
+    DEPENDS ${RUST_SOURCES} protobuf::protoc
     COMMENT "Building Rust binary: ${RUST_BINARY_NAME}"
 )
 

@@ -8,7 +8,7 @@ RUN apt-get install -y \
     git ccache \
     libtool autoconf unzip wget \
     software-properties-common lsb-release \ 
-    curl
+    curl ninja-build
 
 RUN wget -qO- https://apt.llvm.org/llvm.sh | bash -s 18
 RUN apt-get install -y clang-18 lldb-18 libc++-18-dev libc++abi-18-dev clang-tools-18
