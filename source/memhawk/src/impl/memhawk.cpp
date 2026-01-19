@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <future>
 #include <memory>
+#include <mutex>
 #include <pthread.h>
 #include <unistd.h>
 
@@ -54,7 +55,7 @@ void MemHawk::Stop()
     const RecursionGuard<AllocTag> guard;
     const RecursionGuard<InnerAllocTag> guardInner;
     {
-        const std::lock_guard lock(m_mt);
+        const std::scoped_lock lock(m_mt);
         m_stopped = true;
         m_cv.notify_all();
     }

@@ -67,7 +67,7 @@ std::ostream& WriteHexLine(std::ostream& stream, T&& arg, Args&&... args)
 {
     WriteHexValue(stream, std::forward<T>(arg));
     stream << ' ';
-    return WriteHexLine(stream, args...);
+    return WriteHexLine(stream, std::forward<Args>(args)...);
 }
 
 int iterate_dl_headers(struct dl_phdr_info* info, size_t /*size*/, void* data)
@@ -80,7 +80,7 @@ int iterate_dl_headers(struct dl_phdr_info* info, size_t /*size*/, void* data)
     }
     WriteHexLine(*stream, "m", strlen(fileName), fileName, info->dlpi_addr);
 
-    for (int i = 0; i < info->dlpi_phnum; i++)
+    for (size_t i = 0; i < info->dlpi_phnum; i++)
     {
         const auto& phdr = info->dlpi_phdr[i];
         if (phdr.p_type == PT_LOAD)
@@ -142,7 +142,7 @@ void HeaptrackWriter::WriteRSS()
 {
     rusage usage{};
     getrusage(RUSAGE_SELF, &usage);
-    WriteHexLine(*m_ofstream, "R", usage.ru_maxrss) << "\n";
+    WriteHexLine(*m_ofstream, "R", usage.ru_maxrss) << "\n"; // NOLINT(cppcoreguidelines-pro-type-union-access)
 }
 
 void HeaptrackWriter::WriteVersion()
@@ -157,7 +157,7 @@ void HeaptrackWriter::WriteExe()
     const int BUF_SIZE = 1023;
     char buf[BUF_SIZE + 1];
 
-    ssize_t size = readlink("/proc/self/exe", buf, BUF_SIZE);
+    const ssize_t size = readlink("/proc/self/exe", buf, BUF_SIZE);
 
     if (size > 0 && size < BUF_SIZE)
     {
@@ -172,16 +172,22 @@ void HeaptrackWriter::WriteCommandLine()
     const int BUF_SIZE = 4096;
     char buf[BUF_SIZE + 1] = {0};
 
-    auto fd = open("/proc/self/cmdline", O_RDONLY);
+    // contains some amount of 0 terminated strings
+    auto fd = open("/proc/self/cmdline", O_RDONLY | O_CLOEXEC);
     auto bytesRead = read(fd, buf, BUF_SIZE);
     close(fd);
 
-    char* end = buf + bytesRead;
-    for (char* p = buf; p < end;)
+    const char* end = buf + bytesRead;
+    for (const char* p = buf; p < end;)
     {
-        *m_ofstream << p;
-        while (*p++)
-            ; // skip until start of next 0-terminated section
+        size_t len = 0;
+        while (p < end && *p)
+        {
+            p++;
+            len++;
+            // skip until start of next 0-terminated section
+        }
+        *m_ofstream << std::string{p, len};
     }
 
     *m_ofstream << "\n";
@@ -194,9 +200,9 @@ void HeaptrackWriter::WriteSystemInfo()
     WriteHexLine(*m_ofstream, "I", pageSize, physPages) << "\n";
 }
 
-void HeaptrackWriter::WriteAllocation(uint32_t traceId, int64_t value, uint32_t index)
+void HeaptrackWriter::WriteAllocation(uint32_t traceId, int64_t size, uint32_t index)
 {
-    WriteHexLine(*m_ofstream, "+", value, index, traceId) << "\n";
+    WriteHexLine(*m_ofstream, "+", size, index, traceId) << "\n";
 }
 
 void HeaptrackWriter::WriteDeallocation(uint32_t traceId)

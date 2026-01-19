@@ -10,7 +10,7 @@ void BM_SpinLock_MemHawk(benchmark::State& state)
     memhawk::SpinLock spinlock;
     for (auto _ : state) // NOLINT(clang-analyzer-deadcode.DeadStores)
     {
-        std::lock_guard lock(spinlock);
+        std::scoped_lock lock(spinlock);
         benchmark::DoNotOptimize(lock);
     }
 }
@@ -32,7 +32,7 @@ void BM_SpinLock_ThreadLocal_MemHawk(benchmark::State& state)
 {
     for (auto _ : state) // NOLINT(clang-analyzer-deadcode.DeadStores)
     {
-        std::lock_guard lock(gtl_memhawkSpinlock);
+        std::scoped_lock lock(gtl_memhawkSpinlock);
         benchmark::DoNotOptimize(lock);
     }
 }

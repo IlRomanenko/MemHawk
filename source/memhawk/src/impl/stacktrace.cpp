@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <dlfcn.h>
 #include <sstream>
+#include <utility>
 
 #define UNW_LOCAL_ONLY 1
 #include <libunwind-x86_64.h>
@@ -134,7 +135,7 @@ inline void Stacktrace::UnwindStacktrace(size_t capacity, bool useAbsl, size_t s
         resultSize--;
     }
 
-    if (resultSize <= 0 || static_cast<size_t>(resultSize) < skip)
+    if (std::cmp_less(resultSize, skip))
     {
         LogWarning("Failed to unwind, got empty stacktrace");
         return;
@@ -156,7 +157,7 @@ void Stacktrace::Compress(CompressedStacktrace& result) const
     const auto span = GetTrace();
     result.data.resize(span.size());
     const auto begin = reinterpret_cast<const void*>(span.data());
-    if (likely(span.size() != 0))
+    if (likely(!span.empty()))
     {
         memcpy(result.data.data(), begin, span.size() * sizeof(void*));
     }

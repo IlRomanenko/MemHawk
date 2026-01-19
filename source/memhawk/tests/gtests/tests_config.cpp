@@ -39,7 +39,7 @@ namespace memhawk
 TEST(Config, ParseStructField_ExpectOk)
 {
     SmallConfig cfg{};
-    config::ParseContext ctx{.keyView = "name", .parsedSize = 0, .valueView = "qwerty", .onError = nullptr};
+    const config::ParseContext ctx{.keyView = "name", .parsedSize = 0, .valueView = "qwerty", .onError = nullptr};
     auto res = config::ParseStructField(ctx, cfg);
     EXPECT_TRUE(res);
 }
@@ -52,7 +52,8 @@ TEST(Config, ParseStructField_ExpectFieldNotFound)
     MockFunction<config::ErrorCallback> mock;
     EXPECT_CALL(mock, Call(Eq(expError))).WillOnce(Return());
     SmallConfig cfg{};
-    config::ParseContext ctx{.keyView = "abc", .parsedSize = 0, .valueView = "qwerty", .onError = mock.AsStdFunction()};
+    const config::ParseContext ctx{
+        .keyView = "abc", .parsedSize = 0, .valueView = "qwerty", .onError = mock.AsStdFunction()};
     auto res = config::ParseStructField(ctx, cfg);
     EXPECT_FALSE(res);
 }
@@ -65,7 +66,7 @@ TEST(Config, ParseStructField_ExpectValueNotParsed)
     MockFunction<config::ErrorCallback> mock;
     EXPECT_CALL(mock, Call(Eq(expError))).WillOnce(Return());
     SmallConfig cfg{};
-    config::ParseContext ctx{
+    const config::ParseContext ctx{
         .keyView = "value", .parsedSize = 0, .valueView = "qwerty", .onError = mock.AsStdFunction()};
     auto res = config::ParseStructField(ctx, cfg);
     EXPECT_FALSE(res);
@@ -76,7 +77,7 @@ TEST(Config, ParseStructNested_ExpectOk)
     MockFunction<config::ErrorCallback> mock;
     EXPECT_CALL(mock, Call(_)).Times(0);
     SmallConfig cfg{};
-    config::ParseContext ctx{
+    const config::ParseContext ctx{
         .keyView = "name", .parsedSize = 0, .valueView = "qwerty", .onError = mock.AsStdFunction()};
     auto res = config::ParseStructNested(ctx, cfg);
     EXPECT_TRUE(res);

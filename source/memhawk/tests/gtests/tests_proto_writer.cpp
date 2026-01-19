@@ -138,7 +138,7 @@ protected:
 
 TEST_F(ProtobufWriterFixture, CreateAndConstruct_ExpectOk)
 {
-    writers::ProtobufWriter writer{m_cfg, m_finderMock};
+    const writers::ProtobufWriter writer{m_cfg, m_finderMock};
 }
 
 TEST_F(ProtobufWriterFixture, AccountSnapshot_ExpectOk)

@@ -40,7 +40,7 @@ public:
     size_t GetStorageSize();
 
 private:
-    uint32_t InsertStacktraceUnlocked(absl::Span<void* const> trace);
+    uint32_t InsertStacktraceUnlocked(absl::Span<void* const> span);
     absl::Span<const uint32_t> GetTraceSpan(uint32_t traceId);
     Stacktrace GetStacktrace(uint32_t traceId);
 

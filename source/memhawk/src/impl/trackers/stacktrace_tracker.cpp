@@ -68,7 +68,7 @@ StacktraceTracker::~StacktraceTracker()
 uint32_t StacktraceTracker::InsertStacktrace(const Stacktrace& trace)
 {
     const absl::base_internal::SpinLockHolder lock(&m_mt);
-    StacktraceTree::NodeId nodeId = m_storage->tree.index(trace, [this](uintptr_t ptrValue, StacktraceTree::NodeId parent) {
+    const StacktraceTree::NodeId nodeId = m_storage->tree.index(trace, [this](uintptr_t ptrValue, StacktraceTree::NodeId parent) {
         m_storage->nodes.push_back(TraceNode{reinterpret_cast<void*>(ptrValue), parent.value()});
     });
     m_storage->leafsId.insert(nodeId.value());

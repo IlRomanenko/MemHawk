@@ -234,7 +234,7 @@ void* mmap_realloc(void* ptr, size_t size)
     {
         return mmap_malloc(size);
     }
-    AllocInfo* info = reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) - AdditionalSize);
+    const AllocInfo* info = reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) - AdditionalSize);
     auto origPtr = reinterpret_cast<char*>(ptr) - info->offset;
 
     auto realloced = mmap_malloc(size);
@@ -251,7 +251,7 @@ void* mmap_realloc(void* ptr, size_t size)
 void* mmap_alloc_aligned(size_t size, size_t alignment)
 {
     auto alignedSize = align_ceil(AdditionalSize, alignment);
-    size_t totalSize = size + alignedSize * 2;
+    const size_t totalSize = size + alignedSize * 2;
     // allocate enough memory in order to find suitably aligned pointer for user data
     void* ptr = mmap_malloc(totalSize);
     if (unlikely(!ptr))
@@ -513,7 +513,7 @@ void hawk_free(void* ptr)
 
     LogTrace("requested: " fPtr, ptr);
 
-    RecursiveStacktrace stacktrace(MinUnwindDepth, *hooks::gl_unwind.UseAbslStacktraces);
+    const RecursiveStacktrace stacktrace(MinUnwindDepth, *hooks::gl_unwind.UseAbslStacktraces);
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk && stacktrace.IsTrackable()))
     {
         memhawk->TrackDealloc(*info, stacktrace.IsExternal());
@@ -524,7 +524,7 @@ void hawk_free(void* ptr)
 
 size_t hawk_malloc_usable_size(void* ptr)
 {
-    AllocInfo* info = reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) - AdditionalSize);
+    const AllocInfo* info = reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) - AdditionalSize);
     return info->size;
 }
 
