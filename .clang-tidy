@@ -107,6 +107,7 @@ Checks: [
   '-readability-magic-numbers',
   '-readability-named-parameter',
   '-readability-math-missing-parentheses',
+  '-readability-convert-member-functions-to-static',
 
   # '-zircon-*'
 ]
@@ -119,6 +120,3 @@ ExtraArgs:
 # this error but it is better to pass the following flag to the compiler:
 - '-Wno-unknown-pragmas'
 - '-Wno-unused-command-line-argument' # similar issue
-
-HeaderFilterRegex: '^.*/(source)/.*(?!.*\.pb\.)(h|hpp)$'
-SourceFilterRegex: '(?!.*\.pb\.cc$)'
