@@ -178,16 +178,16 @@ void HeaptrackWriter::WriteCommandLine()
     close(fd);
 
     const char* end = buf + bytesRead;
-    for (const char* p = buf; p < end;)
+    for (const char* ptr = buf; ptr < end; ptr++)
     {
-        size_t len = 0;
-        while (p < end && *p)
+        auto cur = ptr;
+        while (cur < end && *cur)
         {
-            p++;
-            len++;
+            cur++;
             // skip until start of next 0-terminated section
         }
-        *m_ofstream << std::string{p, len};
+        *m_ofstream << std::string{ptr, cur};
+        ptr = cur;
     }
 
     *m_ofstream << "\n";

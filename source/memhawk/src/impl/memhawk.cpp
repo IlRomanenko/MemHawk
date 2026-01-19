@@ -59,6 +59,7 @@ void MemHawk::Stop()
         m_stopped = true;
         m_cv.notify_all();
     }
+    LogInfo("Stopping memhawk tracker thread");
     if (m_worker.joinable())
     {
         m_worker.join();
