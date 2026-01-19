@@ -59,6 +59,7 @@ impl OnFrameLocalized for FramesSubscription {
 #[derive(Encode, Decode)]
 pub struct RestorableState {
     process_id: i32,
+    sysroot: Option<String>,
 
     localizer_state: localizer::RestorableState,
     symbolizer_state: symbolizer::RestorableState,
@@ -73,6 +74,7 @@ pub struct RestorableState {
 
 pub struct Processor {
     process_id: i32,
+    sysroot: Option<String>,
 
     click: ClickhouseClient,
 
@@ -92,11 +94,12 @@ pub struct Processor {
 }
 
 impl Processor {
-    pub fn new(task_tracker: &TaskTracker, process_id: i32) -> Self {
+    pub fn new(task_tracker: &TaskTracker, process_id: i32, sysroot: Option<String>) -> Self {
         let frames_sub = Rc::new(RefCell::new(FramesSubscription::new()));
         let click = ClickhouseClient::new(task_tracker);
         Self {
             process_id,
+            sysroot,
             click: click,
             symbolizer: Arc::new(RwLock::new(Symbolizer::new())),
             localizer_sub: frames_sub.clone(),
@@ -112,14 +115,23 @@ impl Processor {
     pub async fn restore(
         task_tracker: &TaskTracker,
         state: RestorableState,
+        sysroot: Option<String>,
     ) -> anyhow::Result<Self> {
         let frames_sub: Rc<RefCell<FramesSubscription>> =
             Rc::new(RefCell::new(FramesSubscription::new()));
         let click = ClickhouseClient::new(task_tracker);
         let symbolizer = Symbolizer::restore(state.symbolizer_state).await;
 
+        if sysroot != state.sysroot {
+            bail!(
+                "Sysroot differs from saved state, current: {:?}, saved: {:?}",
+                sysroot,
+                state.sysroot
+            );
+        }
         let processor = Self {
             process_id: state.process_id,
+            sysroot: state.sysroot,
             click: click,
             symbolizer: Arc::new(RwLock::new(symbolizer)),
             localizer_sub: frames_sub.clone(),
@@ -136,6 +148,7 @@ impl Processor {
     pub async fn save(&self) -> RestorableState {
         RestorableState {
             process_id: self.process_id,
+            sysroot: self.sysroot.clone(),
             localizer_state: self.localizer.save(),
             symbolizer_state: self.symbolizer.read().await.save(),
             graph_state: self.symbolized_graph.save(),
@@ -161,10 +174,22 @@ impl Processor {
 
         if !snapshot.loaded_so.is_empty() {
             log::info!("Updating symbols");
+
+            let loaded_so = match &self.sysroot {
+                Some(sysroot) => {
+                    snapshot.loaded_so.iter().cloned().map(|mut elf_info| {
+                        elf_info.filename = sysroot.clone() + "/" + &elf_info.filename;
+                        elf_info
+                    }).collect::<Vec<_>>()
+                }
+                None => {
+                    snapshot.loaded_so.clone()
+                }
+            };
             self.symbolizer
                 .write()
                 .await
-                .update_symbols(&snapshot.loaded_so)
+                .update_symbols(&loaded_so)
                 .await;
         }
         self.process_stacktraces(snapshot).await;

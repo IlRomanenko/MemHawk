@@ -3,6 +3,7 @@ use tokio_util::task::TaskTracker;
 use crate::clickhouse::{schema::*, table_worker::TableWorker};
 
 pub struct ClickhouseClient {
+    client: clickhouse::Client,
     raw_data_worker: TableWorker<RawDataRow>,
     flamegraph_worker: TableWorker<FlamegraphRow>,
     timeseries_worker: TableWorker<TimeseriesRow>,
@@ -20,6 +21,7 @@ impl ClickhouseClient {
             .with_database("profiling");
 
         ClickhouseClient {
+            client: client.clone(),
             raw_data_worker: TableWorker::new(task_tracker, client.clone(), "raw_data", 2),
             flamegraph_worker: TableWorker::new(task_tracker, client.clone(), "flamegraphs", 2),
             timeseries_worker: TableWorker::new(task_tracker, client.clone(), "timeseries", 2),
@@ -32,6 +34,21 @@ impl ClickhouseClient {
             graph_edges_worker: TableWorker::new(task_tracker, client.clone(), "graph_edges", 2),
             stacktraces_worker: TableWorker::new(task_tracker, client.clone(), "stacktraces", 2),
         }
+    }
+
+    pub async fn clear(&self, process_id: i32) -> anyhow::Result<()> {
+        let tables = vec![
+            "raw_data", "flamegraphs", "timeseries", "localized_name", "graph_edges", "stacktraces"
+        ];
+        for table in tables {
+            self.client
+                .query("DELETE FROM ? WHERE process_id == ?")
+                .bind(table)
+                .bind(process_id)
+                .execute()
+                .await?;
+        }
+        Ok(())
     }
 
     pub async fn send(&self, update: UpdateData) -> anyhow::Result<()> {

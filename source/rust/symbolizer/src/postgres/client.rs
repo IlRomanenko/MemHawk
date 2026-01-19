@@ -80,4 +80,16 @@ DO UPDATE SET
         .await?;
         Ok(())
     }
+
+    pub async fn drop_process_state(&self, process_id: i32) -> anyhow::Result<()> {
+        sqlx::query(
+            r#"
+DELETE FROM profiling.saved_states WHERE process_id = $1
+            "#,
+        )
+        .bind(process_id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
 }
