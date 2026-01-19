@@ -17,7 +17,6 @@ add_executable(test_dl_iter_phdr
 )
 target_link_libraries(test_dl_iter_phdr
 PRIVATE
-    memhawk
 )
 memhawk_build(test_dl_iter_phdr)
 
