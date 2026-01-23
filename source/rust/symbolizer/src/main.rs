@@ -25,6 +25,8 @@ struct ProcessorArgs {
     sysroot: Option<String>,
     #[arg(long)]
     force: bool,
+    #[arg(long)]
+    watch: bool,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -42,7 +44,7 @@ enum Commands {
 }
 
 async fn create_processor(
-    args: ProcessorArgs,
+    args: &ProcessorArgs,
     task_tracker: &TaskTracker,
     postgres_client: &PostgresClient,
     process_id: i32,
@@ -51,7 +53,7 @@ async fn create_processor(
     if args.force {
         log::info!("Force mode. Dropping saved state if there is any");
         postgres_client.drop_process_state(process_id).await?;
-        return Ok(Processor::new(task_tracker, process_id, args.sysroot));
+        return Ok(Processor::new(task_tracker, process_id, args.sysroot.clone()));
     }
     let state = postgres_client.read_process_state(process_id).await?;
     let processor = match state {
@@ -59,11 +61,11 @@ async fn create_processor(
             log::info!("Restoring state");
             let encoded = state.decompress()?;
             let processor_state = bitcode::decode::<processor::RestorableState>(&encoded)?;
-            Processor::restore(task_tracker, processor_state, args.sysroot).await?
+            Processor::restore(task_tracker, processor_state, args.sysroot.clone()).await?
         }
         None => {
             log::info!("Creating new processor");
-            Processor::new(task_tracker, process_id, args.sysroot)
+            Processor::new(task_tracker, process_id, args.sysroot.clone())
         }
     };
     Ok(processor)
@@ -88,10 +90,35 @@ async fn process(args: ProcessorArgs, task_tracker: &TaskTracker) -> anyhow::Res
 
     log::info!("Get process_id: {}", process_id);
 
-    let mut processor = create_processor(args, task_tracker, &postgres_client, process_id).await?;
+    let mut processor = create_processor(&args, task_tracker, &postgres_client, process_id).await?;
 
-    while let Ok(message) = reader.read_message::<Snapshot>().await {
-        let _ = processor.process(&message).await?;
+    if args.watch {
+        loop {
+            match tokio::time::timeout(
+                tokio::time::Duration::from_secs(2),
+                reader.read_message_appendable::<Snapshot>(),
+            )
+            .await
+            {
+                Ok(read_result) => match read_result {
+                    Ok(message) => {
+                        processor.process(&message).await?;
+                    }
+                    Err(e) => {
+                        log::error!("Error during reading: {:?}", e);
+                        break;
+                    }
+                },
+                Err(_) => {
+                    log::info!("Waiting timeout expired");
+                    break;
+                }
+            }
+        }
+    } else {
+        while let Ok(message) = reader.read_message::<Snapshot>().await {
+            let _ = processor.process(&message).await?;
+        }
     }
 
     log::info!("Completed processing");
