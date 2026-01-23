@@ -53,7 +53,7 @@ async fn create_processor(
     if args.force {
         log::info!("Force mode. Dropping saved state if there is any");
         postgres_client.drop_process_state(process_id).await?;
-        return Ok(Processor::new(task_tracker, process_id, args.sysroot.clone()));
+        return Processor::new(task_tracker, process_id, args.sysroot.clone()).await;
     }
     let state = postgres_client.read_process_state(process_id).await?;
     let processor = match state {
@@ -65,7 +65,7 @@ async fn create_processor(
         }
         None => {
             log::info!("Creating new processor");
-            Processor::new(task_tracker, process_id, args.sysroot.clone())
+            Processor::new(task_tracker, process_id, args.sysroot.clone()).await?
         }
     };
     Ok(processor)

@@ -41,9 +41,9 @@ impl ClickhouseClient {
             "raw_data", "flamegraphs", "timeseries", "localized_name", "graph_edges", "stacktraces"
         ];
         for table in tables {
+            let query = format!("DELETE FROM profiling.{} WHERE process_id == ?", table);
             self.client
-                .query("DELETE FROM ? WHERE process_id == ?")
-                .bind(table)
+                .query(&query)
                 .bind(process_id)
                 .execute()
                 .await?;

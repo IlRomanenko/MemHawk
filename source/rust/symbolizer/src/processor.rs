@@ -94,10 +94,12 @@ pub struct Processor {
 }
 
 impl Processor {
-    pub fn new(task_tracker: &TaskTracker, process_id: i32, sysroot: Option<String>) -> Self {
+    pub async fn new(task_tracker: &TaskTracker, process_id: i32, sysroot: Option<String>) -> anyhow::Result<Self> {
         let frames_sub = Rc::new(RefCell::new(FramesSubscription::new()));
         let click = ClickhouseClient::new(task_tracker);
-        Self {
+        // clear all leftover state if there is some
+        click.clear(process_id).await?;
+        let processor = Self {
             process_id,
             sysroot,
             click: click,
@@ -109,7 +111,8 @@ impl Processor {
             trace_id_to_leaf_id: FxHashMap::default(),
             raw_data_to_save: FxHashMap::default(),
             last_processed_timestamp: 0,
-        }
+        };
+        Ok(processor)
     }
 
     pub async fn restore(
