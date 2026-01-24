@@ -9,6 +9,8 @@
 #include "impl/memhawk.h"
 #include "impl/stacktrace.h"
 #include "impl/writers/factory.h"
+#include "overrides-libc.h" // IWYU pragma: export
+#include "overrides.h"
 
 #include <absl/base/attributes.h>
 #include <absl/base/internal/direct_mmap.h>
@@ -272,7 +274,7 @@ void* mmap_alloc_aligned(size_t size, size_t alignment)
     return alignedPtr;
 }
 
-void* hawk_malloc(size_t size)
+inline ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_malloc(size_t size)
 {
     if (unlikely(!hooks::gl_initialised))
     {
@@ -300,7 +302,7 @@ void* hawk_malloc(size_t size)
     return ptr;
 }
 
-void* hawk_aligned_alloc(size_t align, size_t size)
+ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_aligned_alloc(size_t align, size_t size)
 {
     if (unlikely(!hooks::gl_initialised))
     {
@@ -330,7 +332,7 @@ void* hawk_aligned_alloc(size_t align, size_t size)
     return ptr;
 }
 
-int hawk_posix_memalign(void** memptr, size_t alignment, size_t size)
+ABSL_ATTRIBUTE_ALWAYS_INLINE int hawk_posix_memalign(void** memptr, size_t alignment, size_t size)
 {
     if (unlikely(!hooks::gl_initialised))
     {
@@ -360,7 +362,7 @@ int hawk_posix_memalign(void** memptr, size_t alignment, size_t size)
     return res;
 }
 
-void* hawk_calloc(size_t nm, size_t size)
+ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_calloc(size_t nm, size_t size)
 {
     if (unlikely(!hooks::gl_initialised))
     {
@@ -388,7 +390,7 @@ void* hawk_calloc(size_t nm, size_t size)
     return ptr;
 }
 
-void* hawk_realloc(void* ptr, size_t size)
+ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_realloc(void* ptr, size_t size)
 {
     if (unlikely(!hooks::gl_initialised))
     {
@@ -442,7 +444,7 @@ void* hawk_realloc(void* ptr, size_t size)
     return realloced;
 }
 
-void* hawk_valloc(size_t size)
+ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_valloc(size_t size)
 {
     if (unlikely(!hooks::gl_initialised))
     {
@@ -462,7 +464,7 @@ void* hawk_valloc(size_t size)
     return hawk_aligned_alloc(static_cast<size_t>(pageSize), size);
 }
 
-void* hawk_pvalloc(size_t size)
+ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_pvalloc(size_t size)
 {
     if (unlikely(!hooks::gl_initialised))
     {
@@ -485,7 +487,7 @@ void* hawk_pvalloc(size_t size)
     return hawk_aligned_alloc(szPageSize, size);
 }
 
-void hawk_free(void* ptr)
+ABSL_ATTRIBUTE_ALWAYS_INLINE void hawk_free(void* ptr)
 {
     // skip nullptr
     if (!ptr)
@@ -528,7 +530,7 @@ size_t hawk_malloc_usable_size(void* ptr)
     return info->size;
 }
 
-void* hawk_dlopen(const char* file, int mode)
+ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_dlopen(const char* file, int mode)
 {
     if (unlikely(!hooks::gl_dlInitialised))
     {
@@ -541,17 +543,200 @@ void* hawk_dlopen(const char* file, int mode)
     return hooks::dlopen(file, mode);
 }
 
-int hawk_dlclose(void* handle)
+ABSL_ATTRIBUTE_ALWAYS_INLINE int hawk_dlclose(void* handle)
 {
     if (unlikely(!hooks::gl_dlInitialised))
     {
         hooks::InitDlHooks();
     }
+    int res = hooks::dlclose(handle);
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
+        // todo: force waiting for tracking thread to dump state?
+        // and wake up tracking thread, otherwise can loose data
         memhawk->InvalidateModulesCache();
     }
-    return hooks::dlclose(handle);
+    return res;
 }
 
 } // namespace memhawk
+
+// overrides section
+extern "C" {
+
+void* hawk_malloc(size_t size)
+{
+    return memhawk::hawk_malloc(size);
+}
+
+void* hawk_valloc(size_t size)
+{
+    return memhawk::hawk_valloc(size);
+}
+
+void* hawk_aligned_alloc(size_t align, size_t size)
+{
+    return memhawk::hawk_aligned_alloc(align, size);
+}
+
+int hawk_posix_memalign(void** memptr, size_t alignment, size_t size)
+{
+    return memhawk::hawk_posix_memalign(memptr, alignment, size);
+}
+
+void* hawk_calloc(size_t nm, size_t size)
+{
+    return memhawk::hawk_calloc(nm, size);
+}
+
+void* hawk_realloc(void* ptr, size_t size)
+{
+    return memhawk::hawk_realloc(ptr, size);
+}
+
+void* hawk_pvalloc(size_t size)
+{
+    return memhawk::hawk_pvalloc(size);
+}
+
+void hawk_free(void* ptr)
+{
+    memhawk::hawk_free(ptr);
+}
+
+size_t hawk_malloc_usable_size(void* ptr)
+{
+    return memhawk::hawk_malloc_usable_size(ptr);
+}
+
+void* hawk_dlopen(const char* file, int mode)
+{
+    return memhawk::hawk_dlopen(file, mode);
+}
+
+int hawk_dlclose(void* handle)
+{
+    return memhawk::hawk_dlclose(handle);
+}
+
+void* HawkInternalNew(size_t size) noexcept(false)
+{
+    auto ptr = memhawk::hawk_malloc(size);
+    if (unlikely(!ptr))
+    {
+        throw std::bad_alloc{};
+    }
+    return ptr;
+}
+
+void HawkInternalDelete(void* p) noexcept
+{
+    memhawk::hawk_free(p);
+}
+
+void HawkInternalDeleteSized(void* p, size_t /*size*/) noexcept
+{
+    memhawk::hawk_free(p);
+}
+
+void* HawkInternalNewArray(size_t size) noexcept(false)
+{
+    auto ptr = memhawk::hawk_malloc(size);
+    if (unlikely(!ptr))
+    {
+        throw std::bad_alloc{};
+    }
+    return ptr;
+}
+
+void HawkInternalDeleteArray(void* p) noexcept
+{
+    memhawk::hawk_free(p);
+}
+
+void HawkInternalDeleteArraySized(void* p, size_t /*size*/) noexcept
+{
+    memhawk::hawk_free(p);
+}
+
+void* HawkInternalNewNothrow(size_t size, const std::nothrow_t& /*nt*/) noexcept
+{
+    return memhawk::hawk_malloc(size);
+}
+
+void* HawkInternalNewArrayNothrow(size_t size, const std::nothrow_t& /*nt*/) noexcept
+{
+    return memhawk::hawk_malloc(size);
+}
+
+void HawkInternalDeleteNothrow(void* p, const std::nothrow_t& /*nt*/) noexcept
+{
+    memhawk::hawk_free(p);
+}
+
+void HawkInternalDeleteArrayNothrow(void* p, const std::nothrow_t& /*nt*/) noexcept
+{
+    memhawk::hawk_free(p);
+}
+
+void* HawkInternalNewAligned(size_t size, std::align_val_t alignment) noexcept(false)
+{
+    auto ptr = memhawk::hawk_aligned_alloc(static_cast<size_t>(alignment), size);
+    if (unlikely(!ptr))
+    {
+        throw std::bad_alloc{};
+    }
+    return ptr;
+}
+
+void* HawkInternalNewAlignedNothrow(size_t size, std::align_val_t alignment, const std::nothrow_t&) noexcept
+{
+    return memhawk::hawk_aligned_alloc(static_cast<size_t>(alignment), size);
+}
+
+void HawkInternalDeleteAligned(void* p, std::align_val_t /*alignment*/) noexcept
+{
+    memhawk::hawk_free(p);
+}
+
+void HawkInternalDeleteAlignedNothrow(void* p, std::align_val_t /*alignment*/, const std::nothrow_t&) noexcept
+{
+    memhawk::hawk_free(p);
+}
+
+void HawkInternalDeleteSizedAligned(void* p, size_t /*size*/, std::align_val_t /*alignment*/) noexcept
+{
+    memhawk::hawk_free(p);
+}
+
+void* HawkInternalNewArrayAligned(size_t size, std::align_val_t alignment) noexcept(false)
+{
+    auto ptr = memhawk::hawk_aligned_alloc(static_cast<size_t>(alignment), size);
+    if (unlikely(!ptr))
+    {
+        throw std::bad_alloc{};
+    }
+    return ptr;
+}
+
+void* HawkInternalNewArrayAlignedNothrow(size_t size, std::align_val_t alignment, const std::nothrow_t&) noexcept
+{
+    return memhawk::hawk_aligned_alloc(static_cast<size_t>(alignment), size);
+}
+
+void HawkInternalDeleteArrayAligned(void* p, std::align_val_t /*alignment*/) noexcept
+{
+    memhawk::hawk_free(p);
+}
+
+void HawkInternalDeleteArrayAlignedNothrow(void* p, std::align_val_t /*alignment*/, const std::nothrow_t&) noexcept
+{
+    memhawk::hawk_free(p);
+}
+
+void HawkInternalDeleteArraySizedAligned(void* p, size_t /*size*/, std::align_val_t /*alignment*/) noexcept
+{
+    memhawk::hawk_free(p);
+}
+
+} // extern "C"
