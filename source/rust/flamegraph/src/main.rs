@@ -29,6 +29,9 @@ fn get_top_n() -> anyhow::Result<()> {
             .map(|x| LocalizedFrameId::from(x))
             .collect::<Vec<_>>();
 
+        if !path.first().is_some_and(|x| *x == LocalizedFrameId::from(0)) {
+            anyhow::bail!("Incorrect path, first element should be 0");
+        }
         let leaf_node_id = graph.construct_path(&path);
         graph.postpone_update(
             leaf_node_id,
