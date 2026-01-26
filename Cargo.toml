@@ -20,7 +20,7 @@ log = "0.4.28"
 # command line argument parsing
 clap = { version = "4.5.51", features = ["derive"] }
 # clickhouse
-clickhouse = { version = "0.14.0", features = ["time"] }
+clickhouse = { version = "0.14.2", features = ["time", "inserter"] }
 # time
 time = { version = "0.3.44", features = ["serde"] }
 # compression

@@ -13,11 +13,11 @@ pub struct ClickhouseClient {
 }
 
 impl ClickhouseClient {
-    pub fn new(task_tracker: &TaskTracker) -> Self {
+    pub fn new(task_tracker: &TaskTracker, url: &str, user: &str, password: &str) -> Self {
         let client = clickhouse::Client::default()
-            .with_url("http://localhost:8123")
-            .with_user("admin")
-            .with_password("admin")
+            .with_url(url)
+            .with_user(user)
+            .with_password(password)
             .with_database("profiling");
 
         ClickhouseClient {

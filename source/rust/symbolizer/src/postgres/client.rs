@@ -7,11 +7,11 @@ pub struct PostgresClient {
 }
 
 impl PostgresClient {
-    pub async fn new() -> anyhow::Result<Self> {
+    pub async fn new(user: &str, password: &str, port: u16) -> anyhow::Result<Self> {
         let options = PgConnectOptions::new()
-            .username("admin")
-            .password("admin")
-            .port(5432);
+            .username(user)
+            .password(password)
+            .port(port);
         let pool = sqlx::postgres::PgPool::connect_with(options).await?;
         Ok(PostgresClient { pool })
     }

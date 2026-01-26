@@ -5,7 +5,6 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 use strum::IntoEnumIterator;
 use time::OffsetDateTime;
 use tokio::sync::RwLock;
-use tokio_util::task::TaskTracker;
 
 use crate::clickhouse::{client::ClickhouseClient, schema::*};
 use memhawk_core::{
@@ -94,16 +93,15 @@ pub struct Processor {
 }
 
 impl Processor {
-    pub async fn new(task_tracker: &TaskTracker, process_id: i32, sysroot: Option<String>) -> anyhow::Result<Self> {
+    pub async fn new(click: ClickhouseClient, process_id: i32, sysroot: Option<String>, save_location: bool) -> anyhow::Result<Self> {
         let frames_sub = Rc::new(RefCell::new(FramesSubscription::new()));
-        let click = ClickhouseClient::new(task_tracker);
         // clear all leftover state if there is some
         click.clear(process_id).await?;
         let processor = Self {
             process_id,
             sysroot,
             click: click,
-            symbolizer: Arc::new(RwLock::new(Symbolizer::new())),
+            symbolizer: Arc::new(RwLock::new(Symbolizer::new(save_location))),
             localizer_sub: frames_sub.clone(),
             localizer: FrameLocalizer::new(frames_sub),
             ptr_id_to_addr_map: FxHashMap::default(),
@@ -116,13 +114,12 @@ impl Processor {
     }
 
     pub async fn restore(
-        task_tracker: &TaskTracker,
+        click: ClickhouseClient,
         state: RestorableState,
         sysroot: Option<String>,
     ) -> anyhow::Result<Self> {
         let frames_sub: Rc<RefCell<FramesSubscription>> =
             Rc::new(RefCell::new(FramesSubscription::new()));
-        let click = ClickhouseClient::new(task_tracker);
         let symbolizer = Symbolizer::restore(state.symbolizer_state).await;
 
         if sysroot != state.sysroot {
@@ -211,7 +208,7 @@ impl Processor {
         let stacktraces = self.prepare_stacktraces(graph_update.new_leaf_nodes);
         let graph_edges = self.prepare_graph_edges(graph_update.new_nodes);
         let flamegraphs = self.prepare_flamegraphs(timestamp);
-        let timeseries = self.prepare_timeseries(timestamp, graph_update.modified_frames);
+        let timeseries = self.prepare_timeseries(timestamp, graph_update.frames);
 
         let raw_data_to_save = std::mem::take(&mut self.raw_data_to_save);
         let raw_data = self.prepare_raw_data(raw_data_to_save, timestamp);

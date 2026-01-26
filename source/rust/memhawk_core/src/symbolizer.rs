@@ -42,19 +42,22 @@ struct RestorableBinary {
 #[derive(Encode, Decode)]
 pub struct RestorableState {
     binaries: Vec<RestorableBinary>,
+    save_location: bool
 }
 
 pub struct Symbolizer {
     symbol_manager: wholesym::SymbolManager,
     symbol_maps: Vec<LoadedBinary>,
+    save_location: bool
 }
 
 impl Symbolizer {
-    pub fn new() -> Self {
+    pub fn new(save_location: bool) -> Self {
         let config = wholesym::SymbolManagerConfig::new();
         Self {
             symbol_manager: wholesym::SymbolManager::with_config(config),
             symbol_maps: Vec::new(),
+            save_location
         }
     }
 
@@ -69,11 +72,12 @@ impl Symbolizer {
                     first_segment_offset: x.first_segment_offset,
                 })
                 .collect(),
+            save_location: self.save_location
         }
     }
 
     pub async fn restore(state: RestorableState) -> Self {
-        let mut symbolizer = Self::new();
+        let mut symbolizer = Self::new(state.save_location);
         for binary in state.binaries {
             symbolizer
                 .load_binary(
@@ -122,15 +126,18 @@ impl Symbolizer {
                             Some(value) => value,
                             None => continue,
                         };
-                        let file_path = match info.file_path {
-                            Some(ref path) => path.raw_path().to_owned(),
-                            None => "?".to_owned(),
-                        };
-                        let line_number = match info.line_number {
-                            Some(line) => line.to_string(),
-                            None => "?".to_owned(),
-                        };
-                        let location = format!("{}:{}", file_path, line_number);
+                        let mut location = String::default();
+                        if self.save_location {
+                            let file_path = match info.file_path {
+                                Some(ref path) => path.raw_path().to_owned(),
+                                None => "?".to_owned(),
+                            };
+                            let line_number = match info.line_number {
+                                Some(line) => line.to_string(),
+                                None => "?".to_owned(),
+                            };
+                            location = format!("{}:{}", file_path, line_number);
+                        }
                         inlined.push(InlinedFrame {
                             name: function_name,
                             location: location,
@@ -247,6 +254,6 @@ impl Symbolizer {
 
 impl Default for Symbolizer {
     fn default() -> Self {
-        Self::new()
+        Self::new(true)
     }
 }

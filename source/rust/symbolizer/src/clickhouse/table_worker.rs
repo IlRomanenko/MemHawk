@@ -1,7 +1,7 @@
 use anyhow::Result;
 use tokio::sync::mpsc;
 
-use clickhouse::{Client, RowOwned, RowWrite};
+use clickhouse::{Client, RowOwned, RowWrite, inserter::Inserter};
 use tokio_util::task::TaskTracker;
 
 pub struct TableWorker<T> {
@@ -36,7 +36,7 @@ where
 }
 
 struct MsgsSender<T> {
-    client: Client,
+    inserter: Inserter<T>,
     table: &'static str,
     rx: mpsc::Receiver<Vec<T>>,
 }
@@ -46,7 +46,12 @@ where
     T: RowOwned + RowWrite + Send + Sync,
 {
     pub fn new(client: Client, table: &'static str, rx: mpsc::Receiver<Vec<T>>) -> Self {
-        Self { client, table, rx }
+        let inserter = client
+            .inserter::<T>(table)
+            .with_max_bytes(50_000_000)
+            .with_max_rows(750_000)
+            .with_period(Some(std::time::Duration::from_secs(1)));
+        Self { inserter, table, rx }
     }
 
     pub async fn start(&mut self) {
@@ -55,18 +60,20 @@ where
                 log::error!("Failed to insert into {}, error: {}", self.table, e);
             }
         }
+        if let Err(e) = self.inserter.force_commit().await {
+            log::error!("Failed to insert into {}, error: {}", self.table, e);
+        }
         log::info!("Stopped sender for table {}", self.table);
     }
 
-    async fn send_msg(&self, msgs: Vec<T>) -> anyhow::Result<()> {
+    async fn send_msg(&mut self, msgs: Vec<T>) -> anyhow::Result<()> {
         if msgs.is_empty() {
             return Ok(());
         }
-        let mut inserter = self.client.insert::<T>(self.table).await?;
         for msg in msgs {
-            inserter.write(&msg).await?;
+            self.inserter.write(&msg).await?;
         }
-        inserter.end().await?;
+        self.inserter.commit().await?;
         Ok(())
     }
 }

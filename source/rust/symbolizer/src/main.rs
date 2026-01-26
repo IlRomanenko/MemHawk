@@ -1,6 +1,7 @@
 use clap::{Args, Parser, Subcommand};
 use clap_num::maybe_hex;
 use memhawk_core::symbolizer::Symbolizer;
+use symbolizer::clickhouse::client::ClickhouseClient;
 use symbolizer::postgres::client::PostgresClient;
 use symbolizer::postgres::state::SavedState;
 use symbolizer::processor::{self, Processor};
@@ -27,6 +28,32 @@ struct ProcessorArgs {
     force: bool,
     #[arg(long)]
     watch: bool,
+    #[arg(long)]
+    without_location: bool,
+    #[command(flatten)]
+    clickhouse: ClickhouseArgs,
+    #[command(flatten)]
+    postgres: PostgresArgs,
+}
+
+#[derive(Debug, Clone, Args)]
+struct ClickhouseArgs {
+    #[arg(long, default_value = "http://localhost:8123")]
+    clickhouse_url: String,
+    #[arg(long, default_value = "admin")]
+    clickhouse_user: String,
+    #[arg(long, default_value = "admin")]
+    clickhouse_password: String,
+}
+
+#[derive(Debug, Clone, Args)]
+struct PostgresArgs {
+    #[arg(long, default_value_t = 5432)]
+    postgres_port: u16,
+    #[arg(long, default_value = "admin")]
+    postgres_user: String,
+    #[arg(long, default_value = "admin")]
+    postgres_password: String,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -49,11 +76,22 @@ async fn create_processor(
     postgres_client: &PostgresClient,
     process_id: i32,
 ) -> anyhow::Result<processor::Processor> {
-
+    let click = ClickhouseClient::new(
+        task_tracker,
+        &args.clickhouse.clickhouse_url,
+        &args.clickhouse.clickhouse_user,
+        &args.clickhouse.clickhouse_password,
+    );
     if args.force {
         log::info!("Force mode. Dropping saved state if there is any");
         postgres_client.drop_process_state(process_id).await?;
-        return Processor::new(task_tracker, process_id, args.sysroot.clone()).await;
+        return Processor::new(
+            click,
+            process_id,
+            args.sysroot.clone(),
+            !args.without_location,
+        )
+        .await;
     }
     let state = postgres_client.read_process_state(process_id).await?;
     let processor = match state {
@@ -61,11 +99,17 @@ async fn create_processor(
             log::info!("Restoring state");
             let encoded = state.decompress()?;
             let processor_state = bitcode::decode::<processor::RestorableState>(&encoded)?;
-            Processor::restore(task_tracker, processor_state, args.sysroot.clone()).await?
+            Processor::restore(click, processor_state, args.sysroot.clone()).await?
         }
         None => {
             log::info!("Creating new processor");
-            Processor::new(task_tracker, process_id, args.sysroot.clone()).await?
+            Processor::new(
+                click,
+                process_id,
+                args.sysroot.clone(),
+                !args.without_location,
+            )
+            .await?
         }
     };
     Ok(processor)
@@ -79,7 +123,12 @@ async fn process(args: ProcessorArgs, task_tracker: &TaskTracker) -> anyhow::Res
     let mut reader = ProtoReader::new(&filename).await?;
     let process_info = reader.read_message::<ProcessInfo>().await?;
 
-    let postgres_client = PostgresClient::new().await?;
+    let postgres_client = PostgresClient::new(
+        &args.postgres.postgres_user,
+        &args.postgres.postgres_password,
+        args.postgres.postgres_port,
+    )
+    .await?;
     let process_id = postgres_client
         .get_process_id(
             &process_info.process_short_name,
@@ -140,7 +189,7 @@ async fn process(args: ProcessorArgs, task_tracker: &TaskTracker) -> anyhow::Res
 }
 
 async fn addr2line(args: Addr2LineArgs) -> anyhow::Result<()> {
-    let mut symbolizer = Symbolizer::new();
+    let mut symbolizer = Symbolizer::new(true);
     let binary_stub = vec![ElfInfo {
         filename: args.filename,
         addr: 0,

@@ -127,14 +127,13 @@ pub struct RestorableState {
     new_nodes: FxHashSet<NodeId>,
     new_leaf_nodes: FxHashSet<NodeId>,
     modified_nodes: FxHashSet<NodeId>,
-    modified_frames: FxHashSet<LocalizedFrameId>,
 }
 
 pub struct AggregatedModifications {
     pub new_nodes: FxHashSet<NodeId>,
     pub new_leaf_nodes: FxHashSet<NodeId>,
     pub modified_nodes: FxHashSet<NodeId>,
-    pub modified_frames: FxHashMap<LocalizedFrameId, AggregatedAllocSummary>,
+    pub frames: FxHashMap<LocalizedFrameId, AggregatedAllocSummary>,
 }
 
 pub struct NodeWithValue {
@@ -152,7 +151,6 @@ pub struct Graph {
     new_nodes: FxHashSet<NodeId>,
     new_leaf_nodes: FxHashSet<NodeId>,
     modified_nodes: FxHashSet<NodeId>,
-    modified_frames: FxHashSet<LocalizedFrameId>,
 }
 
 impl Graph {
@@ -167,7 +165,6 @@ impl Graph {
             new_nodes: FxHashSet::default(),
             new_leaf_nodes: FxHashSet::default(),
             modified_nodes: FxHashSet::default(),
-            modified_frames: FxHashSet::default(),
         };
         // push root node
         graph.nodes.push(GraphNode {
@@ -192,7 +189,6 @@ impl Graph {
             new_nodes: self.new_nodes.clone(),
             new_leaf_nodes: self.new_leaf_nodes.clone(),
             modified_nodes: self.modified_nodes.clone(),
-            modified_frames: self.modified_frames.clone(),
         }
     }
 
@@ -206,7 +202,6 @@ impl Graph {
             new_nodes: state.new_nodes,
             new_leaf_nodes: state.new_leaf_nodes,
             modified_nodes: state.modified_nodes,
-            modified_frames: state.modified_frames,
         }
     }
 
@@ -367,7 +362,6 @@ impl Graph {
             .entry(node_key)
             .and_modify(|x| x.accumulate(&diff, diff_type))
             .or_insert(AggregatedAllocSummary::from_summary(diff, diff_type));
-        self.modified_frames.insert(node_key);
     }
 
     pub fn process_postponed_updates(&mut self) {
@@ -428,13 +422,13 @@ impl Graph {
             new_nodes: FxHashSet::default(),
             new_leaf_nodes: FxHashSet::default(),
             modified_nodes: FxHashSet::default(),
-            modified_frames: FxHashMap::default(),
+            frames: FxHashMap::default(),
         };
         std::mem::swap(&mut result.new_nodes, &mut self.new_nodes);
         std::mem::swap(&mut result.new_leaf_nodes, &mut self.new_leaf_nodes);
         std::mem::swap(&mut result.modified_nodes, &mut self.modified_nodes);
-        for frame_id in self.modified_frames.drain() {
-            result.modified_frames.insert(
+        for frame_id in self.localized_frame_agg.keys().copied() {
+            result.frames.insert(
                 frame_id,
                 self.localized_frame_agg.get(&frame_id).unwrap().clone(),
             );
