@@ -1,12 +1,14 @@
 # Use a specific version of Ubuntu
 FROM ubuntu:20.04
 ARG DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-c"]
 
 RUN apt-get update -y
 RUN apt-get install -y \
     git ccache \
     libtool autoconf unzip wget \
-    software-properties-common lsb-release
+    software-properties-common lsb-release \ 
+    curl ninja-build
 
 RUN wget -qO- https://apt.llvm.org/llvm.sh | bash -s 18
 RUN apt-get install -y clang-18 lldb-18 libc++-18-dev libc++abi-18-dev clang-tools-18
@@ -20,6 +22,10 @@ RUN apt-add-repository "deb https://apt.kitware.com/ubuntu/ $(lsb_release -cs) m
 RUN apt update -y && \
     apt install -y cmake
 
+# Install newer version of rust
+RUN curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain stable -y
+ENV PATH=/root/.cargo/bin:$PATH
+
 # Set the working directory
 WORKDIR /workspace
 
@@ -28,6 +34,7 @@ COPY . .
 
 # Create a build directory and compile project
 RUN \
-    cmake -B build --preset ReleaseClang -DCMAKE_INSTALL_PREFIX=/artifacts && \
+    cmake -B build --preset Release -DCMAKE_INSTALL_PREFIX=/artifacts && \
     cmake --build build --parallel $(nproc) && \
-    cd build && make install
+    cmake --install build
+

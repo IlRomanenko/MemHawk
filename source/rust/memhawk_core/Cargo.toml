@@ -1,0 +1,18 @@
+[package]
+name = "memhawk_core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow.workspace = true
+bitcode.workspace = true
+strum.workspace = true
+rustc-hash.workspace = true
+wholesym.workspace = true
+prost.workspace = true
+derive_more.workspace = true
+serde.workspace = true
+log.workspace = true
+
+[build-dependencies]
+prost-build = "0.13.5"

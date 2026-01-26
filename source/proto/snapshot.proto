@@ -1,15 +1,15 @@
 syntax = "proto3";
 
-package memhawk.protos;
+package memhawk.proto;
 
 message AllocSummary
 {
-    int64 size = 2;
-    int64 active = 3;
-    int64 overhead = 4;
+    int64 size = 1;
+    int64 active = 2;
+    int64 overhead = 3;
 
-    uint64 totalCount = 5;
-    uint64 totalBytes = 6;
+    uint64 totalCount = 4;
+    uint64 totalBytes = 5;
 }
 
 message TracedAllocSummary
@@ -42,6 +42,14 @@ message ElfInfo
     repeated Segment segments = 3;
 };
 
+message ProcessInfo
+{
+    string processShortName = 1;
+    string processFullPath = 2;
+    uint32 pid = 3;
+    uint64 startTimestamp = 4;
+}
+
 message Snapshot
 {
     uint64 timestamp = 1;
@@ -49,4 +57,7 @@ message Snapshot
     repeated StacktracePtr ptrIds = 3;
     repeated Stacktrace stacktraces = 4;
     repeated ElfInfo loadedSo = 5;
+
+    ProcessInfo process = 6;
+    AllocSummary total = 7;
 }

@@ -14,7 +14,11 @@ ExternalProject_Add(
     GIT_REPOSITORY https://github.com/Cyan4973/xxHash.git
     GIT_TAG v0.8.3
     CONFIGURE_COMMAND ""
-    BUILD_COMMAND make lib
+    BUILD_COMMAND 
+        ${CMAKE_COMMAND} -E env
+            CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
+            CFLAGS=${CFLAGS} CXXFLAGS=${CXXFLAGS}
+            make lib
     INSTALL_COMMAND 
         ${CMAKE_COMMAND} -E env
             CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}

@@ -46,14 +46,14 @@ public:
     void SetAccountingExpectations()
     {
         EXPECT_CALL(*m_writerMock, FlushData).WillRepeatedly(Invoke([&]() {
-            std::unique_lock lock(m_eventMt);
+            const std::scoped_lock lock(m_eventMt);
             m_eventVersion++;
             m_eventCv.notify_all();
         }));
         EXPECT_CALL(*m_writerMock, UpdateModules).WillRepeatedly(Return());
         EXPECT_CALL(*m_writerMock, AccountSnapshot)
             .WillRepeatedly(Invoke([&](const auto& summaries, const auto& /*total*/) {
-                std::lock_guard lock(m_mt);
+                const std::scoped_lock lock(m_mt);
                 for (const auto& [traceId, summary] : summaries)
                 {
                     auto it = m_summaries.find(traceId);
@@ -67,9 +67,10 @@ public:
             }));
     }
 
-    void StartThreadsAndWaitForFinish(std::function<void()> func, size_t threadsCount)
+    void StartThreadsAndWaitForFinish(const std::function<void()>& func, size_t threadsCount)
     {
         std::vector<std::thread> threads;
+        threads.reserve(threadsCount);
         for (size_t i = 0; i < threadsCount; i++)
         {
             threads.emplace_back(func);
@@ -130,7 +131,7 @@ TEST_F(MemHawkFixture, AccountAllocs_ExpectOk)
         {
             AllocInfo info{AllocationSize, Offset};
             Stacktrace stacktrace{};
-            m_memhawk->TrackAlloc(info, std::move(stacktrace));
+            m_memhawk->TrackAlloc(info, stacktrace, true);
         }
     };
 
@@ -139,7 +140,7 @@ TEST_F(MemHawkFixture, AccountAllocs_ExpectOk)
     // stop memhawk processing
     m_memhawk->Stop();
 
-    std::lock_guard lock(m_mt);
+    const std::scoped_lock lock(m_mt);
     EXPECT_EQ(m_summaries.size(), 1);
     for (const auto& [_, summary]: m_summaries)
     {
@@ -169,8 +170,7 @@ TEST_F(MemHawkFixture, AccountDeallocs_ExpectOk)
         for (size_t i = 0; i < TestAllocations; i++)
         {
             AllocInfo info{AllocationSize, Offset};
-            Stacktrace stacktrace{};
-            m_memhawk->TrackDealloc(info, std::move(stacktrace));
+            m_memhawk->TrackDealloc(info, true);
         }
     };
     StartThreadsAndWaitForFinish(testLambda, TestThreads);
@@ -178,7 +178,7 @@ TEST_F(MemHawkFixture, AccountDeallocs_ExpectOk)
     // stop memhawk processing
     m_memhawk->Stop();
 
-    std::lock_guard lock(m_mt);
+    const std::scoped_lock lock(m_mt);
     EXPECT_EQ(m_summaries.size(), 1);
     for (const auto& [_, summary]: m_summaries)
     {
@@ -210,10 +210,9 @@ TEST_F(MemHawkFixture, AllocsAndDeallocs_ExpectOk)
         {
             AllocInfo info{AllocationSize, Offset};
             Stacktrace stacktrace{};
-            m_memhawk->TrackAlloc(info, std::move(stacktrace));
+            m_memhawk->TrackAlloc(info, stacktrace, true);
             // dealloc allocated memory
-            Stacktrace copyStacktrace{};
-            m_memhawk->TrackDealloc(info, std::move(copyStacktrace));
+            m_memhawk->TrackDealloc(info, true);
         }
     };
     StartThreadsAndWaitForFinish(testLambda, TestThreads);
@@ -221,7 +220,7 @@ TEST_F(MemHawkFixture, AllocsAndDeallocs_ExpectOk)
     // stop memhawk processing
     m_memhawk->Stop();
 
-    std::lock_guard lock(m_mt);
+    const std::scoped_lock lock(m_mt);
     EXPECT_EQ(m_summaries.size(), 1);
     for (const auto& [_, summary]: m_summaries)
     {

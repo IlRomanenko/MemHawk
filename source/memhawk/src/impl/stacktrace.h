@@ -1,6 +1,7 @@
 #pragma once
 
 #include "config.h"
+#include "recursion_guard.h"
 
 #include <absl/types/span.h>
 #include <boost/container_hash/hash.hpp>
@@ -52,15 +53,45 @@ public:
     absl::Span<void*> GetTrace();
     absl::Span<void* const> GetTrace() const;
 
+    void UnwindStacktrace(size_t capacity, bool useAbsl, size_t skip);
+
     bool operator==(const Stacktrace& rhs) const;
 
 private:
-    inline void UnwindStacktrace(size_t capacity, bool useAbsl, size_t skip);
-
-private:
-    alignas(64) void* m_data[MaxUnwindDepth]; // don't initialise memory
     size_t m_size{};
     size_t m_skip{};
+
+    void* m_data[MaxUnwindDepth]; // don't initialise memory
+};
+
+struct RecursiveStacktrace
+{
+    RecursiveStacktrace(size_t capacity, bool useAbsl);
+
+    ~RecursiveStacktrace();
+
+    Stacktrace& GetStacktrace()
+    {
+        return trace;
+    }
+
+    bool IsExternal() const
+    {
+        return guard.IsFirst();
+    }
+
+    bool IsTrackable() const
+    {
+#ifdef MEMHAWK_SELF_PROFILING
+        return true;
+#else
+        return IsExternal();
+#endif
+    }
+
+private:
+    RecursionGuard<AllocTag> guard;
+    Stacktrace trace;
 };
 
 } // namespace memhawk

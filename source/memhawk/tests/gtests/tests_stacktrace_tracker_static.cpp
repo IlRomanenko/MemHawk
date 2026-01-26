@@ -50,7 +50,7 @@ TEST_F(StaticStacktraceTrackerFixture, AddTrace_ExpectFound)
     const std::vector<uint64_t> testData = {0x7514af7f7063, 0x7514af839744, 0x7514af8049eb,
                                             0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4};
     auto trace = SetUpStacktrace(testData);
-    const size_t traceId = m_tracker->InsertStacktrace(std::move(trace));
+    const size_t traceId = m_tracker->InsertStacktrace(trace);
     EXPECT_EQ(traceId, GetFixedSizeTraceId(0));
     const auto foundTrace = m_tracker->GetStacktraceFromId(traceId);
     ASSERT_TRUE(foundTrace);
@@ -75,7 +75,8 @@ TEST_F(StaticStacktraceTrackerFixture, AddRandomTraces_ExpectAllFound)
             trace.emplace_back(dist(rng));
         }
         testData.emplace_back(trace); // copy trace
-        const auto traceId = m_tracker->InsertStacktrace(SetUpStacktrace(trace));
+        auto stacktrace = SetUpStacktrace(trace);
+        const auto traceId = m_tracker->InsertStacktrace(stacktrace);
         EXPECT_EQ(traceId, GetFixedSizeTraceId(i));
     }
 

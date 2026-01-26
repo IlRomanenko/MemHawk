@@ -3,6 +3,7 @@
 #include "config.h"
 #include "i_stacktrace_tracker.h"
 #include "stacktrace.h"
+#include "stacktrace_tree.h"
 
 #include <absl/base/internal/spinlock.h>
 #include <absl/container/flat_hash_map.h>
@@ -25,10 +26,12 @@ public:
 
     void PostponedConstruct();
 
-    uint32_t InsertStacktrace(Stacktrace&& trace) override;
+    uint32_t InsertStacktrace(const Stacktrace& trace) override;
     std::optional<Stacktrace> GetStacktraceFromId(uint32_t traceId) override;
 
     size_t StacktracesCount() override;
+
+    void Describe();
 
 private:
     static constexpr uint64_t InvalidEdgeId = std::numeric_limits<uint32_t>::max();
@@ -47,14 +50,9 @@ private:
     struct Storage
     {
         std::deque<TraceNode> nodes;
-        // <nodeId --> ptrId -- > nextNodeId>
-        absl::flat_hash_map<std::pair<uint32_t, uint32_t>, uint32_t> edges;
+        StacktraceTree tree;
 
-        // ptrValue --> ptrId
-        absl::flat_hash_map<uint64_t, uint32_t> ptrMap;
         absl::flat_hash_set<uint32_t> leafsId;
-
-        uint32_t ptrCounter{1};
     };
 
     Stacktrace GetStacktrace(uint32_t traceId);

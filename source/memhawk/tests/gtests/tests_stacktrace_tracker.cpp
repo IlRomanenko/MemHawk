@@ -45,7 +45,7 @@ TEST_F(StacktraceTrackerFixture, AddTrace_ExpectFound)
     const std::vector<uint64_t> testData = {0x7514af7f7063, 0x7514af839744, 0x7514af8049eb,
                                             0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4};
     auto trace = SetUpStacktrace(testData);
-    const size_t traceId = m_tracker->InsertStacktrace(std::move(trace));
+    const size_t traceId = m_tracker->InsertStacktrace(trace);
     EXPECT_NE(traceId, 0);
     const auto foundTrace = m_tracker->GetStacktraceFromId(traceId);
     ASSERT_TRUE(foundTrace);
@@ -57,9 +57,9 @@ TEST_F(StacktraceTrackerFixture, AddTraceTwice_ExpectOneCopy)
     const std::vector<uint64_t> testData = {0x7514af7f7063, 0x7514af839744, 0x7514af8049eb,
                                             0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4};
     auto trace = SetUpStacktrace(testData);
-    const size_t traceId = m_tracker->InsertStacktrace(std::move(trace));
+    const size_t traceId = m_tracker->InsertStacktrace(trace);
     trace = SetUpStacktrace(testData);
-    const size_t nextTraceId = m_tracker->InsertStacktrace(std::move(trace));
+    const size_t nextTraceId = m_tracker->InsertStacktrace(trace);
 
     EXPECT_NE(traceId, 0);
     EXPECT_EQ(traceId, nextTraceId);
@@ -77,11 +77,13 @@ TEST_F(StacktraceTrackerFixture, AddSimilarTraces_ExpectAllFound)
     {
         auto trace = testData;
         trace[0] += i;
-        const size_t traceId = m_tracker->InsertStacktrace(SetUpStacktrace(trace));
+        auto stacktrace = SetUpStacktrace(trace);
+        const size_t traceId = m_tracker->InsertStacktrace(stacktrace);
         EXPECT_EQ(traceId, 6 + i);
     }
     // insert original trace once more time
-    const size_t traceId = m_tracker->InsertStacktrace(SetUpStacktrace(testData));
+    auto testDataStacktrace = SetUpStacktrace(testData);
+    const size_t traceId = m_tracker->InsertStacktrace(testDataStacktrace);
     EXPECT_EQ(traceId, 6);
 }
 
@@ -112,7 +114,8 @@ TEST_F(StacktraceTrackerFixture, AddRandomTracesWithSimilarSuffix_ExpectAllFound
             trace[j] = static_cast<uint64_t>(dist(rng));
         }
         testData.emplace_back(trace); // copy trace
-        const auto traceId = m_tracker->InsertStacktrace(SetUpStacktrace(trace));
+        auto stacktrace = SetUpStacktrace(trace);
+        const auto traceId = m_tracker->InsertStacktrace(stacktrace);
         EXPECT_NE(traceId, 0);
         savedTraceId.push_back(traceId);
     }
@@ -149,7 +152,9 @@ TEST_F(StacktraceTrackerFixture, AddRandomTraces_ExpectAllFound)
             trace.emplace_back(dist(rng));
         }
         testData.emplace_back(trace); // copy trace
-        const auto traceId = m_tracker->InsertStacktrace(SetUpStacktrace(trace));
+        
+        auto stacktrace = SetUpStacktrace(trace);
+        const auto traceId = m_tracker->InsertStacktrace(stacktrace);
         EXPECT_NE(traceId, 0);
         savedTraceId.push_back(traceId);
     }

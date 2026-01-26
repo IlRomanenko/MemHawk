@@ -27,7 +27,13 @@ void ThreadTracker::LockedTracker::PrintTracker()
             m_tracker.m_totalAllocs, m_tracker.m_totalDeallocs);
 }
 
-void ThreadTracker::LockedTracker::SaveTraceId(AllocInfo& info, Stacktrace&& trace)
+void ThreadTracker::UnlockTrackerUnsafe()
+{
+    // manually unlock tracker, that can be locked
+    m_mt.unlock();
+}
+
+void ThreadTracker::LockedTracker::SaveTraceId(AllocInfo& info, Stacktrace& trace)
 {
     m_tracker.m_cacheUsages++;
     trace.Compress(m_tracker.m_localCompressed);
@@ -36,7 +42,7 @@ void ThreadTracker::LockedTracker::SaveTraceId(AllocInfo& info, Stacktrace&& tra
     {
         trace.CollapseRecursion(m_tracker.m_collapseDepth);
         m_tracker.m_cacheMisses++;
-        traceId = m_tracker.m_btTracker.InsertStacktrace(std::move(trace));
+        traceId = m_tracker.m_btTracker.InsertStacktrace(trace);
         auto evicted = m_tracker.m_lruStacktraces.Insert(std::move(m_tracker.m_localCompressed), *traceId);
         if (evicted.has_value())
         {

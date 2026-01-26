@@ -25,7 +25,7 @@ public:
     {
     public:
         // Updates traceId in AllocInfo
-        void SaveTraceId(AllocInfo& info, Stacktrace&& trace);
+        void SaveTraceId(AllocInfo& info, Stacktrace& trace);
 
         void TrackAlloc(const AllocInfo& info);
         void TrackDealloc(const AllocInfo& info);
@@ -62,8 +62,11 @@ public:
         return m_trackerId;
     }
 
+    // Should be called only in PostFork
+    void UnlockTrackerUnsafe();
+
 private:
-    alignas(64) SpinLock m_mt;
+    SpinLock m_mt;
 
     uint32_t m_trackerId{};
     uint32_t m_collapseDepth{};

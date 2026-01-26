@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <future>
 #include <memory>
+#include <mutex>
 #include <pthread.h>
 #include <unistd.h>
 
@@ -29,7 +30,6 @@ namespace memhawk
 {
 
 alignas(64) ABSL_CONST_INIT thread_local ThreadTracker* gtl_tracker = nullptr;
-alignas(64) ABSL_CONST_INIT thread_local std::array<void*, 8> gtl_retPtrs = {};
 
 MemHawk::MemHawk(MemHawkConfig cfg, std::unique_ptr<writers::IWritersFactory> factory)
     : m_cfg(std::move(cfg))
@@ -55,10 +55,11 @@ void MemHawk::Stop()
     const RecursionGuard<AllocTag> guard;
     const RecursionGuard<InnerAllocTag> guardInner;
     {
-        const std::lock_guard lock(m_mt);
+        const std::scoped_lock lock(m_mt);
         m_stopped = true;
         m_cv.notify_all();
     }
+    LogInfo("Stopping memhawk tracker thread");
     if (m_worker.joinable())
     {
         m_worker.join();
@@ -68,7 +69,9 @@ void MemHawk::Stop()
             m_finishedTrackers.size(), m_maxPostponedSize);
     LogInfo("Inner traces: (" fSzt ", " fSzt "), external: " fSzt, m_innerBtTracker.StacktracesCount(),
             m_innerBtTracker.GetStorageSize(), m_btTracker.StacktracesCount());
+    m_btTracker.Describe();
 
+    LogInfo("ExternalTrackers");
     for (const auto& tracker : m_thTrackers)
     {
         tracker->LockTracker().PrintTracker();
@@ -143,19 +146,9 @@ void MemHawk::SetUpThreadFinishPromise(uint32_t trackerId)
     m_finishPromises.push_back(exitPromise.get_future());
 }
 
-void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
+void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace& trace, bool isExternal)
 {
-    const RecursionGuard<RetPtrTag> retPtrGuard;
-    const auto span = trace.GetTrace();
-    const auto level = retPtrGuard.Level();
-    if (likely(span.size() > 1))
-    {
-        gtl_retPtrs[level] = span[1];
-    }
-    const absl::Cleanup retCleanup = [level]() { gtl_retPtrs[level] = nullptr; };
-
-    const RecursionGuard<AllocTag> guard;
-    if (guard)
+    if (likely(isExternal))
     {
         // external allocation
         if (unlikely(gtl_tracker == nullptr))
@@ -163,23 +156,15 @@ void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
             RegisterThread();
         }
         auto lockedTracker = gtl_tracker->LockTracker();
-        lockedTracker.SaveTraceId(info, std::move(trace));
+        lockedTracker.SaveTraceId(info, trace);
         lockedTracker.TrackAlloc(info);
     }
     else
     {
         // internal allocation of memhawk
         const RecursionGuard<InnerAllocTag> innerGuard;
-        // track only inner memhawk's stacktraces in order to reduce index size
-        trace.ShrinkByPtr(gtl_retPtrs[level - 1]); // level can't be less than 1
-        if (level > 1 && !trace.GetTrace().empty())
-        {
-            // don't interested in previous memhawk call
-            // malloc->trace->malloc and free->trace->malloc will be squashed into trace->malloc
-            trace.ShrinkBySize(trace.GetTrace().size() - 1);
-        }
         // set trace id manually, otherwise there can be malloc recursion upon inserting into tracker caches
-        info.traceId = m_innerBtTracker.InsertStacktrace(std::move(trace));
+        info.traceId = m_innerBtTracker.InsertStacktrace(trace);
 
         if (innerGuard)
         {
@@ -195,19 +180,10 @@ void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace&& trace)
     }
 }
 
-void MemHawk::TrackDealloc(AllocInfo& info, const Stacktrace& trace)
+void MemHawk::TrackDealloc(AllocInfo& info, bool isExternal)
 {
-    const RecursionGuard<RetPtrTag> retPtrGuard;
-    const auto span = trace.GetTrace();
-    const auto level = retPtrGuard.Level();
-    if (likely(span.size() > 1))
-    {
-        gtl_retPtrs[level] = span[1];
-    }
-    const absl::Cleanup retCleanup = [level]() { gtl_retPtrs[level] = nullptr; };
-
     const RecursionGuard<AllocTag> guard;
-    if (guard)
+    if (likely(isExternal))
     {
         // external deallocation
         if (unlikely(gtl_tracker == nullptr))
@@ -237,6 +213,32 @@ void MemHawk::TrackDealloc(AllocInfo& info, const Stacktrace& trace)
 void MemHawk::InvalidateModulesCache()
 {
     m_modulesCacheInvalidated.store(true);
+}
+
+void MemHawk::PreFork()
+{
+    // manually lock mutex for tracking worker
+    m_mt.lock();
+}
+
+void MemHawk::ParentPostFork()
+{
+    // not necessary to change state of thread trackers,
+    // because all threads are preserved in parent process
+
+    // safe, because was locked in PreFork
+    m_mt.unlock();
+}
+
+void MemHawk::ChildPostFork()
+{
+    // unlock all thread trackers first
+    m_innerTracker->UnlockTrackerUnsafe();
+    for (auto& tracker: m_thTrackers) {
+        tracker->UnlockTrackerUnsafe();
+    }
+    // safe, because was locked in PreFork
+    m_mt.unlock();
 }
 
 void MemHawk::ProcessPostponed()
@@ -306,13 +308,13 @@ void MemHawk::TrackingWorker()
     m_workerStorage->writer =
         m_writersFactory->CreateWritersAdaptor(*m_cfg.Writers, std::make_shared<InnerStacktraceFinder>(*this));
 
+    const auto waitingDelay = std::chrono::milliseconds{*m_cfg.TrackerDumpingPeriodMs};
+    auto nextTimepoint = std::chrono::steady_clock::now() + waitingDelay;
     while (!m_stopped)
     {
-        {
-            std::unique_lock lock(m_mt);
-            m_cv.wait_for(lock, std::chrono::milliseconds{*m_cfg.TrackerDumpingPeriodMs},
-                          [this]() { return m_stopped.load(); });
-        }
+        std::unique_lock lock(m_mt);
+        m_cv.wait_until(lock, nextTimepoint, [this]() { return m_stopped.load(); });
+        nextTimepoint += waitingDelay;
         WorkerUpdateData();
         WorkerPrintData();
     }

@@ -13,7 +13,7 @@ namespace memhawk
 
 namespace bmi = boost::multi_index;
 
-// Simple and fast lru-cache with accent on minimal allocations
+// Simple and fast lru-cache with focus on minimal allocations
 template <typename Key, typename Value>
 class LruCache
 {

@@ -36,7 +36,8 @@ jobs:
             libtool autoconf unzip wget \
             libboost-container-dev \
             libprotobuf-dev protobuf-compiler \
-            software-properties-common lsb-release
+            software-properties-common lsb-release \
+            rust-all cargo
 
       - name: Ccache persistence
         uses: actions/cache@v3

@@ -1,8 +1,7 @@
 #include "alloc_info.h"
 #include "config.h"
-#include "gmock/gmock.h"
 #include "mock.h"
-#include "protos/snapshot.pb.h"
+#include "proto/snapshot.pb.h"
 #include "writers/proto_writer.h"
 
 #include <gmock/gmock-actions.h>
@@ -19,6 +18,7 @@
 #include <memory>
 #include <optional>
 #include <system_error>
+#include <zstd.h>
 
 using namespace testing;
 
@@ -65,18 +65,67 @@ public:
         }
     }
 
-    void ReadSnapshots(std::vector<protos::Snapshot>& snapshots)
+    std::optional<uint64_t> ReadUint64BigEndian(std::ifstream& stream)
+    {
+        constexpr size_t ValueSize = 8;
+        char buf[ValueSize];
+        if (!stream.read(buf, ValueSize))
+        {
+            // eof
+            EXPECT_EQ(0, stream.gcount());
+            return {};
+        }
+        EXPECT_EQ(8, stream.gcount());
+        uint64_t value = 0;
+        for (size_t i = 0; i < ValueSize; i++)
+        {
+            value <<= 8;
+            value |= static_cast<uint8_t>(buf[i]);
+        }
+        return value;
+    }
+
+    template <typename T>
+    std::optional<T> ReadMessage(std::ifstream& stream)
+    {
+        const auto messageSizeOpt = ReadUint64BigEndian(stream);
+        if (!messageSizeOpt)
+        {
+            return {};
+        }
+        const auto compressedMessageSize = messageSizeOpt.value();
+        std::vector<char> compressed;
+        compressed.resize(compressedMessageSize);
+        EXPECT_TRUE(stream.read(compressed.data(), static_cast<std::streamsize>(compressedMessageSize)));
+        EXPECT_EQ(stream.gcount(), compressedMessageSize);
+        const auto frameContentSize = ZSTD_getFrameContentSize(compressed.data(), compressedMessageSize);
+        EXPECT_NE(frameContentSize, ZSTD_CONTENTSIZE_ERROR);
+        EXPECT_NE(frameContentSize, ZSTD_CONTENTSIZE_UNKNOWN);
+        std::vector<uint8_t> decompressed;
+        decompressed.resize(frameContentSize);
+        const auto decompressedSize =
+            ZSTD_decompress(decompressed.data(), frameContentSize, compressed.data(), compressedMessageSize);
+        EXPECT_FALSE(ZSTD_isError(decompressedSize));
+        T result{};
+        EXPECT_TRUE(result.ParseFromArray(decompressed.data(), static_cast<int>(decompressedSize)));
+        return result;
+    }
+
+    void ReadSnapshots(std::vector<proto::Snapshot>& snapshots)
     {
         std::ifstream stream(m_filename, std::ios_base::in | std::ios_base::binary);
-        google::protobuf::io::IstreamInputStream inputStream(&stream);
-        google::protobuf::io::CodedInputStream codedStream(&inputStream);
+        auto processInfo = ReadMessage<proto::ProcessInfo>(stream);
+        EXPECT_TRUE(processInfo);
 
-        protos::Snapshot snapshot{};
-        while (google::protobuf::util::ParseDelimitedFromCodedStream(&snapshot, &codedStream, nullptr))
+        std::optional<proto::Snapshot> snapshot;
+        do
         {
-            snapshots.push_back(std::move(snapshot));
-            snapshot = {};
-        }
+            snapshot = ReadMessage<proto::Snapshot>(stream);
+            if (snapshot)
+            {
+                snapshots.push_back(snapshot.value());
+            }
+        } while (snapshot);
     }
 
 protected:
@@ -89,7 +138,7 @@ protected:
 
 TEST_F(ProtobufWriterFixture, CreateAndConstruct_ExpectOk)
 {
-    writers::ProtobufWriter writer{m_cfg, m_finderMock};
+    const writers::ProtobufWriter writer{m_cfg, m_finderMock};
 }
 
 TEST_F(ProtobufWriterFixture, AccountSnapshot_ExpectOk)
@@ -99,7 +148,7 @@ TEST_F(ProtobufWriterFixture, AccountSnapshot_ExpectOk)
         writer.AccountSnapshot({{TraceId1, Summary1}}, Summary1);
         writer.FlushData();
     }
-    std::vector<protos::Snapshot> snapshots;
+    std::vector<proto::Snapshot> snapshots;
     ReadSnapshots(snapshots);
 
     EXPECT_EQ(snapshots.size(), 1);
@@ -117,7 +166,7 @@ TEST_F(ProtobufWriterFixture, AccountSnapshot_MultipleCalls_ExpectOk)
         writer.AccountSnapshot({{TraceId3, Summary3}}, Summary3);
         writer.FlushData();
     }
-    std::vector<protos::Snapshot> snapshots;
+    std::vector<proto::Snapshot> snapshots;
     ReadSnapshots(snapshots);
 
     ASSERT_EQ(snapshots.size(), 1);
@@ -140,7 +189,7 @@ TEST_F(ProtobufWriterFixture, AccountSnapshot_MultipleWrites_ExpectOk)
         writer.AccountSnapshot({{TraceId3, Summary3}}, Summary3);
         writer.FlushData();
     }
-    std::vector<protos::Snapshot> snapshots;
+    std::vector<proto::Snapshot> snapshots;
     ReadSnapshots(snapshots);
 
     ASSERT_EQ(snapshots.size(), 3);

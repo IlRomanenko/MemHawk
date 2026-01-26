@@ -20,7 +20,17 @@ struct RecursionGuard
         level--;
     }
 
+    RecursionGuard(const RecursionGuard&) = delete;
+    RecursionGuard(RecursionGuard&&) = delete;
+    RecursionGuard& operator=(const RecursionGuard&) = delete;
+    RecursionGuard& operator=(RecursionGuard&&) = delete;
+
     explicit operator bool() const
+    {
+        return IsFirst();
+    }
+
+    bool IsFirst() const
     {
         return level == 1;
     }

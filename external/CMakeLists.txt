@@ -37,7 +37,20 @@ FetchContent_Declare(
 set(BOOST_INCLUDE_LIBRARIES container hana multi_index range algorithm circular_buffer concept_check)
 FetchContent_MakeAvailable(Boost)
 
-if (MEMHAWK_BUILD_PROTOBUF)
+message(NOTICE "Enabling `zstd` dependency")
+FetchContent_Declare(
+    zstd
+    GIT_REPOSITORY https://github.com/facebook/zstd.git
+    GIT_TAG v1.5.7
+    SOURCE_SUBDIR "build/cmake"
+    EXCLUDE_FROM_ALL
+    SYSTEM
+)
+set(ZSTD_BUILD_STATIC ON)
+set(ZSTD_BUILD_SHARED OFF)
+FetchContent_MakeAvailable(zstd)
+
+if (${MEMHAWK_BUILD_PROTOBUF})
     set(protobuf_BUILD_TESTS OFF CACHE BOOL "Disable tests" FORCE)
     set(protobuf_BUILD_EXAMPLES OFF CACHE BOOL "Disable examples" FORCE)
     set(protobuf_LOCAL_DEPENDENCIES_ONLY ON CACHE BOOL "Only local dependencies" FORCE)
@@ -57,10 +70,11 @@ if (MEMHAWK_BUILD_PROTOBUF)
         OVERRIDE_FIND_PACKAGE
     )
     FetchContent_MakeAvailable(protobuf)
+else()
+    message(NOTICE "Enabling system `protobuf` dependency")
+    # Use system protobuf
+    find_package(Protobuf REQUIRED GLOBAL)
 endif()
-
-# Find package - from sources or from host system
-find_package(Protobuf REQUIRED)
 
 if(${MEMHAWK_BUILD_TESTING})
 
@@ -87,7 +101,7 @@ if(${MEMHAWK_BUILD_TESTING})
     FetchContent_MakeAvailable(benchmark)
 endif()
 
-find_package(Threads REQUIRED)
+find_package(Threads REQUIRED GLOBAL)
 
 # set flags for external dependencies
 set(CFLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_RELWITHDEBINFO}")
