@@ -549,7 +549,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE int hawk_dlclose(void* handle)
     {
         hooks::InitDlHooks();
     }
-    int res = hooks::dlclose(handle);
+    const int res = hooks::dlclose(handle);
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
         // todo: force waiting for tracking thread to dump state?
