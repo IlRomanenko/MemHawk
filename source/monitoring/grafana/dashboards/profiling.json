@@ -121,7 +121,7 @@
           },
           "id": 2,
           "options": {},
-          "pluginVersion": "12.2.3",
+          "pluginVersion": "12.2.1",
           "targets": [
             {
               "builderOptions": {
@@ -252,7 +252,7 @@
             "h": 14,
             "w": 24,
             "x": 0,
-            "y": 760
+            "y": 17
           },
           "id": 5,
           "options": {
@@ -266,7 +266,7 @@
               }
             ]
           },
-          "pluginVersion": "12.2.3",
+          "pluginVersion": "12.2.1",
           "targets": [
             {
               "builderOptions": {
@@ -487,7 +487,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.2.3",
+      "pluginVersion": "12.2.1",
       "targets": [
         {
           "builderOptions": {
@@ -690,7 +690,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.2.3",
+      "pluginVersion": "12.2.1",
       "targets": [
         {
           "builderOptions": {
@@ -835,7 +835,7 @@
             "h": 16,
             "w": 12,
             "x": 0,
-            "y": 18
+            "y": 787
           },
           "id": 7,
           "options": {},
@@ -882,7 +882,7 @@
             "h": 16,
             "w": 12,
             "x": 12,
-            "y": 18
+            "y": 787
           },
           "id": 8,
           "options": {},
@@ -959,7 +959,7 @@
             "h": 14,
             "w": 24,
             "x": 0,
-            "y": 34
+            "y": 803
           },
           "id": 12,
           "options": {
@@ -1140,7 +1140,7 @@
             "h": 14,
             "w": 12,
             "x": 0,
-            "y": 539
+            "y": 1308
           },
           "id": 17,
           "options": {
@@ -1265,7 +1265,7 @@
             "h": 14,
             "w": 12,
             "x": 12,
-            "y": 539
+            "y": 1308
           },
           "id": 18,
           "maxDataPoints": 500,
@@ -1353,7 +1353,7 @@
             "h": 16,
             "w": 12,
             "x": 0,
-            "y": 554
+            "y": 1323
           },
           "id": 26,
           "options": {},
@@ -1400,7 +1400,7 @@
             "h": 16,
             "w": 12,
             "x": 12,
-            "y": 554
+            "y": 1323
           },
           "id": 27,
           "options": {},
@@ -1477,7 +1477,7 @@
             "h": 14,
             "w": 24,
             "x": 0,
-            "y": 570
+            "y": 1339
           },
           "id": 28,
           "options": {
@@ -1658,7 +1658,7 @@
             "h": 14,
             "w": 12,
             "x": 0,
-            "y": 585
+            "y": 1354
           },
           "id": 30,
           "options": {
@@ -1783,7 +1783,7 @@
             "h": 14,
             "w": 12,
             "x": 12,
-            "y": 585
+            "y": 1354
           },
           "id": 31,
           "maxDataPoints": 500,
@@ -1871,7 +1871,7 @@
             "h": 12,
             "w": 24,
             "x": 0,
-            "y": 600
+            "y": 1369
           },
           "id": 22,
           "options": {},
@@ -1976,7 +1976,7 @@
             "h": 12,
             "w": 24,
             "x": 0,
-            "y": 612
+            "y": 1381
           },
           "id": 23,
           "options": {},
@@ -2085,11 +2085,11 @@
           "type": "grafana-postgresql-datasource",
           "uid": "af8746j674npce"
         },
-        "definition": "select distinct process_name from profiling.processes;",
+        "definition": "select distinct process_name from profiling.processes order by process_name;",
         "label": "Process name",
         "name": "process_name",
         "options": [],
-        "query": "select distinct process_name from profiling.processes;",
+        "query": "select distinct process_name from profiling.processes order by process_name;",
         "refresh": 1,
         "regex": "",
         "type": "query"
@@ -2103,11 +2103,11 @@
           "type": "grafana-postgresql-datasource",
           "uid": "af8746j674npce"
         },
-        "definition": "SELECT 'value: ' || start_time || ', text: ' || TO_TIMESTAMP(start_time / 1000000000) FROM profiling.processes WHERE process_name = '$process_name';",
+        "definition": "SELECT 'value: ' || start_time || ', text: ' || TO_TIMESTAMP(start_time / 1000000000) FROM profiling.processes WHERE process_name = '$process_name' order by start_time desc;",
         "label": "Start time",
         "name": "start_time",
         "options": [],
-        "query": "SELECT 'value: ' || start_time || ', text: ' || TO_TIMESTAMP(start_time / 1000000000) FROM profiling.processes WHERE process_name = '$process_name';",
+        "query": "SELECT 'value: ' || start_time || ', text: ' || TO_TIMESTAMP(start_time / 1000000000) FROM profiling.processes WHERE process_name = '$process_name' order by start_time desc;",
         "refresh": 2,
         "regex": "/value:\\s+(?<value>\\d+),\\s+|text:\\s+(?<text>.*)/g",
         "type": "query"
@@ -2172,19 +2172,23 @@
       {
         "allowCustomValue": false,
         "current": {
-          "text": [],
-          "value": []
+          "text": [
+            "root::"
+          ],
+          "value": [
+            "0"
+          ]
         },
         "datasource": {
           "type": "grafana-clickhouse-datasource",
           "uid": "PDEE91DDB90597936"
         },
-        "definition": "SELECT\n    'value:' || label_id || '###text:' || label || ':' || library || ':' || location\nFROM\n    profiling.localized_name\nWHERE\n    process_id == ${process_id}",
+        "definition": "SELECT\n    'value:' || label_id || '###text:' || label || ':' || library || ':' || location\nFROM\n    profiling.localized_name\nWHERE\n    process_id == ${process_id}\nORDER BY label_id ASC",
         "hide": 2,
         "multi": true,
         "name": "possible_functions",
         "options": [],
-        "query": "SELECT\n    'value:' || label_id || '###text:' || label || ':' || library || ':' || location\nFROM\n    profiling.localized_name\nWHERE\n    process_id == ${process_id}",
+        "query": "SELECT\n    'value:' || label_id || '###text:' || label || ':' || library || ':' || location\nFROM\n    profiling.localized_name\nWHERE\n    process_id == ${process_id}\nORDER BY label_id ASC",
         "refresh": 1,
         "regex": "/value:(?<value>\\d+)###|text:(?<text>.*)/g",
         "type": "query"
@@ -2197,7 +2201,7 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Main profiling dashboard Copy",
+  "title": "Main profiling dashboard",
   "uid": "adlkpd2",
-  "version": 2
+  "version": 1
 }

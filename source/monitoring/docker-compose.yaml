@@ -36,15 +36,20 @@ services:
       - "${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
 
   grafana:
-    image: grafana/grafana:12.2
     container_name: grafana
     restart: unless-stopped
+    build:
+      context: ./grafana
+      dockerfile: Dockerfile
+      network: host
+      args:
+        - HTTP_PROXY=${HTTP_PROXY}
+        - HTTPS_PROXY=${HTTPS_PROXY}
     depends_on:
       - clickhouse
     networks:
       - monitoring_net
     environment:
-      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource,williamvenner-timepickerbuttons-panel,volkovlabs-variable-panel
       - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-admin}
       - GF_USERS_ALLOW_SIGN_UP=false

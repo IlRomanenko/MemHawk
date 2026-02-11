@@ -17,6 +17,8 @@ Open grafana ui: http://localhost:3000, user - `admin`, password - `admin`
 docker compose down -v
 ```
 
+**Note:** In case you are using proxy, setup correct `HTTP[S]_PROXY` in `.env` file
+
 ## Admin panels and credentials
 
 * Grafana UI: http://localhost:3000
