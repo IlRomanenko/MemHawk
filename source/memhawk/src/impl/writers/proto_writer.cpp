@@ -71,6 +71,9 @@ ProtobufWriter::ProtobufWriter(ProtobufWriterConfig cfg, std::shared_ptr<IStackt
     }
     m_ofstream = std::make_unique<std::ofstream>(filename, std::ios_base::out | std::ios_base::binary);
     WriteProcessInfo();
+    // account empty allocation in order to correctly start time tracking
+    AccountSnapshot({{0, {}}}, {});
+    FlushData();
 }
 
 void ProtobufWriter::UpdateModules()

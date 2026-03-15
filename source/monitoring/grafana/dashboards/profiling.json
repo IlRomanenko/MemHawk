@@ -472,7 +472,6 @@
         "y": 6
       },
       "id": 4,
-      "interval": "1s",
       "maxDataPoints": 500,
       "options": {
         "legend": {
@@ -600,7 +599,7 @@
           },
           "pluginVersion": "4.12.0",
           "queryType": "table",
-          "rawSql": "SELECT\n    $__timeInterval(timestamp) as \"time\",\n    max(total_value) as rss\nFROM\n    \"profiling\".\"timeseries\"\nWHERE \n    $__timeFilter_ms(timestamp)\n    AND ( process_id = $process_id )\n    AND label_id = 0\n    AND value_type = 'active_size'\nGROUP BY (\"time\")\nORDER BY \"time\" ASC\n;",
+          "rawSql": "SELECT\n    $__timeInterval_ms(timestamp) as \"time\",\n    max(total_value) as rss\nFROM\n    \"profiling\".\"timeseries\"\nWHERE \n    $__timeFilter_ms(timestamp)\n    AND ( process_id = $process_id )\n    AND label_id = 0\n    AND value_type = 'active_size'\nGROUP BY (\"time\")\nORDER BY \"time\" ASC\n;",
           "refId": "A"
         }
       ],
@@ -803,7 +802,7 @@
           },
           "pluginVersion": "4.12.0",
           "queryType": "timeseries",
-          "rawSql": "SELECT\n    $__timeInterval(timestamp) as \"time\",\n    max(total_value) as active_allocations\nFROM\n    \"profiling\".\"timeseries\"\nWHERE \n    $__timeFilter_ms(timestamp)\n    AND ( process_id = $process_id )\n    AND label_id = 0\n    AND value_type = 'active_count'\nGROUP BY (\"time\")\nORDER BY \"time\" ASC\n;",
+          "rawSql": "SELECT\n    $__timeInterval_ms(timestamp) as \"time\",\n    max(total_value) as active_allocations\nFROM\n    \"profiling\".\"timeseries\"\nWHERE \n    $__timeFilter_ms(timestamp)\n    AND ( process_id = $process_id )\n    AND label_id = 0\n    AND value_type = 'active_count'\nGROUP BY (\"time\")\nORDER BY \"time\" ASC\n;",
           "refId": "A"
         }
       ],
@@ -1303,7 +1302,7 @@
               },
               "pluginVersion": "4.12.0",
               "queryType": "table",
-              "rawSql": "WITH (\nSELECT\n    arrayZip([${possible_functions:raw}], splitByString(' + ', '${possible_functions:text}')) as options\n) as options\nSELECT\n    arrayFirst(x -> x.1 == label_id, options).2 as label,\n    max(total_value) as value,\n    $__timeInterval(timestamp) as time\nFROM\n    profiling.timeseries\nWHERE\n    $__timeFilter_ms(timestamp)\n    AND process_id == ${process_id}\n    AND label_id IN (${possible_functions:raw})\n    AND value_type == 'active_size'\nGROUP BY (\"time\", label)\nORDER BY \"time\" ASC",
+              "rawSql": "WITH (\nSELECT\n    arrayZip([${possible_functions:raw}], splitByString(' + ', '${possible_functions:text}')) as options\n) as options\nSELECT\n    arrayFirst(x -> x.1 == label_id, options).2 as label,\n    max(total_value) as value,\n    $__timeInterval_ms(timestamp) as time\nFROM\n    profiling.timeseries\nWHERE\n    $__timeFilter_ms(timestamp)\n    AND process_id == ${process_id}\n    AND label_id IN (${possible_functions:raw})\n    AND value_type == 'active_size'\nGROUP BY (\"time\", label)\nORDER BY \"time\" ASC",
               "refId": "A"
             }
           ],
@@ -1821,7 +1820,7 @@
               },
               "pluginVersion": "4.12.0",
               "queryType": "table",
-              "rawSql": "WITH (\nSELECT\n    arrayZip([${possible_functions:raw}], splitByString(' + ', '${possible_functions:text}')) as options\n) as options\nSELECT\n    arrayFirst(x -> x.1 == label_id, options).2 as label,\n    max(total_value) as value,\n    $__timeInterval(timestamp) as time\nFROM\n    profiling.timeseries\nWHERE\n    $__timeFilter_ms(timestamp)\n    AND process_id == ${process_id}\n    AND label_id IN (${possible_functions:raw})\n    AND value_type == 'active_count'\nGROUP BY (\"time\", label)\nORDER BY \"time\" ASC",
+              "rawSql": "WITH (\nSELECT\n    arrayZip([${possible_functions:raw}], splitByString(' + ', '${possible_functions:text}')) as options\n) as options\nSELECT\n    arrayFirst(x -> x.1 == label_id, options).2 as label,\n    max(total_value) as value,\n    $__timeInterval_ms(timestamp) as time\nFROM\n    profiling.timeseries\nWHERE\n    $__timeFilter_ms(timestamp)\n    AND process_id == ${process_id}\n    AND label_id IN (${possible_functions:raw})\n    AND value_type == 'active_count'\nGROUP BY (\"time\", label)\nORDER BY \"time\" ASC",
               "refId": "A"
             }
           ],

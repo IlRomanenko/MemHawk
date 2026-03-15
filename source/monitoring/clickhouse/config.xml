@@ -1,6 +1,122 @@
-<yandex>
+<clickhouse>
   <logger>
     <level>warning</level>
+    <size>50M</size>
+    <count>3</count>
+    <log>/var/log/clickhouse-server/clickhouse-server.log</log>
+    <errorlog>/var/log/clickhouse-server/clickhouse-server.err.log</errorlog>
   </logger>
-  <http_server_default_response>OK</http_server_default_response>
-</yandex>
+
+  <max_connections>4096</max_connections>
+  <max_concurrent_queries>100</max_concurrent_queries>
+  <keepalive_timeout>3</keepalive_timeout>
+
+  <query_log>
+    <database>system</database>
+    <table>query_log</table>
+    <partition_by>toYYYYMMDD(event_date)</partition_by>
+    <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+    <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+    <max_size_rows>1048576</max_size_rows>
+    <reserved_size_rows>8192</reserved_size_rows>
+    <buffer_size_rows_flush_threshold>524288</buffer_size_rows_flush_threshold>
+    <flush_on_crash>false</flush_on_crash>
+  </query_log>
+ 
+  <query_thread_log>
+    <database>system</database>
+    <table>query_thread_log</table>
+    <partition_by>toYYYYMMDD(event_date)</partition_by>
+    <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+    <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+    <max_size_rows>1048576</max_size_rows>
+    <reserved_size_rows>8192</reserved_size_rows>
+    <buffer_size_rows_flush_threshold>524288</buffer_size_rows_flush_threshold>
+    <flush_on_crash>false</flush_on_crash>
+  </query_thread_log>
+
+  <query_views_log>
+    <database>system</database>
+    <table>query_views_log</table>
+    <partition_by>toYYYYMMDD(event_date)</partition_by>
+    <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+    <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+    <max_size_rows>1048576</max_size_rows>
+    <reserved_size_rows>8192</reserved_size_rows>
+    <buffer_size_rows_flush_threshold>524288</buffer_size_rows_flush_threshold>
+    <flush_on_crash>false</flush_on_crash>
+  </query_views_log>
+
+  <part_log>
+    <database>system</database>
+    <table>part_log</table>
+    <partition_by>toYYYYMMDD(event_date)</partition_by>
+    <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+    <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+    <max_size_rows>1048576</max_size_rows>
+    <reserved_size_rows>8192</reserved_size_rows>
+    <buffer_size_rows_flush_threshold>524288</buffer_size_rows_flush_threshold>
+    <flush_on_crash>false</flush_on_crash>
+  </part_log>
+
+  <trace_log>
+    <database>system</database>
+    <table>trace_log</table>
+    <partition_by>toYYYYMMDD(event_date)</partition_by>
+    <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+    <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+    <max_size_rows>1048576</max_size_rows>
+    <reserved_size_rows>8192</reserved_size_rows>
+    <buffer_size_rows_flush_threshold>524288</buffer_size_rows_flush_threshold>
+    <flush_on_crash>false</flush_on_crash>
+    <symbolize>false</symbolize>
+  </trace_log>
+
+  <metric_log>
+    <database>system</database>
+    <table>metric_log</table>
+    <partition_by>toYYYYMMDD(event_date)</partition_by>
+    <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+    <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+    <max_size_rows>1048576</max_size_rows>
+    <reserved_size_rows>8192</reserved_size_rows>
+    <buffer_size_rows_flush_threshold>524288</buffer_size_rows_flush_threshold>
+    <flush_on_crash>false</flush_on_crash>
+  </metric_log>
+
+  <asynchronous_metric_log>
+    <database>system</database>
+    <table>asynchronous_metric_log</table>
+    <partition_by>toYYYYMMDD(event_date)</partition_by>
+    <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+    <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+    <max_size_rows>1048576</max_size_rows>
+    <reserved_size_rows>8192</reserved_size_rows>
+    <buffer_size_rows_flush_threshold>524288</buffer_size_rows_flush_threshold>
+    <flush_on_crash>false</flush_on_crash>
+  </asynchronous_metric_log>
+
+  <session_log>
+    <database>system</database>
+    <table>session_log</table>
+    <partition_by>toYYYYMMDD(event_date)</partition_by>
+    <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+    <flush_interval_milliseconds>7500</flush_interval_milliseconds>
+    <max_size_rows>1048576</max_size_rows>
+    <reserved_size_rows>8192</reserved_size_rows>
+    <buffer_size_rows_flush_threshold>524288</buffer_size_rows_flush_threshold>
+    <flush_on_crash>false</flush_on_crash>
+  </session_log>
+
+
+  <!-- Disabling other logs-->
+  <text_log remove="1" />
+  <opentelemetry_span_log remove="1" />
+  <processors_profile_log remove="1" />
+  <zookeeper_log remove="1" />
+  <filesystem_cache_log remove="1" />
+  <s3_queue_log remove="1" />
+  <backup_log remove="1" />
+  <asynchronous_insert_log remove="1" />
+
+</clickhouse>
