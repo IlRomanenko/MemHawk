@@ -141,6 +141,17 @@ TEST_F(ProtobufWriterFixture, CreateAndConstruct_ExpectOk)
     const writers::ProtobufWriter writer{m_cfg, m_finderMock};
 }
 
+TEST_F(ProtobufWriterFixture, Ctr_ExpectDummySnapshot)
+{
+    {
+        const writers::ProtobufWriter writer{m_cfg, m_finderMock};
+    }
+    std::vector<proto::Snapshot> snapshots;
+    ReadSnapshots(snapshots);
+
+    EXPECT_EQ(snapshots.size(), 1);
+}
+
 TEST_F(ProtobufWriterFixture, AccountSnapshot_ExpectOk)
 {
     {
@@ -151,7 +162,7 @@ TEST_F(ProtobufWriterFixture, AccountSnapshot_ExpectOk)
     std::vector<proto::Snapshot> snapshots;
     ReadSnapshots(snapshots);
 
-    EXPECT_EQ(snapshots.size(), 1);
+    EXPECT_EQ(snapshots.size(), 2);
 }
 
 TEST_F(ProtobufWriterFixture, AccountSnapshot_MultipleCalls_ExpectOk)
@@ -169,10 +180,10 @@ TEST_F(ProtobufWriterFixture, AccountSnapshot_MultipleCalls_ExpectOk)
     std::vector<proto::Snapshot> snapshots;
     ReadSnapshots(snapshots);
 
-    ASSERT_EQ(snapshots.size(), 1);
-    EXPECT_EQ(snapshots.front().changed_size(), 3);
-    EXPECT_EQ(snapshots.front().ptrids_size(), 0);
-    EXPECT_EQ(snapshots.front().stacktraces_size(), 0);
+    ASSERT_EQ(snapshots.size(), 2);
+    EXPECT_EQ(snapshots.back().changed_size(), 3);
+    EXPECT_EQ(snapshots.back().ptrids_size(), 0);
+    EXPECT_EQ(snapshots.back().stacktraces_size(), 0);
 }
 
 TEST_F(ProtobufWriterFixture, AccountSnapshot_MultipleWrites_ExpectOk)
@@ -192,8 +203,9 @@ TEST_F(ProtobufWriterFixture, AccountSnapshot_MultipleWrites_ExpectOk)
     std::vector<proto::Snapshot> snapshots;
     ReadSnapshots(snapshots);
 
-    ASSERT_EQ(snapshots.size(), 3);
-    for (const auto& snapshot : snapshots)
+    ASSERT_EQ(snapshots.size(), 4);
+    const auto actualSnapshots = std::span(snapshots).subspan(1);
+    for (const auto& snapshot : actualSnapshots)
     {
         EXPECT_EQ(snapshot.changed_size(), 1);
         EXPECT_EQ(snapshot.ptrids_size(), 0);
