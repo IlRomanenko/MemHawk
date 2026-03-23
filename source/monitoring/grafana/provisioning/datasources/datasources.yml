@@ -6,7 +6,7 @@ datasources:
     uid: PDEE91DDB90597936
     jsonData:
       defaultDatabase: profiling
-      host: clickhouse
+      host: memhawk_clickhouse
       port: 9000
       protocol: native 
       secure: false
@@ -19,7 +19,7 @@ datasources:
     type: grafana-postgresql-datasource
     access: proxy
     uid: af8746j674npce
-    url: postgres:5432
+    url: memhawk_postgres:5432
     user: admin
     secureJsonData:
       password: admin

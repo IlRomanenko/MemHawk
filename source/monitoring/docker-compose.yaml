@@ -1,11 +1,11 @@
 services:
 
-  postgres:
+  memhawk_postgres:
     image: postgres:18-trixie
-    container_name: postgres
+    container_name: memhawk_postgres
     restart: unless-stopped
     networks:
-      - monitoring_net
+      - memhawk_monitoring_net
     # set shared memory limit when using docker compose
     shm_size: 128mb
     environment:
@@ -13,30 +13,30 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-admin}
     volumes:
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
-      - postgres_data:/var/lib/postgresql
+      - memhawk_postgres_data:/var/lib/postgresql
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
 
-  clickhouse:
+  memhawk_clickhouse:
     image: clickhouse/clickhouse-server:25.10
-    container_name: clickhouse
+    container_name: memhawk_clickhouse
     restart: unless-stopped
     networks:
-      - monitoring_net
+      - memhawk_monitoring_net
     environment:
       - CLICKHOUSE_USER=${CLICKHOUSE_USER:-admin}
       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-admin}
     volumes:
       - ./clickhouse/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./clickhouse/config.xml:/etc/clickhouse-server/config.d/custom.xml
-      - clickhouse_data:/var/lib/clickhouse
+      - memhawk_clickhouse_data:/var/lib/clickhouse
       - ./clickhouse/udfs:/var/lib/clickhouse/user_scripts
     ports:
       - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
       - "${CLICKHOUSE_NATIVE_PORT:-9000}:9000"
 
-  grafana:
-    container_name: grafana
+  memhawk_grafana:
+    container_name: memhawk_grafana
     restart: unless-stopped
     build:
       context: ./grafana
@@ -46,9 +46,9 @@ services:
         - HTTP_PROXY=${HTTP_PROXY}
         - HTTPS_PROXY=${HTTPS_PROXY}
     depends_on:
-      - clickhouse
+      - memhawk_clickhouse
     networks:
-      - monitoring_net
+      - memhawk_monitoring_net
     environment:
       - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-admin}
@@ -57,15 +57,15 @@ services:
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/dashboards:/var/lib/grafana/dashboards
-      - grafana_data:/var/lib/grafana
+      - memhawk_grafana_data:/var/lib/grafana
     ports:
       - "${GRAFANA_PORT:-3000}:3000"
 
 volumes:
-  clickhouse_data:
-  postgres_data:
-  grafana_data:
+  memhawk_clickhouse_data:
+  memhawk_postgres_data:
+  memhawk_grafana_data:
 
 networks:
-  monitoring_net:
+  memhawk_monitoring_net:
     driver: bridge
