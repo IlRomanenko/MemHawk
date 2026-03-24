@@ -8,7 +8,7 @@
 
 ## Overview
 
-MemHawk traces all memory allocations and summaries them by stack traces. It helps you quickly identify the top-N memory allocation traces that are consuming the most memory — perfect for tracking down leaks in your application.
+MemHawk traces all memory allocations and summarizes them by stack traces. It helps you quickly identify the top-N memory allocation traces that are consuming the most memory — perfect for tracking down leaks in your application.
 
 
 ## Features
@@ -23,7 +23,7 @@ MemHawk traces all memory allocations and summaries them by stack traces. It hel
 | **Grafana integration** | Realtime monitoring with second-by-second metrics |
 | **Heaptrack integration** | Output compatible with heaptrack GUI **(*)** |
 
-> **(*)Note:** Heaptrack mode writes per-second samples, so allocation counts may differ from total (sizes are accurate). More info in heaptrack section.
+> **(*)Note:** Heaptrack mode writes per-second samples, so allocation counts may differ from total (sizes are accurate). More info in the heaptrack section.
 
 ## Benchmarks
 
@@ -62,11 +62,13 @@ docker compose -f memhawk/monitoring/docker-compose.yaml up -d
 LD_PRELOAD=./memhawk/lib/libmemhawk.so <your_application>
 ```
 
-#### 4. Load profile file and symbolize during(or after) application running
+#### 4. Load the profile file and symbolize it during(or after) application running
 
 ```bash
 ./memhawk/bin/symbolizer processor -f memhawk_<process_name>_<process_pid>_protobuf.binpb --watch
 ```
+
+**N.B.** By default symbolification is done up to function level, in order to determine concrete code line, pass additional flag `with-location`, however, it can bloat the timeseries table and make such graphs unreadable.
 
 #### 5. Inspect memory profiling
 

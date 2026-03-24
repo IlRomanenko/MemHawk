@@ -29,7 +29,7 @@ struct ProcessorArgs {
     #[arg(long)]
     watch: bool,
     #[arg(long)]
-    without_location: bool,
+    with_location: bool,
     #[command(flatten)]
     clickhouse: ClickhouseArgs,
     #[command(flatten)]
@@ -85,13 +85,7 @@ async fn create_processor(
     if args.force {
         log::info!("Force mode. Dropping saved state if there is any");
         postgres_client.drop_process_state(process_id).await?;
-        return Processor::new(
-            click,
-            process_id,
-            args.sysroot.clone(),
-            !args.without_location,
-        )
-        .await;
+        return Processor::new(click, process_id, args.sysroot.clone(), args.with_location).await;
     }
     let state = postgres_client.read_process_state(process_id).await?;
     let processor = match state {
@@ -103,13 +97,7 @@ async fn create_processor(
         }
         None => {
             log::info!("Creating new processor");
-            Processor::new(
-                click,
-                process_id,
-                args.sysroot.clone(),
-                !args.without_location,
-            )
-            .await?
+            Processor::new(click, process_id, args.sysroot.clone(), args.with_location).await?
         }
     };
     Ok(processor)
