@@ -68,7 +68,7 @@ LD_PRELOAD=./memhawk/lib/libmemhawk.so <your_application>
 ./memhawk/bin/symbolizer processor -f memhawk_<process_name>_<process_pid>_protobuf.binpb --watch
 ```
 
-**N.B.** By default symbolification is done up to function level, in order to determine concrete code line, pass additional flag `with-location`, however, it can bloat the timeseries table and make such graphs unreadable.
+**N.B.** By default symbolification is done up to function level, in order to determine a specific code line, pass additional flag `with-location`, however, it can bloat the timeseries table and make such graphs unreadable.
 
 #### 5. Inspect memory profiling
 
