@@ -1,4 +1,4 @@
-# MemHawk
+# MemHawk - High performance heap memory profiler
 
 [![License](https://img.shields.io/github/license/IlRomanenko/MemHawk?style=flat-square)](LICENSE)
 [![C++](https://img.shields.io/badge/C++-20-blue?style=flat-square&logo=c%2B%2B)](https://en.cppreference.com/)
