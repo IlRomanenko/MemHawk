@@ -93,7 +93,12 @@ pub struct Processor {
 }
 
 impl Processor {
-    pub async fn new(click: ClickhouseClient, process_id: i32, sysroot: Option<String>, save_location: bool) -> anyhow::Result<Self> {
+    pub async fn new(
+        click: ClickhouseClient,
+        process_id: i32,
+        sysroot: Option<String>,
+        save_location: bool,
+    ) -> anyhow::Result<Self> {
         let frames_sub = Rc::new(RefCell::new(FramesSubscription::new()));
         // clear all leftover state if there is some
         click.clear(process_id).await?;
@@ -176,15 +181,16 @@ impl Processor {
             log::info!("Updating symbols");
 
             let loaded_so = match &self.sysroot {
-                Some(sysroot) => {
-                    snapshot.loaded_so.iter().cloned().map(|mut elf_info| {
+                Some(sysroot) => snapshot
+                    .loaded_so
+                    .iter()
+                    .cloned()
+                    .map(|mut elf_info| {
                         elf_info.filename = sysroot.clone() + "/" + &elf_info.filename;
                         elf_info
-                    }).collect::<Vec<_>>()
-                }
-                None => {
-                    snapshot.loaded_so.clone()
-                }
+                    })
+                    .collect::<Vec<_>>(),
+                None => snapshot.loaded_so.clone(),
             };
             self.symbolizer
                 .write()

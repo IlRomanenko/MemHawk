@@ -38,15 +38,16 @@ impl ClickhouseClient {
 
     pub async fn clear(&self, process_id: i32) -> anyhow::Result<()> {
         let tables = vec![
-            "raw_data", "flamegraphs", "timeseries", "localized_name", "graph_edges", "stacktraces"
+            "raw_data",
+            "flamegraphs",
+            "timeseries",
+            "localized_name",
+            "graph_edges",
+            "stacktraces",
         ];
         for table in tables {
             let query = format!("DELETE FROM profiling.{} WHERE process_id == ?", table);
-            self.client
-                .query(&query)
-                .bind(process_id)
-                .execute()
-                .await?;
+            self.client.query(&query).bind(process_id).execute().await?;
         }
         Ok(())
     }

@@ -42,13 +42,13 @@ struct RestorableBinary {
 #[derive(Encode, Decode)]
 pub struct RestorableState {
     binaries: Vec<RestorableBinary>,
-    save_location: bool
+    save_location: bool,
 }
 
 pub struct Symbolizer {
     symbol_manager: wholesym::SymbolManager,
     symbol_maps: Vec<LoadedBinary>,
-    save_location: bool
+    save_location: bool,
 }
 
 impl Symbolizer {
@@ -57,7 +57,7 @@ impl Symbolizer {
         Self {
             symbol_manager: wholesym::SymbolManager::with_config(config),
             symbol_maps: Vec::new(),
-            save_location
+            save_location,
         }
     }
 
@@ -72,7 +72,7 @@ impl Symbolizer {
                     first_segment_offset: x.first_segment_offset,
                 })
                 .collect(),
-            save_location: self.save_location
+            save_location: self.save_location,
         }
     }
 

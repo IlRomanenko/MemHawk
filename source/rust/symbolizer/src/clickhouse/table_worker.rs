@@ -51,7 +51,11 @@ where
             .with_max_bytes(50_000_000)
             .with_max_rows(750_000)
             .with_period(Some(std::time::Duration::from_secs(1)));
-        Self { inserter, table, rx }
+        Self {
+            inserter,
+            table,
+            rx,
+        }
     }
 
     pub async fn start(&mut self) {
