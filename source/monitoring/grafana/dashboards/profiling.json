@@ -1195,7 +1195,7 @@
               "refId": "A"
             }
           ],
-          "title": "Selecting ",
+          "title": "Selecting",
           "type": "volkovlabs-variable-panel"
         },
         {
@@ -1713,7 +1713,7 @@
               "refId": "A"
             }
           ],
-          "title": "Selecting ",
+          "title": "Selecting",
           "type": "volkovlabs-variable-panel"
         },
         {
@@ -2066,7 +2066,7 @@
           "type": "flamegraph"
         }
       ],
-      "title": "Cummulative allocations",
+      "title": "Cumulative allocations",
       "type": "row"
     }
   ],
@@ -2159,11 +2159,11 @@
           "type": "grafana-clickhouse-datasource",
           "uid": "PDEE91DDB90597936"
         },
-        "definition": "SELECT\n    min(timestamp) || '' as timestmap\nFROM\n    profiling.timeseries\nWHERE\n    process_id == ${process_id}\n    AND value_type == 'active_size'\n    AND label_id == 0\n    AND timestamp >= $__fromTime_ms",
+        "definition": "SELECT\n    min(timestamp) || '' as point\nFROM\n    profiling.timeseries\nWHERE\n    process_id == ${process_id}\n    AND value_type == 'active_size'\n    AND label_id == 0\n    AND timestamp >= $__fromTime_ms",
         "hide": 2,
         "name": "first_point_in_range",
         "options": [],
-        "query": "SELECT\n    min(timestamp) || '' as timestmap\nFROM\n    profiling.timeseries\nWHERE\n    process_id == ${process_id}\n    AND value_type == 'active_size'\n    AND label_id == 0\n    AND timestamp >= $__fromTime_ms",
+        "query": "SELECT\n    min(timestamp) || '' as point\nFROM\n    profiling.timeseries\nWHERE\n    process_id == ${process_id}\n    AND value_type == 'active_size'\n    AND label_id == 0\n    AND timestamp >= $__fromTime_ms",
         "refresh": 2,
         "regex": "",
         "type": "query"
