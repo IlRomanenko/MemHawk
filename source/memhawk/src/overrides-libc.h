@@ -50,6 +50,8 @@ int __posix_memalign(void** r, size_t a, size_t s) ALIAS(hawk_posix_memalign);
 // ordinary libc functions
 void* malloc(size_t size) __THROW ALIAS(hawk_malloc);
 void free(void* ptr) __THROW ALIAS(hawk_free);
+void free_sized(void* ptr, size_t size) ALIAS(hawk_free_sized);
+void free_aligned_sized(void* ptr, size_t alignment, size_t size) ALIAS(hawk_free_aligned_sized);
 void* realloc(void* ptr, size_t size) __THROW ALIAS(hawk_realloc);
 void* calloc(size_t n, size_t size) __THROW ALIAS(hawk_calloc);
 void cfree(void* ptr) __THROW ALIAS(hawk_free);

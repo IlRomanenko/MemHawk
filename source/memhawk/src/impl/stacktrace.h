@@ -80,15 +80,6 @@ struct RecursiveStacktrace
         return guard.IsFirst();
     }
 
-    bool IsTrackable() const
-    {
-#ifdef MEMHAWK_SELF_PROFILING
-        return true;
-#else
-        return IsExternal();
-#endif
-    }
-
 private:
     RecursionGuard<AllocTag> guard;
     Stacktrace trace;
