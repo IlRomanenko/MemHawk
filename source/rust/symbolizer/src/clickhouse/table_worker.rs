@@ -72,6 +72,8 @@ where
 
     async fn send_msg(&mut self, msgs: Vec<T>) -> anyhow::Result<()> {
         if msgs.is_empty() {
+            // force inserter to check limits
+            self.inserter.commit().await?;
             return Ok(());
         }
         for msg in msgs {
