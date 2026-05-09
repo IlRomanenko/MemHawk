@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <limits>
 #include <random>
 
 namespace memhawk::bit_packing
@@ -31,7 +32,7 @@ TEST_F(CompressionFixture, BitValueEncoded_ExpectOk)
     EXPECT_EQ(value, Expected);
 }
 
-TEST_F(CompressionFixture, BitEncode_FULL32Bits_ExpectOk)
+TEST_F(CompressionFixture, BitEncode_Full32Bits_ExpectOk)
 {
     constexpr size_t Expected = 3;
     m_data.resize(1, TestValue);
@@ -140,14 +141,16 @@ TEST_F(CompressionFixture, Compress_BoundaryValues_ExpectOk)
 
 TEST_F(CompressionFixture, Compress_LargeDiffs_ExpectOk)
 {
-    const std::vector<uint64_t> testData = {1ULL << 60, 1ULL << 12, 1ULL << 59, 0, 1ULL << 58, 1, 1ULL << 57};
+    const std::vector<uint64_t> TestData = {
+        1ULL << 60, 1ULL << 12, 1ULL << 59, 0, 1ULL << 58, 1, 1ULL << 57,
+    };
 
-    Compress(absl::MakeConstSpan(testData), m_data);
+    Compress(absl::MakeConstSpan(TestData), m_data);
 
     std::vector<uint64_t> result;
     Decompress(absl::MakeConstSpan(m_data), result);
 
-    EXPECT_EQ(testData, result);
+    EXPECT_EQ(TestData, result);
 }
 
 TEST_F(CompressionFixture, Compress_SmallDiffs_ExpectOk)
@@ -228,20 +231,20 @@ TEST_F(CompressionFixture, Compress_SignIterativeDiffs_ExpectOk)
 
 TEST_F(CompressionFixture, Compress_SomePtrs_ExpectOk)
 {
-    const std::vector<uint64_t> testData = {0x7514af7f7063, 0x7514af839744, 0x7514af8049eb,
+    const std::vector<uint64_t> TestData = {0x7514af7f7063, 0x7514af839744, 0x7514af8049eb,
                                             0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4};
 
-    Compress(absl::MakeConstSpan(testData), m_data);
+    Compress(absl::MakeConstSpan(TestData), m_data);
 
     std::vector<uint64_t> result;
     Decompress(absl::MakeConstSpan(m_data), result);
 
-    EXPECT_EQ(testData, result);
+    EXPECT_EQ(TestData, result);
 }
 
 TEST_F(CompressionFixture, Compress_RandomData_ExpectOk)
 {
-    std::mt19937_64 rng(42);
+    std::mt19937_64 rng(42); // NOLINT(bugprone-random-generator-seed)
     std::uniform_int_distribution<> dist;
 
     constexpr const size_t Size = 1'000'000;
@@ -263,4 +266,16 @@ TEST_F(CompressionFixture, Compress_RandomData_ExpectOk)
     EXPECT_EQ(testData, result);
 }
 
+TEST_F(CompressionFixture, Compress_SmallData_ExpectBufferCleared)
+{
+    std::vector<uint32_t> clearValues;
+    Compress(absl::MakeConstSpan({128UL}), clearValues);
+    EXPECT_EQ(clearValues.size(), 3);
+
+    std::vector<uint32_t> dirtyValues(3, std::numeric_limits<uint32_t>::max());
+    Compress(absl::MakeConstSpan({128UL}), dirtyValues);
+    EXPECT_EQ(dirtyValues.size(), 3);
+
+    EXPECT_EQ(clearValues, dirtyValues);
+}
 } // namespace memhawk::bit_packing

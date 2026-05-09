@@ -38,6 +38,15 @@ inline void ClearBits(uint32_t& value, uint32_t from, uint32_t to)
     value &= ~lower;
 }
 
+void ClearUnusedBits(MutBitIterator& iter)
+{
+    if (iter.bitIndex == 0)
+    {
+        return;
+    }
+    ClearBits(*iter.value, iter.bitIndex, ValueBitsSize);
+}
+
 // ABSL_ATTRIBUTE_ALWAYS_INLINE
 void EncodeBits(MutBitIterator& iter, uint32_t bitCount, uint32_t value)
 {
@@ -179,6 +188,8 @@ uint32_t Compress(const absl::Span<const uint64_t> in, uint32_t* out)
 
         prev = in[i];
     }
+    ClearUnusedBits(dataIter);
+    ClearUnusedBits(controlBlockIter);
     if (dataIter.bitIndex == 0)
     {
         return dataIter.valuePos;

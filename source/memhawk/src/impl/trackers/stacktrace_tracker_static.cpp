@@ -89,6 +89,7 @@ uint32_t StaticStacktraceTracker::InsertStacktraceUnlocked(absl::Span<void* cons
 {
     const auto uspan = absl::MakeConstSpan(reinterpret_cast<const uint64_t*>(span.data()), span.size());
 
+    m_compressedTrace = {};
     const uint32_t compressedSize = bit_packing::Compress(uspan, m_compressedTrace.data());
     const auto compressedSpan = absl::MakeConstSpan(m_compressedTrace.begin(), compressedSize);
     const uint64_t hash = XXH3_64bits(compressedSpan.data(), compressedSpan.size() * sizeof(uint32_t));
@@ -134,6 +135,7 @@ std::optional<Stacktrace> StaticStacktraceTracker::GetStacktraceFromId(uint32_t 
 
 Stacktrace StaticStacktraceTracker::GetStacktrace(uint32_t traceId)
 {
+    m_decompressedTrace = {};
     const auto size = bit_packing::Decompress(m_elements[traceId].trace, m_decompressedTrace.data());
     return Stacktrace{reinterpret_cast<void**>(m_decompressedTrace.data()), size};
 }
