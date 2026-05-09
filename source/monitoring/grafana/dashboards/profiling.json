@@ -121,7 +121,7 @@
           },
           "id": 35,
           "options": {},
-          "pluginVersion": "12.2.1",
+          "pluginVersion": "12.4.3",
           "targets": [
             {
               "builderOptions": {
@@ -252,7 +252,7 @@
             "h": 14,
             "w": 24,
             "x": 0,
-            "y": 93
+            "y": 17
           },
           "id": 5,
           "options": {
@@ -266,7 +266,7 @@
               }
             ]
           },
-          "pluginVersion": "12.2.1",
+          "pluginVersion": "12.4.3",
           "targets": [
             {
               "builderOptions": {
@@ -486,7 +486,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.2.1",
+      "pluginVersion": "12.4.3",
       "targets": [
         {
           "builderOptions": {
@@ -689,7 +689,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.2.1",
+      "pluginVersion": "12.4.3",
       "targets": [
         {
           "builderOptions": {
@@ -834,7 +834,7 @@
             "h": 16,
             "w": 12,
             "x": 0,
-            "y": 18
+            "y": 120
           },
           "id": 32,
           "options": {},
@@ -881,7 +881,7 @@
             "h": 16,
             "w": 12,
             "x": 12,
-            "y": 18
+            "y": 120
           },
           "id": 8,
           "options": {},
@@ -958,7 +958,7 @@
             "h": 14,
             "w": 24,
             "x": 0,
-            "y": 58
+            "y": 160
           },
           "id": 12,
           "options": {
@@ -1139,7 +1139,7 @@
             "h": 14,
             "w": 12,
             "x": 0,
-            "y": 809
+            "y": 911
           },
           "id": 17,
           "options": {
@@ -1264,7 +1264,7 @@
             "h": 14,
             "w": 12,
             "x": 12,
-            "y": 809
+            "y": 911
           },
           "id": 33,
           "maxDataPoints": 500,
@@ -1352,7 +1352,7 @@
             "h": 16,
             "w": 12,
             "x": 0,
-            "y": 824
+            "y": 926
           },
           "id": 26,
           "options": {},
@@ -1399,7 +1399,7 @@
             "h": 16,
             "w": 12,
             "x": 12,
-            "y": 824
+            "y": 926
           },
           "id": 27,
           "options": {},
@@ -1476,7 +1476,7 @@
             "h": 14,
             "w": 24,
             "x": 0,
-            "y": 840
+            "y": 942
           },
           "id": 28,
           "options": {
@@ -1657,7 +1657,7 @@
             "h": 14,
             "w": 12,
             "x": 0,
-            "y": 112
+            "y": 214
           },
           "id": 30,
           "options": {
@@ -1782,7 +1782,7 @@
             "h": 14,
             "w": 12,
             "x": 12,
-            "y": 112
+            "y": 214
           },
           "id": 34,
           "maxDataPoints": 500,
@@ -1870,7 +1870,7 @@
             "h": 12,
             "w": 24,
             "x": 0,
-            "y": 22
+            "y": 124
           },
           "id": 22,
           "options": {},
@@ -1975,7 +1975,7 @@
             "h": 12,
             "w": 24,
             "x": 0,
-            "y": 34
+            "y": 136
           },
           "id": 23,
           "options": {},
@@ -2077,8 +2077,8 @@
     "list": [
       {
         "current": {
-          "text": "",
-          "value": ""
+          "text": "???",
+          "value": "???"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -2091,12 +2091,13 @@
         "query": "select distinct process_name from profiling.processes order by process_name;",
         "refresh": 2,
         "regex": "",
+        "regexApplyTo": "value",
         "type": "query"
       },
       {
         "current": {
-          "text": "",
-          "value": ""
+          "text": "???",
+          "value": "1970-01-01 00:00:00.000000000"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -2109,13 +2110,14 @@
         "query": "SELECT 'value: ' || start_time || ', text: ' || TO_TIMESTAMP(start_time / 1000000000) FROM profiling.processes WHERE process_name = '$process_name' order by start_time desc;",
         "refresh": 2,
         "regex": "/value:\\s+(?<value>\\d+),\\s+|text:\\s+(?<text>.*)/g",
+        "regexApplyTo": "value",
         "type": "query"
       },
       {
         "allowCustomValue": false,
         "current": {
-          "text": "",
-          "value": ""
+          "text": "???",
+          "value": "0"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -2128,6 +2130,7 @@
         "query": "SELECT process_id from profiling.processes where process_name = '$process_name' and start_time = '$start_time'",
         "refresh": 1,
         "regex": "",
+        "regexApplyTo": "value",
         "type": "query"
       },
       {
@@ -2146,8 +2149,9 @@
         "name": "max_rss_ts",
         "options": [],
         "query": "SELECT toString(argMaxMerge(peak_ts)) AS peak_ts\nFROM profiling.memory_peaks\nWHERE \nvalue_type = 'active_size' and process_id = ${process_id}\n",
-        "refresh": 1,
+        "refresh": 2,
         "regex": "",
+        "regexApplyTo": "value",
         "type": "query"
       },
       {
@@ -2166,6 +2170,7 @@
         "query": "SELECT\n    min(timestamp) || '' as point\nFROM\n    profiling.timeseries\nWHERE\n    process_id == ${process_id}\n    AND value_type == 'active_size'\n    AND label_id == 0\n    AND timestamp >= $__fromTime_ms",
         "refresh": 2,
         "regex": "",
+        "regexApplyTo": "value",
         "type": "query"
       },
       {
@@ -2190,13 +2195,14 @@
         "query": "SELECT\n    'value:' || label_id || '###text:' || label || ':' || library || ':' || location\nFROM\n    profiling.localized_name\nWHERE\n    process_id == ${process_id}\nORDER BY label_id ASC",
         "refresh": 1,
         "regex": "/value:(?<value>\\d+)###|text:(?<text>.*)/g",
+        "regexApplyTo": "value",
         "type": "query"
       },
       {
         "allowCustomValue": false,
         "current": {
-          "text": "421764",
-          "value": "421764"
+          "text": "???",
+          "value": "0"
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -2208,6 +2214,7 @@
         "query": "select process_pid from profiling.processes where process_id = '$process_id';",
         "refresh": 1,
         "regex": "",
+        "regexApplyTo": "value",
         "type": "query"
       }
     ]
