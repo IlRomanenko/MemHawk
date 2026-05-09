@@ -29,7 +29,11 @@ struct TextWriterIndexConfig
     CONFIG_VAR_OPT(size_t, TrackerByTotalCount, "by_total_count", 10);
 };
 
-constexpr const TextWriterIndexConfig DefaultTextWriterInternalConfig = {false, 10, 10};
+constexpr const TextWriterIndexConfig DefaultTextWriterInternalConfig{
+    .Enabled = decltype(TextWriterIndexConfig::Enabled){false},
+    .TrackerBySizeCount = decltype(TextWriterIndexConfig::TrackerBySizeCount){10},
+    .TrackerByTotalCount = decltype(TextWriterIndexConfig::TrackerByTotalCount){10},
+};
 
 struct TextWriterConfig
 {

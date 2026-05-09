@@ -90,7 +90,7 @@ TEST_F(StacktraceTrackerFixture, AddSimilarTraces_ExpectAllFound)
 TEST_F(StacktraceTrackerFixture, AddRandomTracesWithSimilarSuffix_ExpectAllFound)
 {
     constexpr size_t Count = 100'000;
-    std::mt19937_64 rng(42);
+    std::mt19937_64 rng(42); // NOLINT(bugprone-random-generator-seed)
     std::uniform_int_distribution<> dist;
 
     std::vector<uint64_t> originalTrace;
@@ -139,7 +139,7 @@ TEST_F(StacktraceTrackerFixture, AddRandomTraces_ExpectAllFound)
     std::vector<std::vector<uint64_t>> testData;
     std::vector<uint32_t> savedTraceId;
 
-    std::mt19937_64 rng(42);
+    std::mt19937_64 rng(42); // NOLINT(bugprone-random-generator-seed)
     std::uniform_int_distribution<> dist;
 
 

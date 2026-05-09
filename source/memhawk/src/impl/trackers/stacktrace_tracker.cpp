@@ -49,9 +49,9 @@ StacktraceTracker::~StacktraceTracker()
         return;
     }
     auto filename = GetProcessLogName("external_stacktraces");
-    if (m_cfg.Filename->has_value())
+    if (m_cfg.Filename.Value().has_value())
     {
-        filename = m_cfg.Filename->value(); // NOLINT(bugprone-unchecked-optional-access)
+        filename = *m_cfg.Filename.Value(); // NOLINT(bugprone-unchecked-optional-access)
     }
     std::ofstream result(filename, std::ios_base::out | std::ios_base::trunc);
     result << "External stacktraces:" << "\n";

@@ -26,7 +26,7 @@ void BM_SpinLock_Absl(benchmark::State& state)
 }
 
 thread_local memhawk::SpinLock gtl_memhawkSpinlock;
-thread_local absl::base_internal::SpinLock gtl_abslSpinlock;
+thread_local absl::base_internal::SpinLock gtl_abslSpinlock; // NOLINT(bugprone-throwing-static-initialization)
 
 void BM_SpinLock_ThreadLocal_MemHawk(benchmark::State& state)
 {

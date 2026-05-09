@@ -13,8 +13,32 @@ template <typename T, typename Meta>
 class ConfigVar
 {
 public:
-    constexpr ConfigVar(T defaultValue) : m_value{std::move(defaultValue)}
+    constexpr ConfigVar() noexcept = default;
+
+    constexpr explicit ConfigVar(T defaultValue) noexcept : m_value{std::move(defaultValue)}
     {
+    }
+
+    constexpr ConfigVar(const ConfigVar& other) noexcept
+    {
+        m_value = other.m_value;
+        m_set = other.m_set;
+    }
+
+    constexpr ConfigVar(ConfigVar&& other) noexcept
+    {
+        m_value = std::move(other.m_value);
+        m_set = other.m_set;
+    }
+
+    ConfigVar& operator=(const ConfigVar& other) noexcept = default;
+    ConfigVar& operator=(ConfigVar&& other) noexcept = default;
+
+    ConfigVar& operator=(const T& value)
+    {
+        m_value = value;
+        m_set = true;
+        return *this;
     }
 
     constexpr T& operator*() noexcept
@@ -37,11 +61,9 @@ public:
         return &m_value;
     }
 
-    ConfigVar& operator=(const T& value)
+    constexpr const T& Value() const noexcept
     {
-        m_value = value;
-        m_set = true;
-        return *this;
+        return m_value;
     }
 
     bool ParseValue(std::string_view str)

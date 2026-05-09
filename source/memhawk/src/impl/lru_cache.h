@@ -90,7 +90,7 @@ private:
     >;
     // clang-format on
 
-    void Relocate(typename Index::const_iterator it)
+    void Relocate(Index::const_iterator it)
     {
         auto& byOrder = m_index.template get<TagByOrder>();
         const auto orderIt = m_index.template project<TagByOrder>(it);

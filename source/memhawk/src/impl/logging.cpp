@@ -58,7 +58,7 @@ void LogDeinit()
     gl_logFile = STDERR_FILENO;
 }
 
-void LogPrint(const char* fmt, ...)
+void LogPrint(const char* fmt, ...) // NOLINT(modernize-avoid-variadic-functions)
 {
     va_list args;
     va_start(args, fmt);

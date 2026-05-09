@@ -62,7 +62,7 @@ TEST_F(StaticStacktraceTrackerFixture, AddRandomTraces_ExpectAllFound)
     constexpr size_t Count = 128;
     std::vector<std::vector<uint64_t>> testData;
 
-    std::mt19937_64 rng(42);
+    std::mt19937_64 rng(42); // NOLINT(bugprone-random-generator-seed)
     std::uniform_int_distribution<> dist;
 
 
