@@ -93,6 +93,10 @@ void MemHawk::PostponedConstruct()
     RegisterThread();
     if (*m_cfg.TrackingWorker)
     {
+        m_workerStorage = std::make_unique<WorkerStorage>();
+        m_workerStorage->writer =
+            m_writersFactory->CreateWritersAdaptor(*m_cfg.Writers, std::make_shared<InnerStacktraceFinder>(*this));
+
         m_worker = std::thread([this]() { TrackingWorker(); });
     }
     LogDebug("end");
@@ -303,10 +307,6 @@ void MemHawk::TrackingWorker()
     const ScopedSignalBlocker signalBlocker{};
 
     LogInfo("Tracking worker started");
-
-    m_workerStorage = std::make_unique<WorkerStorage>();
-    m_workerStorage->writer =
-        m_writersFactory->CreateWritersAdaptor(*m_cfg.Writers, std::make_shared<InnerStacktraceFinder>(*this));
 
     const auto waitingDelay = std::chrono::milliseconds{*m_cfg.TrackerDumpingPeriodMs};
     auto nextTimepoint = std::chrono::steady_clock::now() + waitingDelay;
