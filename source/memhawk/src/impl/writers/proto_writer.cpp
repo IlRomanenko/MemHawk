@@ -72,8 +72,8 @@ ProtobufWriter::ProtobufWriter(ProtobufWriterConfig cfg, std::shared_ptr<IStackt
     m_ofstream = std::make_unique<std::ofstream>(filename, std::ios_base::out | std::ios_base::binary);
     WriteProcessInfo();
     // account empty allocation in order to correctly start time tracking
-    AccountSnapshot({{0, {}}}, {}); // NOLINT(clang-analyzer-optin.cplusplus.VirtualCall)
-    FlushData(); // NOLINT(clang-analyzer-optin.cplusplus.VirtualCall)
+    ProtobufWriter::AccountSnapshot({{0, {}}}, {});
+    ProtobufWriter::FlushData();
 }
 
 void ProtobufWriter::UpdateModules()

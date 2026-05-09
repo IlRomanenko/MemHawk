@@ -23,7 +23,7 @@ void StacktraceTracker::PostponedConstruct()
 {
     m_storage = std::make_unique<Storage>();
     // add root node
-    m_storage->nodes.push_back(TraceNode{nullptr, 0});
+    m_storage->nodes.push_back(TraceNode{m_storage->tree.GetPtrId(0), 0});
 }
 
 size_t StacktraceTracker::StacktracesCount()
@@ -48,13 +48,13 @@ StacktraceTracker::~StacktraceTracker()
     {
         return;
     }
-    auto filename = GetProcessLogName("inner_stacktraces");
+    auto filename = GetProcessLogName("external_stacktraces");
     if (m_cfg.Filename->has_value())
     {
         filename = m_cfg.Filename->value(); // NOLINT(bugprone-unchecked-optional-access)
     }
     std::ofstream result(filename, std::ios_base::out | std::ios_base::trunc);
-    result << "Inner stacktraces:" << "\n";
+    result << "External stacktraces:" << "\n";
     for (const auto& traceId : m_storage->leafsId)
     {
         const auto stacktrace = GetStacktrace(traceId);
@@ -68,9 +68,10 @@ StacktraceTracker::~StacktraceTracker()
 uint32_t StacktraceTracker::InsertStacktrace(const Stacktrace& trace)
 {
     const absl::base_internal::SpinLockHolder lock(&m_mt);
-    const StacktraceTree::NodeId nodeId = m_storage->tree.index(trace, [this](uintptr_t ptrValue, StacktraceTree::NodeId parent) {
-        m_storage->nodes.push_back(TraceNode{reinterpret_cast<void*>(ptrValue), parent.value()});
-    });
+    const StacktraceTree::NodeId nodeId = m_storage->tree.index(
+        trace, [this](uintptr_t /*ptrValue*/, StacktraceTree::PtrId ptrId, StacktraceTree::NodeId parent) {
+            m_storage->nodes.push_back(TraceNode{.id = ptrId, .parent = parent.value()});
+        });
     m_storage->leafsId.insert(nodeId.value());
     return nodeId.value();
 }
@@ -97,7 +98,8 @@ Stacktrace StacktraceTracker::GetStacktrace(uint32_t traceId)
     while (nodeId != 0)
     {
         const auto& node = m_storage->nodes[nodeId];
-        trace[traceIt] = node.ptr;
+        const auto ptrValue = m_storage->tree.GetPtrValue(node.id);;
+        trace[traceIt] = reinterpret_cast<void*>(ptrValue);
         traceIt++;
         nodeId = node.parent;
     }

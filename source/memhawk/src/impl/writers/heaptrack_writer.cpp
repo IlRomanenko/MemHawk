@@ -232,10 +232,11 @@ void HeaptrackWriter::FlushData()
             {
                 continue;
             }
-            const auto index = m_tree.index(*stacktrace, [this](uintptr_t ip, StacktraceTree::NodeId index) {
-                --ip;
-                WriteHexLine(*m_ofstream, "t", ip, index.value()) << "\n";
-            });
+            const auto index = m_tree.index(
+                *stacktrace, [this](uintptr_t ip, StacktraceTree::PtrId /*ptrId*/, StacktraceTree::NodeId index) {
+                    --ip;
+                    WriteHexLine(*m_ofstream, "t", ip, index.value()) << "\n";
+                });
             traceIt = m_writtenTraces.insert({traceId, index}).first;
         }
 

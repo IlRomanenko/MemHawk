@@ -6,6 +6,7 @@
 #include "thread_tracker.h"
 #include "writers/i_writer.h"
 
+#include <absl/container/btree_map.h>
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>
 #include <google/protobuf/arena.h>
@@ -58,7 +59,8 @@ private:
     google::protobuf::Arena m_arena;
 
     AllocSummary m_total;
-    SummariesMap m_localSummaries;
+
+    absl::btree_map<uint32_t, AllocSummary> m_localSummaries; // use btree instead of hashmap in order to save space
     absl::flat_hash_set<uint32_t> m_changedSummaries;
     absl::flat_hash_set<uint32_t> m_writtenTraces;
     absl::flat_hash_map<uint64_t, uint32_t> m_ptrMap;

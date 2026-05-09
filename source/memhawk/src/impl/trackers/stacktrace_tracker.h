@@ -38,13 +38,8 @@ private:
 
     struct TraceNode
     {
-        void* ptr{};
+        StacktraceTree::PtrId id;
         uint32_t parent{};
-
-        explicit TraceNode(void* ctrPtr, uint32_t ctrParent)
-            : ptr(ctrPtr), parent(ctrParent)
-        {
-        }
     };
 
     struct Storage
