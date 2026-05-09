@@ -123,16 +123,15 @@ pub struct RestorableState {
     edges: FxHashMap<GraphEdge, NodeId>,
     children: Vec<ChildList>,
     localized_frame_agg: FxHashMap<LocalizedFrameId, AggregatedAllocSummary>,
+    modified_frame_agg: FxHashSet<LocalizedFrameId>,
     postponed_updates: FxHashMap<u32, FxHashMap<NodeId, AllocSummary>>,
     new_nodes: FxHashSet<NodeId>,
     new_leaf_nodes: FxHashSet<NodeId>,
-    modified_nodes: FxHashSet<NodeId>,
 }
 
 pub struct AggregatedModifications {
     pub new_nodes: FxHashSet<NodeId>,
     pub new_leaf_nodes: FxHashSet<NodeId>,
-    pub modified_nodes: FxHashSet<NodeId>,
     pub frames: FxHashMap<LocalizedFrameId, AggregatedAllocSummary>,
 }
 
@@ -147,10 +146,10 @@ pub struct Graph {
     edges: FxHashMap<GraphEdge, NodeId>,
     children: Vec<ChildList>,
     localized_frame_agg: FxHashMap<LocalizedFrameId, AggregatedAllocSummary>,
+    modified_frame_agg: FxHashSet<LocalizedFrameId>,
     postponed_updates: FxHashMap<u32, FxHashMap<NodeId, AllocSummary>>,
     new_nodes: FxHashSet<NodeId>,
     new_leaf_nodes: FxHashSet<NodeId>,
-    modified_nodes: FxHashSet<NodeId>,
 }
 
 impl Graph {
@@ -160,11 +159,11 @@ impl Graph {
             edges: FxHashMap::default(),
             children: Vec::new(),
             localized_frame_agg: FxHashMap::default(),
+            modified_frame_agg: FxHashSet::default(),
             postponed_updates: FxHashMap::default(),
 
             new_nodes: FxHashSet::default(),
             new_leaf_nodes: FxHashSet::default(),
-            modified_nodes: FxHashSet::default(),
         };
         // push root node
         graph.nodes.push(GraphNode {
@@ -185,10 +184,10 @@ impl Graph {
             edges: self.edges.clone(),
             children: self.children.clone(),
             localized_frame_agg: self.localized_frame_agg.clone(),
+            modified_frame_agg: self.modified_frame_agg.clone(),
             postponed_updates: self.postponed_updates.clone(),
             new_nodes: self.new_nodes.clone(),
             new_leaf_nodes: self.new_leaf_nodes.clone(),
-            modified_nodes: self.modified_nodes.clone(),
         }
     }
 
@@ -198,10 +197,10 @@ impl Graph {
             edges: state.edges,
             children: state.children,
             localized_frame_agg: state.localized_frame_agg,
+            modified_frame_agg: state.modified_frame_agg,
             postponed_updates: state.postponed_updates,
             new_nodes: state.new_nodes,
             new_leaf_nodes: state.new_leaf_nodes,
-            modified_nodes: state.modified_nodes,
         }
     }
 
@@ -362,6 +361,7 @@ impl Graph {
             .entry(node_key)
             .and_modify(|x| x.accumulate(&diff, diff_type))
             .or_insert(AggregatedAllocSummary::from_summary(diff, diff_type));
+        self.modified_frame_agg.insert(node_key);
     }
 
     pub fn process_postponed_updates(&mut self) {
@@ -398,8 +398,6 @@ impl Graph {
 
             // process node subtree value update
             for (node_id, diff) in cur_accumulated_diff {
-                self.modified_nodes.insert(node_id);
-
                 let node = self.inspect_mut(node_id);
                 node.aggregated.total_value += diff;
 
@@ -421,13 +419,11 @@ impl Graph {
         let mut result = AggregatedModifications {
             new_nodes: FxHashSet::default(),
             new_leaf_nodes: FxHashSet::default(),
-            modified_nodes: FxHashSet::default(),
             frames: FxHashMap::default(),
         };
         std::mem::swap(&mut result.new_nodes, &mut self.new_nodes);
         std::mem::swap(&mut result.new_leaf_nodes, &mut self.new_leaf_nodes);
-        std::mem::swap(&mut result.modified_nodes, &mut self.modified_nodes);
-        for frame_id in self.localized_frame_agg.keys().copied() {
+        for frame_id in self.modified_frame_agg.drain() {
             result.frames.insert(
                 frame_id,
                 self.localized_frame_agg.get(&frame_id).unwrap().clone(),

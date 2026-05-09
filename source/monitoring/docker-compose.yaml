@@ -27,7 +27,7 @@ services:
       - CLICKHOUSE_USER=${CLICKHOUSE_USER:-admin}
       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-admin}
     volumes:
-      - ./clickhouse/scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./clickhouse/scripts:/docker-entrypoint-initdb.d
       - ./clickhouse/config.xml:/etc/clickhouse-server/config.d/custom.xml
       - memhawk_clickhouse_data:/var/lib/clickhouse
       - ./clickhouse/udfs:/var/lib/clickhouse/user_scripts

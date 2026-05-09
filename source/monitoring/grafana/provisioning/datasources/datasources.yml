@@ -24,7 +24,7 @@ datasources:
     secureJsonData:
       password: admin
     jsonData:
-      database: ""
+      database: "admin"
       sslmode: 'disable' # disable/require/verify-ca/verify-full
       maxOpenConns: 100
       maxIdleConns: 100

@@ -53,6 +53,7 @@ pub enum ValueType {
     ActiveCount = 2,
     TotalSize = 3,
     TotalCount = 4,
+    Overhead = 5,
 }
 
 pub fn value_selector(summary: &AllocSummary, value_type: ValueType) -> i64 {
@@ -61,5 +62,6 @@ pub fn value_selector(summary: &AllocSummary, value_type: ValueType) -> i64 {
         ValueType::ActiveCount => summary.active,
         ValueType::TotalCount => summary.total_count as i64,
         ValueType::TotalSize => summary.total_bytes as i64,
+        ValueType::Overhead => summary.overhead as i64,
     }
 }

@@ -212,8 +212,6 @@ impl Processor {
         let localized_names = self.localizer_sub.borrow_mut().consume(self.process_id);
 
         let stacktraces = self.prepare_stacktraces(graph_update.new_leaf_nodes);
-        let graph_edges = self.prepare_graph_edges(graph_update.new_nodes);
-        let flamegraphs = self.prepare_flamegraphs(timestamp);
         let timeseries = self.prepare_timeseries(timestamp, graph_update.frames);
 
         let raw_data_to_save = std::mem::take(&mut self.raw_data_to_save);
@@ -221,11 +219,9 @@ impl Processor {
 
         let update = UpdateData {
             raw_data,
-            flamegraphs,
             timeseries,
             localized_names,
             stacktraces,
-            graph_edges,
         };
         log::info!("Update: {:?}", &update);
 
@@ -240,17 +236,16 @@ impl Processor {
         timestamp: OffsetDateTime,
     ) -> Vec<RawDataRow> {
         let mut result = Vec::new();
-        for (node_id, summary) in raw_data.into_iter() {
-            result.push(RawDataRow {
-                process_id: self.process_id,
-                timestamp,
-                leaf_node_id: node_id.into(),
-                active_size: summary.size,
-                active_count: summary.active,
-                overhead: summary.overhead,
-                total_size: summary.total_bytes,
-                total_count: summary.total_count,
-            })
+        for value_type in memhawk_core::proto::schema::ValueType::iter() {
+            for (node_id, summary) in raw_data.iter() {
+                result.push(RawDataRow {
+                    process_id: self.process_id,
+                    timestamp,
+                    leaf_node_id: (*node_id).into(),
+                    value_type: value_type.into(),
+                    value: value_selector(summary, value_type),
+                })
+            }
         }
 
         result
@@ -271,44 +266,6 @@ impl Processor {
                 leaf_node_id: node_id.into(),
                 path: path,
             })
-        }
-        result
-    }
-
-    fn prepare_graph_edges(&self, new_nodes: FxHashSet<NodeId>) -> Vec<GraphEdgeRow> {
-        let mut result = Vec::new();
-
-        for node_id in new_nodes {
-            let node = self.symbolized_graph.inspect(node_id);
-            result.push(GraphEdgeRow {
-                process_id: self.process_id,
-                label_id: node.key.into(),
-                node_id: node_id.into(),
-                parent_node_id: node.parent.into(),
-            })
-        }
-
-        result
-    }
-
-    fn prepare_flamegraphs(&self, timestamp: OffsetDateTime) -> Vec<FlamegraphRow> {
-        let mut result = Vec::new();
-
-        for value_type in memhawk_core::proto::schema::ValueType::iter() {
-            let nodes = self.symbolized_graph.get_top(1000, value_type);
-            for (order_id, element) in nodes.into_iter().enumerate() {
-                let node = self.symbolized_graph.inspect(element.node_id);
-                result.push(FlamegraphRow {
-                    process_id: self.process_id,
-                    timestamp,
-                    order_id: order_id as u32,
-                    label_id: node.key.into(),
-                    level: node.level.into(),
-                    value_type: value_type.into(),
-                    self_value: element.self_value,
-                    total_value: element.total_value,
-                })
-            }
         }
         result
     }
