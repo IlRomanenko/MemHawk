@@ -11,6 +11,7 @@
 #include <chrono>
 #include <cstdint>
 #include <elf.h>
+#include <endian.h>
 #include <filesystem>
 #include <fstream>
 #include <ios>
@@ -83,16 +84,8 @@ void ProtobufWriter::UpdateModules()
 
 void ProtobufWriter::WriteUint64BigEndian(uint64_t value)
 {
-    char buf[sizeof(value) + 1]{};
-    uint8_t* begin = reinterpret_cast<uint8_t*>(buf);
-    while (value > 0)
-    {
-        *begin = static_cast<uint8_t>(value & 0xFF);
-        value >>= 8;
-        begin++;
-    }
-    std::reverse(buf, buf + sizeof(value));
-    m_ofstream->write(buf, sizeof(value));
+    const uint64_t be = htobe64(value);
+    m_ofstream->write(reinterpret_cast<const char*>(&be), sizeof(be));
 }
 
 void ProtobufWriter::WriteMessage(google::protobuf::MessageLite* message)
