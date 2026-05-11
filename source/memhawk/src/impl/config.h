@@ -51,7 +51,7 @@ struct ProtobufWriterConfig
 
 struct HeaptrackWriterConfig
 {
-    CONFIG_VAR_OPT(bool, Enabled, "enabled", true);
+    CONFIG_VAR_OPT(bool, Enabled, "enabled", false);
     CONFIG_VAR_OPT(std::optional<std::string_view>, Filename, "filename", {});
 };
 
