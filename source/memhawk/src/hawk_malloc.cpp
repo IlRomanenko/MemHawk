@@ -39,7 +39,7 @@ enum class HookType
     Optional
 };
 
-template <typename Signature, typename Base, HookType Type>
+template <typename Signature, typename Base>
 struct hook
 {
     Signature original = nullptr;
@@ -47,10 +47,6 @@ struct hook
     void init() noexcept
     {
         auto ret = dlsym(RTLD_NEXT, Base::identifier);
-        if (!ret && Type == HookType::Optional)
-        {
-            return;
-        }
         if (!ret)
         {
             fprintf(stderr, "Could not find original function %s\n", Base::identifier);
@@ -69,26 +65,26 @@ struct hook
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wignored-attributes"
 
-#define HOOK(name, type)                                                                                               \
-    struct name##_t : public hook<decltype(&::name), name##_t, type>                                                   \
+#define DEFINE_HOOK(name)                                                                                              \
+    struct name##_t : public hook<decltype(&::name), name##_t>                                                         \
     {                                                                                                                  \
         static constexpr const char* identifier = #name;                                                               \
     } name
 
 // Allocation hooks
-HOOK(malloc, HookType::Required);
-HOOK(free, HookType::Required);
-HOOK(calloc, HookType::Required);
-HOOK(realloc, HookType::Required);
-HOOK(posix_memalign, HookType::Optional);
-HOOK(valloc, HookType::Optional);
-HOOK(aligned_alloc, HookType::Optional);
+DEFINE_HOOK(malloc);
+DEFINE_HOOK(free);
+DEFINE_HOOK(calloc);
+DEFINE_HOOK(realloc);
+DEFINE_HOOK(posix_memalign);
+DEFINE_HOOK(aligned_alloc);
+DEFINE_HOOK(valloc);
 // Proc maps hooks
-HOOK(dlopen, HookType::Required);
-HOOK(dlclose, HookType::Required);
+DEFINE_HOOK(dlopen);
+DEFINE_HOOK(dlclose);
 
 #pragma GCC diagnostic pop
-#undef HOOK
+#undef DEFINE_HOOK
 
 static ABSL_CONST_INIT std::atomic<bool> gl_initialised = false;
 static ABSL_CONST_INIT std::atomic<bool> gl_dlInitialised = false;
