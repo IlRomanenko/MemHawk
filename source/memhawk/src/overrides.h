@@ -13,7 +13,7 @@ void* hawk_realloc(void* ptr, size_t size);
 void* hawk_calloc(size_t n, size_t size);
 void* hawk_aligned_alloc(size_t align, size_t size);
 void* hawk_valloc(size_t size);
-void* hawk_pvalloc(size_t size); // calls abort
+void* hawk_pvalloc(size_t size);
 int hawk_posix_memalign(void** memptr, size_t alignment, size_t size);
 
 // libdl functions

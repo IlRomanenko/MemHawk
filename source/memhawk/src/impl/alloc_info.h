@@ -8,8 +8,10 @@ namespace memhawk
 
 struct AllocInfo
 {
+    // user requested size
     uint64_t size{};
-    uint32_t offset{}; // in case of alignment
+    // offset from original pointer to user data segment
+    uint32_t offset{};
     uint32_t traceId{};
 
     constexpr explicit AllocInfo(uint64_t ctrSize, uint32_t ctrOffset) : size(ctrSize), offset(ctrOffset), traceId(0)

@@ -16,6 +16,7 @@
 #include <absl/base/internal/direct_mmap.h>
 #include <sys/mman.h>
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -89,30 +90,35 @@ HOOK(dlclose, HookType::Required);
 #pragma GCC diagnostic pop
 #undef HOOK
 
-static ABSL_CONST_INIT bool gl_initialised = false;
-static ABSL_CONST_INIT bool gl_dlInitialised = false;
-static ABSL_CONST_INIT bool gl_memhawkReady = false;
+static ABSL_CONST_INIT std::atomic<bool> gl_initialised = false;
+static ABSL_CONST_INIT std::atomic<bool> gl_dlInitialised = false;
+static ABSL_CONST_INIT std::atomic<bool> gl_memhawkReady = false;
 static ABSL_CONST_INIT std::unique_ptr<MemHawk> gl_memhawk = nullptr;
 static ABSL_CONST_INIT UnwindConfig gl_unwind = {};
 
-MemHawk* GetMemHawk()
+ABSL_ATTRIBUTE_ALWAYS_INLINE MemHawk* GetMemHawk()
 {
-    if (likely(gl_memhawkReady))
+    if (likely(gl_memhawkReady.load(std::memory_order_acquire)))
     {
         return gl_memhawk.get();
     }
     return nullptr;
 }
 
+ABSL_ATTRIBUTE_ALWAYS_INLINE bool CheckInitialized()
+{
+    return gl_initialised.load(std::memory_order_acquire);
+}
+
 void InitDlHooks()
 {
-    if (gl_dlInitialised)
+    if (gl_dlInitialised.load(std::memory_order_acquire))
     {
         return;
     }
     hooks::dlopen.init();
     hooks::dlclose.init();
-    gl_dlInitialised = true;
+    gl_dlInitialised.store(true, std::memory_order_release);
 }
 
 void InitHooks()
@@ -210,14 +216,31 @@ auto align_ceil(auto value, size_t alignment)
     return (value + alignment - 1) / alignment * alignment;
 }
 
+ABSL_ATTRIBUTE_ALWAYS_INLINE void TrackAllocation(void* userPtr, size_t userSize, uint32_t offset,
+                                                  RecursiveStacktrace& stacktrace)
+{
+    auto* infoLocation = reinterpret_cast<char*>(userPtr) - AdditionalSize;
+    AllocInfo* info = new (infoLocation) AllocInfo{userSize, offset};
+    LogTrace("result: " fPtr, userPtr);
+
+    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
+    {
+        auto& trace = stacktrace.GetStacktrace();
+        memhawk->TrackAlloc(*info, trace, stacktrace.IsExternal());
+    }
+}
+
 // Allocate memory via mmap before memhawk is initialised
 void* mmap_malloc(size_t size)
 {
     auto totalSize = size + AdditionalSize;
     auto ptr =
         absl::base_internal::DirectMmap(nullptr, totalSize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
-    memset(ptr, 0, size);
-
+    if (unlikely(ptr == MAP_FAILED))
+    {
+        return nullptr;
+    }
+    memset(ptr, 0, totalSize);
     AllocInfo* info = new (ptr) AllocInfo{size, AdditionalSize};
     // set specific TraceId, that shouldn't be used by memhawk
     info->traceId = InvalidTraceId;
@@ -225,9 +248,9 @@ void* mmap_malloc(size_t size)
     return ptr;
 }
 
-void mmap_free(void* ptr, size_t size)
+void mmap_free(void* ptr, const AllocInfo* info)
 {
-    absl::base_internal::DirectMunmap(ptr, size);
+    absl::base_internal::DirectMunmap(ptr, info->size + info->offset);
 }
 
 void* mmap_realloc(void* ptr, size_t size)
@@ -240,159 +263,141 @@ void* mmap_realloc(void* ptr, size_t size)
     auto origPtr = reinterpret_cast<char*>(ptr) - info->offset;
 
     auto realloced = mmap_malloc(size);
-    if (unlikely(!ptr))
+    if (unlikely(!realloced))
     {
         return nullptr;
     }
-    memcpy(realloced, ptr, info->size);
-    mmap_free(origPtr, info->size);
+    memcpy(realloced, ptr, std::min(info->size, size));
+    mmap_free(origPtr, info);
 
     return realloced;
 }
 
 void* mmap_alloc_aligned(size_t size, size_t alignment)
 {
-    auto alignedSize = align_ceil(AdditionalSize, alignment);
-    const size_t totalSize = size + alignedSize * 2;
+    const size_t totalSize = size + AdditionalSize + alignment;
     // allocate enough memory in order to find suitably aligned pointer for user data
-    void* ptr = mmap_malloc(totalSize);
-    if (unlikely(!ptr))
+    auto ptr =
+        absl::base_internal::DirectMmap(nullptr, totalSize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+
+    if (unlikely(ptr == MAP_FAILED))
     {
         return nullptr;
     }
-    // reserve memory for AllocInfo
-    auto shiftedPtr = reinterpret_cast<char*>(ptr) + AdditionalSize;
-    // find first aligned addr
-    auto alignedPtrValue = align_ceil(reinterpret_cast<uintptr_t>(shiftedPtr), alignment);
-    void* alignedPtr = reinterpret_cast<void*>(alignedPtrValue);
+    memset(ptr, 0, totalSize);
 
-    AllocInfo* info = new (reinterpret_cast<char*>(alignedPtr) - AdditionalSize)
-        AllocInfo{totalSize, static_cast<uint32_t>(alignedPtrValue - reinterpret_cast<uintptr_t>(ptr))};
+    // reserve memory for AllocInfo
+    const auto shiftedPtr = reinterpret_cast<char*>(ptr) + AdditionalSize;
+    // find first aligned addr
+    const auto alignedPtrValue = align_ceil(reinterpret_cast<uintptr_t>(shiftedPtr), alignment);
+    void* alignedPtr = reinterpret_cast<void*>(alignedPtrValue); // start of user data
+
+    const auto offset = alignedPtrValue - reinterpret_cast<uintptr_t>(ptr);
+    void* infoLocation = reinterpret_cast<char*>(alignedPtr) - AdditionalSize;
+
+    // save `totalSize - offset` as user size instead of `size`
+    // it's necessary in order to correctly unmap full memory region
+    AllocInfo* info = new (infoLocation) AllocInfo{totalSize - offset, static_cast<uint32_t>(offset)};
     // set specific TraceId, that shouldn't be used by memhawk
     info->traceId = InvalidTraceId;
 
     return alignedPtr;
 }
 
-inline ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_malloc(size_t size)
+ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_malloc(size_t size)
 {
-    if (unlikely(!hooks::gl_initialised))
+    if (unlikely(!hooks::CheckInitialized()))
     {
         return mmap_malloc(size);
     }
     LogTrace("requested: " fSzt, size);
 
-    auto totalSize = size + AdditionalSize;
-    void* ptr = hooks::malloc(totalSize);
-    if (unlikely(!ptr))
+    void* raw = hooks::malloc(size + AdditionalSize);
+    if (unlikely(!raw))
     {
         return nullptr;
     }
-    AllocInfo* info = new (ptr) AllocInfo{size, AdditionalSize};
-    ptr = reinterpret_cast<char*>(ptr) + AdditionalSize;
-
-    LogTrace("result: " fPtr, ptr);
+    void* userPtr = reinterpret_cast<char*>(raw) + AdditionalSize;
 
     RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
-    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
-    {
-        auto& trace = stacktrace.GetStacktrace();
-        memhawk->TrackAlloc(*info, trace, stacktrace.IsExternal());
-    }
-    return ptr;
+    TrackAllocation(userPtr, size, AdditionalSize, stacktrace);
+    return userPtr;
 }
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_aligned_alloc(size_t align, size_t size)
 {
-    if (unlikely(!hooks::gl_initialised))
+    if (unlikely(!hooks::CheckInitialized()))
     {
         return mmap_alloc_aligned(size, align);
     }
     LogTrace("requested: " fSzt, size);
 
-    auto alignedSize = align_ceil(AdditionalSize, align);
-    void* ptr = hooks::aligned_alloc(align, (size + alignedSize));
-    if (unlikely(!ptr))
+    const auto alignedSize = align_ceil(AdditionalSize, align);
+    void* raw = hooks::aligned_alloc(align, size + alignedSize);
+    if (unlikely(!raw))
     {
         return nullptr;
     }
-    ptr = reinterpret_cast<char*>(ptr) + alignedSize;
-
-    const auto allocInfoPtr = reinterpret_cast<char*>(ptr) - AdditionalSize;
-    AllocInfo* info = new (allocInfoPtr) AllocInfo{size, static_cast<uint32_t>(alignedSize)};
-
-    LogTrace("result: " fPtr, ptr);
+    void* userPtr = reinterpret_cast<char*>(raw) + alignedSize;
 
     RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
-    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
-    {
-        auto& trace = stacktrace.GetStacktrace();
-        memhawk->TrackAlloc(*info, trace, stacktrace.IsExternal());
-    }
-    return ptr;
+    TrackAllocation(userPtr, size, static_cast<uint32_t>(alignedSize), stacktrace);
+    return userPtr;
 }
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE int hawk_posix_memalign(void** memptr, size_t alignment, size_t size)
 {
-    if (unlikely(!hooks::gl_initialised))
+    if (unlikely(!hooks::CheckInitialized()))
     {
         *memptr = mmap_alloc_aligned(size, alignment);
         return 0;
     }
     LogTrace("requested: " fSzt, size);
 
-    auto alignedSize = align_ceil(AdditionalSize, alignment);
+    const auto alignedSize = align_ceil(AdditionalSize, alignment);
     const auto res = hooks::posix_memalign(memptr, alignment, size + alignedSize);
-    LogTrace("result: " fPtr, *memptr);
     if (unlikely(res != 0))
     {
         return res;
     }
-
     *memptr = reinterpret_cast<char*>(*memptr) + alignedSize;
-    const auto allocInfoPtr = reinterpret_cast<char*>(*memptr) - AdditionalSize;
-    AllocInfo* info = new (allocInfoPtr) AllocInfo{size, static_cast<uint32_t>(alignedSize)};
 
     RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
-    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
-    {
-        auto& trace = stacktrace.GetStacktrace();
-        memhawk->TrackAlloc(*info, trace, stacktrace.IsExternal());
-    }
+    TrackAllocation(*memptr, size, static_cast<uint32_t>(alignedSize), stacktrace);
     return res;
 }
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_calloc(size_t nm, size_t size)
 {
-    if (unlikely(!hooks::gl_initialised))
+    size_t bytes{};
+    // add check similar to glibc
+    if (unlikely(__builtin_mul_overflow(nm, size, &bytes)))
+    {
+        errno = ENOMEM;
+        return nullptr;
+    }
+
+    if (unlikely(!hooks::CheckInitialized()))
     {
         return mmap_malloc(nm * size);
     }
     LogTrace("requested: " fSzt " " fSzt, nm, size);
 
-    const size_t totalSize = nm * size + AdditionalSize;
-    void* ptr = hooks::calloc(1UL, totalSize);
-    if (unlikely(!ptr))
+    void* raw = hooks::calloc(1UL, nm * size + AdditionalSize);
+    if (unlikely(!raw))
     {
-        return ptr;
+        return nullptr;
     }
-
-    AllocInfo* info = new (ptr) AllocInfo{nm * size, AdditionalSize};
-    ptr = reinterpret_cast<char*>(ptr) + AdditionalSize;
-    LogTrace("result: " fPtr, ptr);
+    void* userPtr = reinterpret_cast<char*>(raw) + AdditionalSize;
 
     RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
-    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
-    {
-        auto& trace = stacktrace.GetStacktrace();
-        memhawk->TrackAlloc(*info, trace, stacktrace.IsExternal());
-    }
-    return ptr;
+    TrackAllocation(userPtr, nm * size, AdditionalSize, stacktrace);
+    return userPtr;
 }
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_realloc(void* ptr, size_t size)
 {
-    if (unlikely(!hooks::gl_initialised))
+    if (unlikely(!hooks::CheckInitialized()))
     {
         return mmap_realloc(ptr, size);
     }
@@ -416,8 +421,9 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_realloc(void* ptr, size_t size)
             {
                 return nullptr;
             }
-            memcpy(clearPtr, ptr, info->size);
-            mmap_free(ptr, info->size);
+            // copy user data
+            memcpy(clearPtr, ptr, std::min(info->size, size));
+            mmap_free(origPtr, info);
             return clearPtr;
         }
 
@@ -431,22 +437,14 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_realloc(void* ptr, size_t size)
     {
         return nullptr;
     }
-
-    AllocInfo* info = new (realloced) AllocInfo{size, AdditionalSize};
-    realloced = reinterpret_cast<char*>(realloced) + AdditionalSize;
-    LogTrace("result: " fPtr, realloced);
-
-    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
-    {
-        auto& trace = stacktrace.GetStacktrace();
-        memhawk->TrackAlloc(*info, trace, stacktrace.IsExternal());
-    }
-    return realloced;
+    void* userPtr = reinterpret_cast<char*>(realloced) + AdditionalSize;
+    TrackAllocation(userPtr, size, AdditionalSize, stacktrace);
+    return userPtr;
 }
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_valloc(size_t size)
 {
-    if (unlikely(!hooks::gl_initialised))
+    if (unlikely(!hooks::CheckInitialized()))
     {
         // will be printed into stderr
         LogError("valloc is not supported yet on statics initialisation");
@@ -466,7 +464,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_valloc(size_t size)
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_pvalloc(size_t size)
 {
-    if (unlikely(!hooks::gl_initialised))
+    if (unlikely(!hooks::CheckInitialized()))
     {
         // will be printed into stderr
         LogError("pvalloc is not supported yet on statics initialisation");
@@ -500,13 +498,13 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void hawk_free(void* ptr)
     // check if pointer was allocated during statics initialisation
     if (unlikely(info->traceId == InvalidTraceId))
     {
-        mmap_free(ptr, info->size);
+        mmap_free(ptr, info);
         return;
     }
     // highly unlikely situation, got pointer
     // that wasn't allocated from memhawk during statics initialisation
     // and memhawk wasn't constructed yet
-    if (unlikely(!hooks::gl_initialised))
+    if (unlikely(!hooks::CheckInitialized()))
     {
         // will be printed into stderr
         LogError("Got pointer from static-initialisation, that wasn't allocated via memhawk: " fPtr, ptr);
@@ -532,7 +530,7 @@ size_t hawk_malloc_usable_size(void* ptr)
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_dlopen(const char* file, int mode)
 {
-    if (unlikely(!hooks::gl_dlInitialised))
+    if (unlikely(!hooks::gl_dlInitialised.load(std::memory_order_acquire)))
     {
         hooks::InitDlHooks();
     }
@@ -545,7 +543,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_dlopen(const char* file, int mode)
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE int hawk_dlclose(void* handle)
 {
-    if (unlikely(!hooks::gl_dlInitialised))
+    if (unlikely(!hooks::gl_dlInitialised.load(std::memory_order_acquire)))
     {
         hooks::InitDlHooks();
     }
