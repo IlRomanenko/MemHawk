@@ -1,7 +1,4 @@
-use std::{
-    collections::BinaryHeap,
-    ops::{Index, IndexMut},
-};
+use std::ops::{Index, IndexMut};
 
 use bitcode::{Decode, Encode};
 use derive_more::{Add, From, Into};
@@ -9,35 +6,13 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
     localizer::{LocalizedFrameId, ROOT_LOCALIZED_ID},
-    proto::schema::{AllocSummary, ValueType, value_selector},
+    proto::schema::AllocSummary,
 };
 
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, From, Into, Hash, Add, Encode, Decode,
 )]
 pub struct NodeId(u32);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, From, Into, Encode, Decode)]
-pub struct ChildElemId(u32);
-
-#[derive(Debug, Clone, Copy, Encode, Decode)]
-struct ChildList {
-    child: NodeId,
-    next: Option<ChildElemId>,
-}
-
-impl Index<ChildElemId> for Vec<ChildList> {
-    type Output = ChildList;
-
-    fn index(&self, index: ChildElemId) -> &Self::Output {
-        &self[index.0 as usize]
-    }
-}
-impl IndexMut<ChildElemId> for Vec<ChildList> {
-    fn index_mut(&mut self, index: ChildElemId) -> &mut Self::Output {
-        &mut self[index.0 as usize]
-    }
-}
 
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct GraphNode {
@@ -46,7 +21,6 @@ pub struct GraphNode {
     pub level: u32,
     pub is_leaf: bool,
     pub first_on_path: bool,
-    pub children: Option<ChildElemId>,
     pub aggregated: AggregatedAllocSummary,
 }
 
@@ -121,7 +95,6 @@ impl AggregatedAllocSummary {
 pub struct RestorableState {
     nodes: Vec<GraphNode>,
     edges: FxHashMap<GraphEdge, NodeId>,
-    children: Vec<ChildList>,
     localized_frame_agg: FxHashMap<LocalizedFrameId, AggregatedAllocSummary>,
     modified_frame_agg: FxHashSet<LocalizedFrameId>,
     postponed_updates: FxHashMap<u32, FxHashMap<NodeId, AllocSummary>>,
@@ -144,7 +117,6 @@ pub struct NodeWithValue {
 pub struct Graph {
     nodes: Vec<GraphNode>,
     edges: FxHashMap<GraphEdge, NodeId>,
-    children: Vec<ChildList>,
     localized_frame_agg: FxHashMap<LocalizedFrameId, AggregatedAllocSummary>,
     modified_frame_agg: FxHashSet<LocalizedFrameId>,
     postponed_updates: FxHashMap<u32, FxHashMap<NodeId, AllocSummary>>,
@@ -157,7 +129,6 @@ impl Graph {
         let mut graph = Graph {
             nodes: Vec::new(),
             edges: FxHashMap::default(),
-            children: Vec::new(),
             localized_frame_agg: FxHashMap::default(),
             modified_frame_agg: FxHashSet::default(),
             postponed_updates: FxHashMap::default(),
@@ -170,7 +141,6 @@ impl Graph {
             key: ROOT_LOCALIZED_ID,
             parent: NodeId(0),
             level: 0,
-            children: None,
             is_leaf: false,
             first_on_path: true,
             aggregated: AggregatedAllocSummary::default(),
@@ -182,7 +152,6 @@ impl Graph {
         RestorableState {
             nodes: self.nodes.clone(),
             edges: self.edges.clone(),
-            children: self.children.clone(),
             localized_frame_agg: self.localized_frame_agg.clone(),
             modified_frame_agg: self.modified_frame_agg.clone(),
             postponed_updates: self.postponed_updates.clone(),
@@ -195,92 +164,11 @@ impl Graph {
         Self {
             nodes: state.nodes,
             edges: state.edges,
-            children: state.children,
             localized_frame_agg: state.localized_frame_agg,
             modified_frame_agg: state.modified_frame_agg,
             postponed_updates: state.postponed_updates,
             new_nodes: state.new_nodes,
             new_leaf_nodes: state.new_leaf_nodes,
-        }
-    }
-
-    pub fn get_top(&self, count: usize, value_type: ValueType) -> Vec<NodeWithValue> {
-        let mut sorted_nodes = BinaryHeap::default();
-        let mut selected_nodes_with_order = FxHashMap::default();
-
-        let root = NodeId::from(0);
-        sorted_nodes.push((
-            value_selector(&self.nodes[root].aggregated.total_value, value_type),
-            root,
-        ));
-
-        while selected_nodes_with_order.len() < count {
-            let (_, node_id) = match sorted_nodes.pop() {
-                Some(pair) => pair,
-                None => break,
-            };
-            selected_nodes_with_order.insert(node_id, selected_nodes_with_order.len());
-
-            let mut child_iter = self.nodes[node_id].children;
-            while let Some(child_elem_id) = child_iter {
-                let child_node_list = self.children[child_elem_id];
-                let child_node_id = child_node_list.child;
-                let child_node_value = value_selector(
-                    &self.nodes[child_node_id].aggregated.total_value,
-                    value_type,
-                );
-                if self.nodes[child_node_id].parent != node_id {
-                    log::error!("Invalid child");
-                }
-                sorted_nodes.push((child_node_value, child_node_id));
-
-                child_iter = child_node_list.next;
-            }
-        }
-        sorted_nodes.clear();
-
-        let mut result_order = Vec::new();
-        self.dfs(
-            NodeId::from(0),
-            &selected_nodes_with_order,
-            &mut result_order,
-        );
-        let transformed = result_order
-            .into_iter()
-            .map(|node_id| {
-                let node = self.inspect(node_id);
-                NodeWithValue {
-                    node_id: node_id,
-                    self_value: node
-                        .aggregated
-                        .self_value
-                        .as_ref()
-                        .map_or(0, |boxed| value_selector(boxed, value_type)),
-                    total_value: value_selector(&node.aggregated.total_value, value_type),
-                }
-            })
-            .collect::<Vec<_>>();
-        transformed
-    }
-
-    fn dfs(&self, root: NodeId, selected: &FxHashMap<NodeId, usize>, order: &mut Vec<NodeId>) {
-        order.push(root);
-        let mut candidates = Vec::new();
-
-        let mut child_iter = self.nodes[root].children;
-        while let Some(child_elem_id) = child_iter {
-            let child_node_list = self.children[child_elem_id];
-            let child_node_id = child_node_list.child;
-
-            if let Some(order_id) = selected.get(&child_node_id) {
-                candidates.push((*order_id, child_node_id));
-            }
-            child_iter = child_node_list.next;
-        }
-        // sort childs by order
-        candidates.sort();
-        for (_, node_id) in candidates {
-            self.dfs(node_id, selected, order);
         }
     }
 
@@ -320,18 +208,10 @@ impl Graph {
             key: edge.by,
             parent: parent,
             level: self.nodes[parent].level + 1,
-            children: None,
             is_leaf: false,
             first_on_path: is_first_on_path,
             aggregated: AggregatedAllocSummary::default(),
         });
-        let parent_child_list_head = self.nodes[parent].children;
-        let new_child_elem_id = ChildElemId::from(self.children.len() as u32);
-        self.children.push(ChildList {
-            child: child_id,
-            next: parent_child_list_head,
-        });
-        self.nodes[parent].children = Some(new_child_elem_id);
         self.new_nodes.insert(child_id);
         child_id
     }

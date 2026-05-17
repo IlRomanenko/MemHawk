@@ -1,8 +1,0 @@
-[package]
-name = "flamegraph"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-memhawk_core.workspace = true
-anyhow.workspace = true
