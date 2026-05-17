@@ -5,7 +5,6 @@
 #include <absl/hash/hash.h>
 
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <deque>
 #include <functional>
@@ -133,8 +132,8 @@ public:
 
     void Stats()
     {
-        std::array<uint32_t, 256> pathStat{};
-        std::array<uint32_t, 1024> children{};
+        std::map<uint32_t, size_t> pathStat;
+        std::map<uint32_t, size_t> children;
 
         std::function<void(uint32_t)> dfs = [&](uint32_t nodeId) {
             const auto& node = m_nodes[nodeId];
