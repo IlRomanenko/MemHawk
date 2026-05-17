@@ -164,18 +164,6 @@ void Stacktrace::Compress(CompressedStacktrace& result) const
     result.RecalculateHash();
 }
 
-void Stacktrace::Setup()
-{
-    if (unw_set_caching_policy(unw_local_addr_space, UNW_CACHE_PER_THREAD))
-    {
-        LogWarning("Failed to enable per-thread libunwind caching");
-    }
-    if (unw_set_cache_size(unw_local_addr_space, 1024, 0))
-    {
-        LogWarning("Failed to set libunwind cache size");
-    }
-}
-
 void Stacktrace::ShrinkBySize(size_t size)
 {
     if (m_skip + size >= m_size)

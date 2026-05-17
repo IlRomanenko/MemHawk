@@ -170,7 +170,6 @@ __attribute__((__constructor__)) void init_memhawk()
     {
         LogInit(*cfg.Logging);
         gl_unwind = *cfg.Unwind;
-        Stacktrace::Setup();
 
         LogInfo("[" fI32 "]", getpid());
         gl_memhawk = std::make_unique<MemHawk>(*cfg.MemHawk, std::make_unique<writers::WritersFactory>());

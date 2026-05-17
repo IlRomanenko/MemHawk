@@ -39,7 +39,6 @@ public:
     Stacktrace(void* const* data, size_t size);
 
     static Stacktrace Unwind(size_t capacity, bool useAbsl, size_t skip = 1);
-    static void Setup();
 
     void Compress(CompressedStacktrace& result) const;
 

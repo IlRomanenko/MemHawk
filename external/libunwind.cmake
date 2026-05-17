@@ -6,7 +6,7 @@ set(UNWIND_LIBRARY_DIR ${UNWIND_INSTALL_DIR}/lib)
 set(UNWIND_INCLUDE_DIR ${UNWIND_INSTALL_DIR}/include)
 
 set(LIBUNWIND_OPTIONS)
-list(APPEND LIBUNWIND_OPTIONS "--enable-static" "--disable-shared" "--disable-tests")
+list(APPEND LIBUNWIND_OPTIONS "--enable-static" "--disable-shared" "--disable-tests" "--enable-per-thread-cache")
 
 # both variants for building with -fPIC
 list(APPEND LIBUNWIND_OPTIONS "--enable-pic" "--with-pic")
@@ -37,7 +37,7 @@ message(NOTICE "Enabling `libunwind` dependency")
 ExternalProject_Add(
     libunwind_src
     GIT_REPOSITORY https://github.com/libunwind/libunwind.git
-    GIT_TAG v1.8.1
+    GIT_TAG v1.9-stable
     CONFIGURE_COMMAND 
         autoreconf -i && 
         ${CMAKE_COMMAND} -E env 
