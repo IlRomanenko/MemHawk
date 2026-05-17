@@ -128,8 +128,7 @@ TEST_F(TrieFixture, Append_DoubleSplit)
     const auto values = std::vector<int64_t>{10, 5, 3};
     for (size_t i = 0; i < paths.size(); i++)
     {
-        std::span<const uint32_t> sp(paths[i]);
-        m_trie.Append(sp, values[i]);
+        m_trie.Append(paths[i], values[i]);
     }
 
     const auto expectedRoot = NodeInspected{.path = {}, .edges = {{1, 1}}, .total = 18, .value = 0};
@@ -163,8 +162,7 @@ TEST_F(TrieFixture, Append_NegativeValues)
 
     for (size_t i = 0; i < paths.size(); i++)
     {
-        std::span<const uint32_t> sp(paths[i]);
-        m_trie.Append(sp, values[i]);
+        m_trie.Append(paths[i], values[i]);
     }
 
     const auto expectedRoot = NodeInspected{.path = {}, .edges = {{1, 1}}, .total = 2, .value = 0};
@@ -229,7 +227,7 @@ TEST_F(TrieFixture, GetTop_SharedPrefix_CountLimit)
 {
     m_trie.Append(std::span<const uint32_t>({1, 2, 3}), 10);
     m_trie.Append(std::span<const uint32_t>({1, 2, 4}), 5);
-    for (size_t size : std::vector<size_t>{1, 2, 3, 4, 5})
+    for (const size_t size : std::vector<size_t>{1, 2, 3, 4, 5})
     {
         EXPECT_EQ(size, m_trie.GetTop(size).size());
     }

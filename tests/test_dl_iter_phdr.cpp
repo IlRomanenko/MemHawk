@@ -26,10 +26,12 @@ void worker()
 
 int main()
 {
+    constexpr const auto ThreadsCount = 8;
     std::vector<std::thread> threads;
 
     printf("before threads creation\n");
-    for (size_t i = 0; i < 8; i++)
+    threads.reserve(ThreadsCount);
+    for (size_t i = 0; i < ThreadsCount; i++)
     {
         threads.emplace_back(worker);
     }

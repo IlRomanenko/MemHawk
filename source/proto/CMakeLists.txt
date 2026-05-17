@@ -22,6 +22,9 @@ add_custom_command(
 add_library(proto_files OBJECT ${PROTO_GENERATED_SRCS})
 target_link_libraries(proto_files PUBLIC protobuf::libprotobuf)
 
+# Skip clang-tidy
+set_target_properties(proto_files PROPERTIES CXX_CLANG_TIDY "")
+
 target_include_directories(proto_files PUBLIC
   "$<BUILD_INTERFACE:${PROTO_BINARY_DIR}>"
 )

@@ -289,6 +289,7 @@ void* mmap_alloc_aligned(size_t size, size_t alignment)
     void* alignedPtr = reinterpret_cast<void*>(alignedPtrValue); // start of user data
 
     const auto offset = alignedPtrValue - reinterpret_cast<uintptr_t>(ptr);
+    // NOLINTNEXTLINE(misc-const-correctness) false positive
     void* infoLocation = reinterpret_cast<char*>(alignedPtr) - AdditionalSize;
 
     // save `totalSize - offset` as user size instead of `size`

@@ -7,7 +7,7 @@
 
 __attribute__((used)) void* foo()
 {
-    auto ptr = malloc(10);
+    auto ptr = malloc(10); // NOLINT(cppcoreguidelines-no-malloc)
     return ptr;
 }
 
@@ -31,10 +31,9 @@ int main()
     size_t x = 0;
     for (size_t i = 0; i < TotalAllocs; i++)
     {
-        // void* q = malloc(10);
         void* q = bar();
         x += reinterpret_cast<size_t>(q);
-        free(q);
+        free(q); // NOLINT(cppcoreguidelines-no-malloc)
     }
     printf("%zu\n", x);
 

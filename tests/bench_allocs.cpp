@@ -26,12 +26,11 @@ void worker()
     }
     constexpr const size_t Size = 1UL << 22;
     std::list<int> dq;
-    const auto begin = std::chrono::steady_clock::now();
-    for (auto i = 0; i < Size; i++)
+    for (size_t i = 0; i < Size; i++)
     {
         dq.emplace_back(i);
     }
-    for (auto i = 0; i < Size; i++)
+    for (size_t i = 0; i < Size; i++)
     {
         dq.pop_front();
     }
@@ -53,7 +52,7 @@ int main()
     }
 
     {
-        std::unique_lock lock(gl_mtStart);
+        const std::unique_lock lock(gl_mtStart);
         gl_start = true;
         gl_cvStart.notify_all();
     }

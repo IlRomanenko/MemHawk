@@ -35,7 +35,7 @@ bool parse_number(std::string_view str, T& value)
 {
     const char* begin = str.data();
     const char* end = str.data() + str.size();
-    bool res = parse_number(begin, end, value);
+    const bool res = parse_number(begin, end, value);
     return res && begin == end;
 }
 
@@ -87,7 +87,7 @@ void process(size_t count, bool stats)
             std::cerr << "Incorrect line: " << buf << "\n";
             return;
         }
-        if (line.path.size() < 1 || line.path.front() != 0)
+        if (line.path.empty() || line.path.front() != 0)
         {
             std::cerr << "Missed root node: " << buf << "\n";
             return;
@@ -130,7 +130,7 @@ int main(int argc, char** argv)
 
     if (argc == 2)
     {
-        std::string arg{argv[1]};
+        const std::string arg{argv[1]};
         if (arg == "stats")
         {
             stats = true;
