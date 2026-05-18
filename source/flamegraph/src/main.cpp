@@ -1,5 +1,6 @@
 #include "graph.h"
 
+#include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
