@@ -18,6 +18,7 @@ option(MEMHAWK_AVX "Compile with avx support" OFF)
 option(MEMHAWK_LLD "Link with lld" OFF)
 option(MEMHAWK_BUILD_PROTOBUF "Build protobuf library from sources" ON)
 option(MEMHAWK_SELF_PROFILING "Build memhawk with self profiling" OFF)
+option(MEMHAWK_BUILD_STATIC_LIBSTDCPP "Build memhawk with statically linked libstdc++" ON)
 
 set(CMAKE_INSTALL_RPATH "$ORIGIN")
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH ON)
@@ -32,8 +33,7 @@ message(STATUS "C++ Compiler version: ${CMAKE_CXX_COMPILER_VERSION}")
 message(STATUS "Linker: ${CMAKE_LINKER}")
 message(STATUS)
 
-
-set(MEMHAWK_COMMON_FLAGS "-fPIC -pthread -fno-omit-frame-pointer -fvisibility=hidden -funwind-tables")
+set(MEMHAWK_COMMON_FLAGS "-fPIC -pthread -fno-omit-frame-pointer -fvisibility=hidden -fvisibility-inlines-hidden -funwind-tables")
 
 # enabled by default
 if(MEMHAWK_OPT_TLS)

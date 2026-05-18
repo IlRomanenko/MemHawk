@@ -50,7 +50,8 @@ PUBLIC
 add_library(${PROJECT_NAME} SHARED ${HEADERS} ${SOURCES})
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
-    -Wl,--exclude-libs,ALL
+    -Wl,--exclude-libs,ALL # fix symbols poisoning
+    -Wl,-Bsymbolic-functions # force linking symbols in library to itself if possible
     ${PROJECT_NAME}_impl
     re2::re2
 )
@@ -69,6 +70,33 @@ install(TARGETS ${PROJECT_NAME}
 )
 
 memhawk_build(${PROJECT_NAME})
+
+if (MEMHAWK_BUILD_STATIC_LIBSTDCPP)
+    set(MEMHAWK_STATIC_LIBSTD ${PROJECT_NAME}_static_libstdcpp)
+    add_library(${MEMHAWK_STATIC_LIBSTD} SHARED ${HEADERS} ${SOURCES})
+    target_link_libraries(${MEMHAWK_STATIC_LIBSTD}
+        PRIVATE
+        -Wl,--exclude-libs,ALL # fix symbols poisoning
+        -Wl,-Bsymbolic-functions # force linking symbols in library to itself if possible
+        ${PROJECT_NAME}_impl
+        re2::re2
+        -static-libstdc++
+    )
+
+    set_target_properties(${MEMHAWK_STATIC_LIBSTD} PROPERTIES
+        VERSION ${MEMHAWK_LIB_VERSION}
+        SOVERSION ${MEMHAWK_LIB_SOVERSION}
+        C_VISIBILITY_PRESET hidden
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN ON
+    )
+
+    install(TARGETS ${MEMHAWK_STATIC_LIBSTD}
+        LIBRARY NAMELINK_COMPONENT DESTINATION ${CMAKE_INSTALL_PREFIX}/memhawk/lib
+    )
+
+    memhawk_build(${MEMHAWK_STATIC_LIBSTD})
+endif()
 
 if(MEMHAWK_BUILD_TESTING)
     add_subdirectory(tests)
