@@ -52,6 +52,7 @@ target_link_libraries(${PROJECT_NAME}
     PRIVATE
     -Wl,--exclude-libs,ALL
     ${PROJECT_NAME}_impl
+    re2::re2
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES

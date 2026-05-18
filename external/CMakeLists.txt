@@ -25,6 +25,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(absl)
 
+message(NOTICE "Enabling `re2` dependency")
+FetchContent_Declare(
+    re2
+    GIT_REPOSITORY https://github.com/google/re2.git
+    GIT_TAG 2025-07-22
+    EXCLUDE_FROM_ALL
+    SYSTEM
+)
+FetchContent_MakeAvailable(re2)
+
 message(NOTICE "Enabling `boost` dependency")
 FetchContent_Declare(
     Boost
@@ -48,6 +58,12 @@ FetchContent_Declare(
 )
 set(ZSTD_BUILD_STATIC ON)
 set(ZSTD_BUILD_SHARED OFF)
+set(ZSTDLIB_VISIBLE "hidden" CACHE STRING "" FORCE)
+set(ZSTDERRORLIB_VISIBLE "hidden" CACHE STRING "" FORCE)
+set(ZDICTLIB_VISIBLE "hidden" CACHE STRING "" FORCE)
+set(ZSTDLIB_STATIC_API "hidden" CACHE STRING "" FORCE)
+set(ZDICTLIB_STATIC_API "hidden" CACHE STRING "" FORCE)
+add_compile_definitions(ZSTD_NO_TRACE)
 FetchContent_MakeAvailable(zstd)
 
 if (${MEMHAWK_BUILD_PROTOBUF})
@@ -56,7 +72,7 @@ if (${MEMHAWK_BUILD_PROTOBUF})
     set(protobuf_LOCAL_DEPENDENCIES_ONLY ON CACHE BOOL "Only local dependencies" FORCE)
     set(protobuf_ALLOW_CCACHE ON CACHE BOOL "Allow ccache" FORCE)
     set(protobuf_BUILD_PROTOC_BINARIES ON CACHE BOOL "Build protoc compiler")
-    set(protobuf_BUILD_LIBPROTOBUF_LITE ON CACHE BOOL "Skip lite version" FORCE)
+    set(protobuf_BUILD_LIBPROTOBUF_LITE ON CACHE BOOL "Build lite version" FORCE)
     set(protobuf_BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libs" FORCE)
     set(protobuf_WITH_ZLIB ${MEMHAWK_ZLIB} CACHE BOOL "Build with zlib support" FORCE)
 

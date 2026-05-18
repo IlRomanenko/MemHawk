@@ -14,6 +14,7 @@
 
 #include <absl/base/attributes.h>
 #include <absl/base/internal/direct_mmap.h>
+#include <re2/re2.h>
 #include <sys/mman.h>
 
 #include <atomic>
@@ -23,9 +24,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
-#include <exception>
 #include <pthread.h>
-#include <regex>
 #include <unistd.h>
 
 namespace memhawk
@@ -131,19 +130,17 @@ void InitHooks()
 }
 
 bool CheckProgname(std::string_view prognameRegex)
-try
 {
     if (prognameRegex.empty())
     {
         return true;
     }
-    const std::regex pattern(std::string{prognameRegex});
-    return std::regex_match(program_invocation_name, pattern);
-}
-catch (const std::exception& ex)
-{
-    LogError("Incorrect progname regex: " fStr, ex.what());
-    abort();
+    const re2::RE2 pattern(prognameRegex);
+    if (!pattern.ok()) {
+        LogError("Incorrect progname regex: " fStr, pattern.error().c_str());
+        return false;
+    }
+    return re2::RE2::FullMatch(program_invocation_name, pattern);
 }
 
 static void PreFork()
