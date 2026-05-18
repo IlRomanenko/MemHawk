@@ -223,6 +223,7 @@ void MemHawk::PreFork()
 {
     // manually lock mutex for tracking worker
     m_mt.lock();
+    m_postponedMt.Lock();
 }
 
 void MemHawk::ParentPostFork()
@@ -231,6 +232,7 @@ void MemHawk::ParentPostFork()
     // because all threads are preserved in parent process
 
     // safe, because was locked in PreFork
+    m_postponedMt.Unlock();
     m_mt.unlock();
 }
 
@@ -238,11 +240,19 @@ void MemHawk::ChildPostFork()
 {
     // unlock all thread trackers first
     m_innerTracker->UnlockTrackerUnsafe();
-    for (auto& tracker: m_thTrackers) {
+    for (auto& tracker : m_thTrackers)
+    {
         tracker->UnlockTrackerUnsafe();
     }
     // safe, because was locked in PreFork
+    m_postponedMt.Unlock();
     m_mt.unlock();
+    // recreate condvar and inner thread. corresponding object will be destroyed in parent process, in child it's
+    // necessary to reinit object otherwise there will be deadlock during MemHawk destruction
+    new (&m_cv) std::condition_variable{};
+    new (&m_worker) std::thread{};
+    // set stopped as true because we can't track allocations in forked process
+    m_stopped = true;
 }
 
 void MemHawk::ProcessPostponed()

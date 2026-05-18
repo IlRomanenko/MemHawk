@@ -20,4 +20,13 @@ PRIVATE
 )
 memhawk_build(test_dl_iter_phdr)
 
+
+add_executable(test_fork_process
+    test_fork_process.cpp
+)
+target_link_libraries(test_fork_process
+PRIVATE
+)
+memhawk_build(test_fork_process)
+
 memhawk_devbuild_file(bench_allocs ${CMAKE_CURRENT_SOURCE_DIR}/run_benchmarks.sh)
