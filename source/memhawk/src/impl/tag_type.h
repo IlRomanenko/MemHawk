@@ -35,4 +35,12 @@ private:
     T m_value{};
 };
 
+template <typename T>
+class GuardTag
+{
+private:
+    explicit GuardTag() = default;
+    friend T;
+};
+
 } // namespace memhawk

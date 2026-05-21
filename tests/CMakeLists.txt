@@ -29,4 +29,10 @@ PRIVATE
 )
 memhawk_build(test_fork_process)
 
+
+add_executable(test_not_joined_threads
+    test_not_joined_threads.cpp
+)
+memhawk_build(test_not_joined_threads)
+
 memhawk_devbuild_file(bench_allocs ${CMAKE_CURRENT_SOURCE_DIR}/run_benchmarks.sh)

@@ -19,17 +19,17 @@
 
 #include <atomic>
 #include <chrono>
-#include <cstdint>
-#include <future>
 #include <memory>
 #include <mutex>
-#include <pthread.h>
-#include <unistd.h>
 
 namespace memhawk
 {
 
-alignas(64) ABSL_CONST_INIT thread_local ThreadTracker* gtl_tracker = nullptr;
+ABSL_CONST_INIT thread_local ThreadTracker* gtl_tracker = nullptr;
+ABSL_CONST_INIT thread_local std::unique_ptr<MemHawk::ThreadTrackerFinalizer> gtl_trackerFinalizer;
+
+constexpr const uint32_t ExitingThreadsTrackerId = 1U << 30;
+constexpr const uint32_t InnerTrackerId = 1U << 31;
 
 MemHawk::MemHawk(MemHawkConfig cfg, std::unique_ptr<writers::IWritersFactory> factory)
     : m_cfg(std::move(cfg))
@@ -64,7 +64,6 @@ void MemHawk::Stop()
     {
         m_worker.join();
     }
-    gtl_tracker = nullptr;
     LogInfo("Total trackers: " fSzt ", empty: " fSzt ", max postponed: " fSzt, m_thTrackers.size(),
             m_finishedTrackers.size(), m_maxPostponedSize);
     LogInfo("Inner traces: (" fSzt ", " fSzt "), external: " fSzt, m_innerBtTracker.StacktracesCount(),
@@ -76,6 +75,8 @@ void MemHawk::Stop()
     {
         tracker->LockTracker().PrintTracker();
     }
+    LogInfo("ExitingThreadsTracker");
+    m_exitingThreadsTracker->LockTracker().PrintTracker();
     LogInfo("InnerTracker");
     m_innerTracker->LockTracker().PrintTracker();
 }
@@ -86,10 +87,12 @@ void MemHawk::PostponedConstruct()
     const RecursionGuard<AllocTag> guard;
     {
         const RecursionGuard<InnerAllocTag> innerGuard;
-        m_innerTracker = std::make_unique<ThreadTracker>(m_thTrackers.size(), *m_cfg.LruStackSize,
+        m_innerTracker = std::make_unique<ThreadTracker>(InnerTrackerId, *m_cfg.LruStackSize,
                                                          *m_cfg.CollapseRecursionDepth, m_innerBtTracker);
     }
     m_btTracker.PostponedConstruct();
+    m_exitingThreadsTracker = std::make_unique<ThreadTracker>(ExitingThreadsTrackerId, *m_cfg.LruStackSize,
+                                                              *m_cfg.CollapseRecursionDepth, m_btTracker);
     RegisterThread();
     if (*m_cfg.TrackingWorker)
     {
@@ -114,40 +117,35 @@ void MemHawk::RegisterThread()
     const RecursionGuard<AllocTag> guard;
 
     const absl::base_internal::SpinLockHolder lock(&m_thTrackersMt);
-    for (auto it = m_finishPromises.begin(); it != m_finishPromises.end();)
-    {
-        if (it->wait_for(std::chrono::seconds{0}) == std::future_status::ready)
-        {
-            const auto trackerId = it->get();
-            LogDebug("Finished tracker: " fU32, trackerId);
-            m_finishedTrackers.push_back(trackerId);
-            it = m_finishPromises.erase(it);
-        }
-        else
-        {
-            it++;
-        }
-    }
     if (!m_finishedTrackers.empty())
     {
         const auto trackerId = m_finishedTrackers.back();
         m_finishedTrackers.pop_back();
-        gtl_tracker = m_thTrackers[trackerId].get();
-        SetUpThreadFinishPromise(trackerId);
+        SetUpThreadTracker(m_thTrackers[trackerId].get());
         return;
     }
     const auto trackerId = m_thTrackers.size();
     m_thTrackers.emplace_back(
         std::make_unique<ThreadTracker>(trackerId, *m_cfg.LruStackSize, *m_cfg.CollapseRecursionDepth, m_btTracker));
-    gtl_tracker = m_thTrackers.back().get();
-    SetUpThreadFinishPromise(trackerId);
+    SetUpThreadTracker(m_thTrackers.back().get());
 }
 
-void MemHawk::SetUpThreadFinishPromise(uint32_t trackerId)
+MemHawk::ThreadTrackerFinalizer::~ThreadTrackerFinalizer()
 {
-    std::promise<uint32_t> exitPromise;
-    exitPromise.set_value_at_thread_exit(trackerId);
-    m_finishPromises.push_back(exitPromise.get_future());
+    // set special tracker (that will not be deallocated) for exiting thread
+    gtl_tracker = m_memhawk->m_exitingThreadsTracker.get();
+
+    // reclaim old tracker
+    const absl::base_internal::SpinLockHolder lock(&m_memhawk->m_thTrackersMt);
+    m_memhawk->m_finishedTrackers.push_back(m_tracker->GetTrackerId());
+    LogDebug("Finished tracker: " fU32, m_tracker->GetTrackerId());
+}
+
+void MemHawk::SetUpThreadTracker(ThreadTracker* tracker)
+{
+    gtl_tracker = tracker;
+    // setup non-trivial tracker finalizer
+    gtl_trackerFinalizer = std::make_unique<ThreadTrackerFinalizer>(GuardTag<MemHawk>{}, this, gtl_tracker);
 }
 
 void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace& trace, bool isExternal)
@@ -240,6 +238,7 @@ void MemHawk::ChildPostFork()
 {
     // unlock all thread trackers first
     m_innerTracker->UnlockTrackerUnsafe();
+    m_exitingThreadsTracker->UnlockTrackerUnsafe();
     for (auto& tracker : m_thTrackers)
     {
         tracker->UnlockTrackerUnsafe();
@@ -341,6 +340,7 @@ void MemHawk::WorkerUpdateData()
         WorkerAccountThreadTracker(tracker.get());
     }
     WorkerAccountThreadTracker(m_innerTracker.get());
+    WorkerAccountThreadTracker(m_exitingThreadsTracker.get());
     if (m_modulesCacheInvalidated.exchange(false, std::memory_order_relaxed))
     {
         m_workerStorage->writer->UpdateModules();

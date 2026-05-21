@@ -17,7 +17,6 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
-#include <future>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -43,6 +42,26 @@ public:
     void PreFork();
     void ParentPostFork();
     void ChildPostFork();
+
+public:
+    class ThreadTrackerFinalizer
+    {
+    public:
+        explicit ThreadTrackerFinalizer(GuardTag<MemHawk>, MemHawk* memhawk, ThreadTracker* tracker)
+            : m_memhawk{memhawk}, m_tracker{tracker}
+        {
+        }
+
+        ThreadTrackerFinalizer() = delete;
+        ~ThreadTrackerFinalizer();
+
+    private:
+        friend MemHawk;
+
+    private:
+        MemHawk* m_memhawk;
+        ThreadTracker* m_tracker{};
+    };
 
 private:
     class InnerStacktraceFinder : public IStacktraceFinder
@@ -100,7 +119,7 @@ private:
 
     // Threads registration
     void RegisterThread();
-    void SetUpThreadFinishPromise(uint32_t trackerId);
+    void SetUpThreadTracker(ThreadTracker* tracker);
 
 private:
     MemHawkConfig m_cfg;
@@ -119,7 +138,10 @@ private:
     absl::base_internal::SpinLock m_thTrackersMt;
     std::deque<std::unique_ptr<ThreadTracker>> m_thTrackers;
     std::deque<uint32_t> m_finishedTrackers;
-    std::list<std::future<uint32_t>> m_finishPromises;
+    // special tracker for threads, that are currently terminating and started to deallocate tls objects
+    // can be modified concurrently by multiple threads but overall amount of operations is negligible
+    // and shouldn't harm performance
+    std::unique_ptr<ThreadTracker> m_exitingThreadsTracker;
 
     StacktraceTracker m_btTracker;
 

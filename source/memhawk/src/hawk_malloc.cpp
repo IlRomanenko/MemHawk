@@ -88,14 +88,14 @@ DEFINE_HOOK(dlclose);
 static ABSL_CONST_INIT std::atomic<bool> gl_initialised = false;
 static ABSL_CONST_INIT std::atomic<bool> gl_dlInitialised = false;
 static ABSL_CONST_INIT std::atomic<bool> gl_memhawkReady = false;
-static ABSL_CONST_INIT std::unique_ptr<MemHawk> gl_memhawk = nullptr;
+static ABSL_CONST_INIT MemHawk* gl_memhawk = nullptr;
 static ABSL_CONST_INIT UnwindConfig gl_unwind = {};
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE MemHawk* GetMemHawk()
 {
     if (likely(gl_memhawkReady.load(std::memory_order_acquire)))
     {
-        return gl_memhawk.get();
+        return gl_memhawk;
     }
     return nullptr;
 }
@@ -169,7 +169,7 @@ __attribute__((__constructor__)) void init_memhawk()
         gl_unwind = *cfg.Unwind;
 
         LogInfo("[" fI32 "]", getpid());
-        gl_memhawk = std::make_unique<MemHawk>(*cfg.MemHawk, std::make_unique<writers::WritersFactory>());
+        gl_memhawk = new MemHawk(*cfg.MemHawk, std::make_unique<writers::WritersFactory>());
         gl_memhawkReady = true;
 
         // after that can save traces as postponed into memhawk
@@ -192,7 +192,11 @@ __attribute__((__destructor__)) void deinit_memhawk()
     if (gl_memhawk)
     {
         gl_memhawkReady = false;
-        gl_memhawk.reset();
+        gl_memhawk->Stop();
+        // intentionally leak MemHawk
+        // it's safe because the process will be terminated by OS after the main thread exited
+        // it's necessary because there can exists detached threads, that continue to operate even after
+        // main thread started termination process
     }
     LogDeinit();
 }
