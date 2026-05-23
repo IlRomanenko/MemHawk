@@ -7,9 +7,9 @@
 #include "macros.h"
 #include "recursion_guard.h"
 #include "scoped_sigmask.h"
+#include "spinlock.h"
 #include "stacktrace.h"
 #include "thread_tracker.h"
-#include "trackers/stacktrace_tracker_static.h"
 #include "writers/i_writer.h"
 
 #include <absl/base/attributes.h>
@@ -24,6 +24,9 @@
 
 namespace memhawk
 {
+
+ABSL_CONST_INIT static SpinLock g_finalizerSpinlock{};
+ABSL_CONST_INIT static std::atomic<bool> g_memhawkDestroyed{};
 
 ABSL_CONST_INIT thread_local ThreadTracker* gtl_tracker = nullptr;
 ABSL_CONST_INIT thread_local std::unique_ptr<MemHawk::ThreadTrackerFinalizer> gtl_trackerFinalizer;
@@ -40,10 +43,14 @@ MemHawk::MemHawk(MemHawkConfig cfg, std::unique_ptr<writers::IWritersFactory> fa
     , m_innerBtTracker(*m_cfg.InnerTracker)
 {
     LogInfo("Start MemHawk()");
+    g_memhawkDestroyed = false;
 }
 
 MemHawk::~MemHawk()
 {
+    const std::scoped_lock lock(g_finalizerSpinlock);
+    g_memhawkDestroyed = true;
+
     if (!m_stopped)
     {
         Stop();
@@ -64,8 +71,11 @@ void MemHawk::Stop()
     {
         m_worker.join();
     }
-    LogInfo("Total trackers: " fSzt ", empty: " fSzt ", max postponed: " fSzt, m_thTrackers.size(),
+    {
+        const absl::base_internal::SpinLockHolder lock(&m_thTrackersMt);
+        LogInfo("Total trackers: " fSzt ", empty: " fSzt ", max postponed: " fSzt, m_thTrackers.size(),
             m_finishedTrackers.size(), m_maxPostponedSize);
+    }
     LogInfo("Inner traces: (" fSzt ", " fSzt "), external: " fSzt, m_innerBtTracker.StacktracesCount(),
             m_innerBtTracker.GetStorageSize(), m_btTracker.StacktracesCount());
     m_btTracker.Describe();
@@ -93,7 +103,6 @@ void MemHawk::PostponedConstruct()
     m_btTracker.PostponedConstruct();
     m_exitingThreadsTracker = std::make_unique<ThreadTracker>(ExitingThreadsTrackerId, *m_cfg.LruStackSize,
                                                               *m_cfg.CollapseRecursionDepth, m_btTracker);
-    RegisterThread();
     if (*m_cfg.TrackingWorker)
     {
         m_workerStorage = std::make_unique<WorkerStorage>();
@@ -132,6 +141,13 @@ void MemHawk::RegisterThread()
 
 MemHawk::ThreadTrackerFinalizer::~ThreadTrackerFinalizer()
 {
+    const std::scoped_lock dtrLock(g_finalizerSpinlock);
+    if (g_memhawkDestroyed)
+    {
+        gtl_tracker = nullptr;
+        return;
+    }
+
     // set special tracker (that will not be deallocated) for exiting thread
     gtl_tracker = m_memhawk->m_exitingThreadsTracker.get();
 
@@ -221,6 +237,9 @@ void MemHawk::PreFork()
 {
     // manually lock mutex for tracking worker
     m_mt.lock();
+    // manually lock mutex for thread registration
+    m_thTrackersMt.Lock();
+    // manually lock mutex for postponed allocations
     m_postponedMt.Lock();
 }
 
@@ -231,6 +250,7 @@ void MemHawk::ParentPostFork()
 
     // safe, because was locked in PreFork
     m_postponedMt.Unlock();
+    m_thTrackersMt.Unlock();
     m_mt.unlock();
 }
 
@@ -245,13 +265,12 @@ void MemHawk::ChildPostFork()
     }
     // safe, because was locked in PreFork
     m_postponedMt.Unlock();
+    m_thTrackersMt.Unlock();
     m_mt.unlock();
     // recreate condvar and inner thread. corresponding object will be destroyed in parent process, in child it's
     // necessary to reinit object otherwise there will be deadlock during MemHawk destruction
     new (&m_cv) std::condition_variable{};
     new (&m_worker) std::thread{};
-    // set stopped as true because we can't track allocations in forked process
-    m_stopped = true;
 }
 
 void MemHawk::ProcessPostponed()

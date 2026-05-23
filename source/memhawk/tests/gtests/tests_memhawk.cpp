@@ -34,6 +34,7 @@ public:
         auto factory = std::make_unique<WritersFactoryMock>();
         EXPECT_CALL(*factory, CreateWritersAdaptor).WillOnce(Return(ByMove(std::move(m_writerMock))));
         m_memhawk = std::make_unique<MemHawk>(m_cfg, std::move(factory));
+        m_memhawk->PostponedConstruct();
     }
 
     void SetDefaultExpectations()
@@ -109,7 +110,6 @@ TEST_F(MemHawkFixture, CreateAndConstruct_ExpectOk)
 {
     SetDefaultExpectations();
     SetUpMemHawk();
-    m_memhawk->PostponedConstruct();
 }
 
 TEST_F(MemHawkFixture, AccountAllocs_ExpectOk)
@@ -124,7 +124,6 @@ TEST_F(MemHawkFixture, AccountAllocs_ExpectOk)
 
     SetAccountingExpectations();
     SetUpMemHawk();
-    m_memhawk->PostponedConstruct();
 
     auto testLambda = [&]() {
         for (size_t i = 0; i < TestAllocations; i++)
@@ -164,7 +163,6 @@ TEST_F(MemHawkFixture, AccountDeallocs_ExpectOk)
 
     SetAccountingExpectations();
     SetUpMemHawk();
-    m_memhawk->PostponedConstruct();
 
     auto testLambda = [&]() {
         for (size_t i = 0; i < TestAllocations; i++)
@@ -203,7 +201,6 @@ TEST_F(MemHawkFixture, AllocsAndDeallocs_ExpectOk)
 
     SetAccountingExpectations();
     SetUpMemHawk();
-    m_memhawk->PostponedConstruct();
 
     auto testLambda = [&]() {
         for (size_t i = 0; i < TestAllocations; i++)
@@ -233,4 +230,39 @@ TEST_F(MemHawkFixture, AllocsAndDeallocs_ExpectOk)
         EXPECT_EQ(summary.totalBytes, TotalAllocations * AllocationSize);
     }
 }
+
+TEST_F(MemHawkFixture, AllocsAndDeallocs_FromMainThread_ExpectOk)
+{
+    constexpr int64_t TestAllocations = 100'000;
+    constexpr int64_t AllocationSize = 127;
+    constexpr size_t Offset = 16;
+
+    SetAccountingExpectations();
+    SetUpMemHawk();
+    for (size_t i = 0; i < TestAllocations; i++)
+    {
+        AllocInfo info{AllocationSize, Offset};
+        Stacktrace stacktrace{};
+        m_memhawk->TrackAlloc(info, stacktrace, true);
+        // dealloc allocated memory
+        m_memhawk->TrackDealloc(info, true);
+    }
+    EXPECT_TRUE(WaitForFlush());
+    // stop memhawk processing
+    m_memhawk->Stop();
+
+    const std::scoped_lock lock(m_mt);
+    EXPECT_EQ(m_summaries.size(), 1);
+    for (const auto& [_, summary]: m_summaries)
+    {
+        EXPECT_EQ(summary.active, 0);
+        EXPECT_EQ(summary.size, 0);
+        EXPECT_EQ(summary.overhead, 0);
+
+        // below fields are updated only by TrackAlloc 
+        EXPECT_EQ(summary.totalCount, TestAllocations);
+        EXPECT_EQ(summary.totalBytes, TestAllocations * AllocationSize);
+    }
+}
+
 } // namespace memhawk

@@ -38,6 +38,7 @@ StacktraceTracker::StacktraceTracker(StacktraceTrackerConfig cfg) : m_cfg{std::m
 
 void StacktraceTracker::Describe()
 {
+    const absl::base_internal::SpinLockHolder lock(&m_mt);
     LogInfo("StacktraceTracker: nodes: " fSzt ", edges: " fSzt ", ptrMap: " fSzt, m_storage->nodes.size(),
             m_storage->tree.GetEdgesCount(), m_storage->tree.GetPtrMapSize());
 }

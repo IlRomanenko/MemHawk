@@ -28,6 +28,8 @@ class MemHawk
 {
 public:
     explicit MemHawk(MemHawkConfig cfg, std::unique_ptr<writers::IWritersFactory> factory);
+    // In profiler mode MemHawk should be leaked (otherwise it's exceptionally hard to work with detached threads)
+    // Dtr should be called in gtest and in that case it's necessary to have only one example of MemHawk.
     ~MemHawk();
 
     void Stop();
@@ -59,7 +61,7 @@ public:
         friend MemHawk;
 
     private:
-        MemHawk* m_memhawk;
+        MemHawk* m_memhawk{};
         ThreadTracker* m_tracker{};
     };
 
@@ -138,8 +140,8 @@ private:
     absl::base_internal::SpinLock m_thTrackersMt;
     std::deque<std::unique_ptr<ThreadTracker>> m_thTrackers;
     std::deque<uint32_t> m_finishedTrackers;
-    // special tracker for threads, that are currently terminating and started to deallocate tls objects
-    // can be modified concurrently by multiple threads but overall amount of operations is negligible
+    // Special tracker for threads, that are currently terminating and started to deallocate tls objects.
+    // Can be modified concurrently by multiple threads but overall amount of operations is negligible
     // and shouldn't harm performance
     std::unique_ptr<ThreadTracker> m_exitingThreadsTracker;
 
