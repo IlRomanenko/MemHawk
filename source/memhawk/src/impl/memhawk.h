@@ -3,6 +3,7 @@
 #include "alloc_info.h"
 #include "config.h"
 #include "i_stacktrace_tracker.h"
+#include "owned_guards.h"
 #include "stacktrace.h"
 #include "thread_tracker.h"
 #include "trackers/stacktrace_tracker.h"
@@ -44,26 +45,6 @@ public:
     void PreFork();
     void ParentPostFork();
     void ChildPostFork();
-
-public:
-    class ThreadTrackerFinalizer
-    {
-    public:
-        explicit ThreadTrackerFinalizer(GuardTag<MemHawk>, MemHawk* memhawk, ThreadTracker* tracker)
-            : m_memhawk{memhawk}, m_tracker{tracker}
-        {
-        }
-
-        ThreadTrackerFinalizer() = delete;
-        ~ThreadTrackerFinalizer();
-
-    private:
-        friend MemHawk;
-
-    private:
-        MemHawk* m_memhawk{};
-        ThreadTracker* m_tracker{};
-    };
 
 private:
     class InnerStacktraceFinder : public IStacktraceFinder
@@ -122,6 +103,7 @@ private:
     // Threads registration
     void RegisterThread();
     void SetUpThreadTracker(ThreadTracker* tracker);
+    void ReclaimTracker(ThreadTracker* tracker);
 
 private:
     MemHawkConfig m_cfg;
@@ -144,6 +126,7 @@ private:
     // Can be modified concurrently by multiple threads but overall amount of operations is negligible
     // and shouldn't harm performance
     std::unique_ptr<ThreadTracker> m_exitingThreadsTracker;
+    OwnedGuards m_trackerGuards;
 
     StacktraceTracker m_btTracker;
 

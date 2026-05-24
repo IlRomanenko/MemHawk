@@ -5,9 +5,9 @@
 #include "config.h"
 #include "logging.h"
 #include "macros.h"
+#include "owned_guards.h"
 #include "recursion_guard.h"
 #include "scoped_sigmask.h"
-#include "spinlock.h"
 #include "stacktrace.h"
 #include "thread_tracker.h"
 #include "writers/i_writer.h"
@@ -25,11 +25,8 @@
 namespace memhawk
 {
 
-ABSL_CONST_INIT static SpinLock g_finalizerSpinlock{};
-ABSL_CONST_INIT static std::atomic<bool> g_memhawkDestroyed{};
-
 ABSL_CONST_INIT thread_local ThreadTracker* gtl_tracker = nullptr;
-ABSL_CONST_INIT thread_local std::unique_ptr<MemHawk::ThreadTrackerFinalizer> gtl_trackerFinalizer;
+ABSL_CONST_INIT thread_local std::unique_ptr<OwnedGuards::CallbackGuard> gtl_trackerFinalizer;
 
 constexpr const uint32_t ExitingThreadsTrackerId = 1U << 30;
 constexpr const uint32_t InnerTrackerId = 1U << 31;
@@ -43,14 +40,10 @@ MemHawk::MemHawk(MemHawkConfig cfg, std::unique_ptr<writers::IWritersFactory> fa
     , m_innerBtTracker(*m_cfg.InnerTracker)
 {
     LogInfo("Start MemHawk()");
-    g_memhawkDestroyed = false;
 }
 
 MemHawk::~MemHawk()
 {
-    const std::scoped_lock lock(g_finalizerSpinlock);
-    g_memhawkDestroyed = true;
-
     if (!m_stopped)
     {
         Stop();
@@ -139,29 +132,24 @@ void MemHawk::RegisterThread()
     SetUpThreadTracker(m_thTrackers.back().get());
 }
 
-MemHawk::ThreadTrackerFinalizer::~ThreadTrackerFinalizer()
-{
-    const std::scoped_lock dtrLock(g_finalizerSpinlock);
-    if (g_memhawkDestroyed)
-    {
-        gtl_tracker = nullptr;
-        return;
-    }
-
-    // set special tracker (that will not be deallocated) for exiting thread
-    gtl_tracker = m_memhawk->m_exitingThreadsTracker.get();
-
-    // reclaim old tracker
-    const absl::base_internal::SpinLockHolder lock(&m_memhawk->m_thTrackersMt);
-    m_memhawk->m_finishedTrackers.push_back(m_tracker->GetTrackerId());
-    LogDebug("Finished tracker: " fU32, m_tracker->GetTrackerId());
-}
-
 void MemHawk::SetUpThreadTracker(ThreadTracker* tracker)
 {
     gtl_tracker = tracker;
     // setup non-trivial tracker finalizer
-    gtl_trackerFinalizer = std::make_unique<ThreadTrackerFinalizer>(GuardTag<MemHawk>{}, this, gtl_tracker);
+    gtl_trackerFinalizer = m_trackerGuards.Register([this, tracker] {
+        ReclaimTracker(tracker);
+    });
+}
+
+void MemHawk::ReclaimTracker(ThreadTracker* tracker)
+{
+    // set special tracker (that will not be deallocated) for exiting thread
+    gtl_tracker = m_exitingThreadsTracker.get();
+
+    // reclaim old tracker
+    const absl::base_internal::SpinLockHolder lock(&m_thTrackersMt);
+    m_finishedTrackers.push_back(tracker->GetTrackerId());
+    LogDebug("Finished tracker: " fU32, tracker->GetTrackerId());
 }
 
 void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace& trace, bool isExternal)
@@ -239,6 +227,7 @@ void MemHawk::PreFork()
     m_mt.lock();
     // manually lock mutex for thread registration
     m_thTrackersMt.Lock();
+    m_trackerGuards.UnsafeLock();
     // manually lock mutex for postponed allocations
     m_postponedMt.Lock();
 }
@@ -250,6 +239,7 @@ void MemHawk::ParentPostFork()
 
     // safe, because was locked in PreFork
     m_postponedMt.Unlock();
+    m_trackerGuards.UnsafeUnlock();
     m_thTrackersMt.Unlock();
     m_mt.unlock();
 }
@@ -265,6 +255,7 @@ void MemHawk::ChildPostFork()
     }
     // safe, because was locked in PreFork
     m_postponedMt.Unlock();
+    m_trackerGuards.UnsafeUnlock();
     m_thTrackersMt.Unlock();
     m_mt.unlock();
     // recreate condvar and inner thread. corresponding object will be destroyed in parent process, in child it's
