@@ -41,7 +41,7 @@ public:
 
 TEST_F(OwnedGuardsFixture, Ctr_ExpectOk)
 {
-    EXPECT_NO_THROW(OwnedGuards guardsOwner);
+    EXPECT_NO_THROW(const OwnedGuards guardsOwner);
 }
 
 TEST_F(OwnedGuardsFixture, SingleThread_ExpectCalled)

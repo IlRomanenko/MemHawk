@@ -2,19 +2,23 @@ if(DEFINED DIST_DEVBUILD_DIR)
     file(MAKE_DIRECTORY ${DIST_DEVBUILD_DIR})
 endif()
 
+add_custom_target(memhawk_all)
+
 function(copy_to_devbuild target)
     if(TARGET ${target} AND DEFINED DIST_DEVBUILD_DIR)
         add_custom_command(TARGET ${target} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${target}> ${DIST_DEVBUILD_DIR}
-            COMMENT "copying ${target} after build")
+            COMMENT "copying ${target} to devbuild")
+        add_custom_target(copy_${target} ALL
+            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${target}> ${DIST_DEVBUILD_DIR}
+            DEPENDS ${target}
+            COMMENT "copying ${target} to devbuild")
     endif()
 endfunction()
 
-add_custom_target(memhawk_all)
-
 function(memhawk_build target)
-    add_dependencies(memhawk_all ${target})
     copy_to_devbuild(${target})
+    add_dependencies(memhawk_all ${target} copy_${target})
 endfunction()
 
 function(memhawk_devbuild_file target filename)
