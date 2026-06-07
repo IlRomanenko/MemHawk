@@ -13,12 +13,13 @@ function(copy_to_devbuild target)
             COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:${target}> ${DIST_DEVBUILD_DIR}
             DEPENDS ${target}
             COMMENT "copying ${target} to devbuild")
+        add_dependencies(memhawk_all copy_${target})
     endif()
 endfunction()
 
 function(memhawk_build target)
+    add_dependencies(memhawk_all ${target})
     copy_to_devbuild(${target})
-    add_dependencies(memhawk_all ${target} copy_${target})
 endfunction()
 
 function(memhawk_devbuild_file target filename)
