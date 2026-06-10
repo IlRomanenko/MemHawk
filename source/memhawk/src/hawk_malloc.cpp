@@ -32,11 +32,6 @@ namespace memhawk
 
 namespace hooks
 {
-enum class HookType
-{
-    Required,
-    Optional
-};
 
 template <typename Signature, typename Base>
 struct hook
