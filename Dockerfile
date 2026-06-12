@@ -1,5 +1,5 @@
 # Use a specific version of Ubuntu
-FROM ubuntu:20.04
+FROM ubuntu:18.04
 ARG DEBIAN_FRONTEND=noninteractive
 SHELL ["/bin/bash", "-c"]
 
@@ -10,6 +10,14 @@ RUN apt-get install -y \
     software-properties-common lsb-release \ 
     curl ninja-build
 
+# Install gcc-11
+RUN add-apt-repository ppa:ubuntu-toolchain-r/test && apt update
+RUN apt install -y gcc-11 g++-11
+
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100
+
+# Install clang-18
 RUN wget -qO- https://apt.llvm.org/llvm.sh | bash -s 18
 RUN apt-get install -y clang-18 lldb-18 libc++-18-dev libc++abi-18-dev clang-tools-18
 
@@ -33,8 +41,8 @@ WORKDIR /workspace
 COPY . .
 
 # Create a build directory and compile project
-RUN \
-    cmake -B build --preset Release -DCMAKE_INSTALL_PREFIX=/artifacts && \
-    cmake --build build --parallel $(nproc) && \
-    cmake --install build
-
+RUN cmake -B build --preset Release -DCMAKE_INSTALL_PREFIX=/artifacts
+# Build libunwind and xxhash manually, otherwise memhawk will fail to build on old ubuntu version
+RUN cmake --build build --parallel $(nproc) -t libunwind_src -t xxhash_src
+RUN cmake --build build --parallel $(nproc) -t memhawk_all && \
+    cmake --build build -t install
