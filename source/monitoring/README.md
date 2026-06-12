@@ -2,14 +2,14 @@
 
 ## Quickstart
 
-* Start containers and injest data:
+* Start containers and ingest data:
 
 ```bash
 docker compose up -d
 ./symbolizer processor -f memhawk_<process_name>_<process_pid>_protobuf.binpb --watch
 ```
 
-Open grafana ui: http://localhost:3000, user - `admin`, password - `admin`
+Open Grafana UI: <http://localhost:3000>, user - `admin`, password - `admin`
 
 * Stop containers and remove data
 
@@ -17,15 +17,15 @@ Open grafana ui: http://localhost:3000, user - `admin`, password - `admin`
 docker compose down -v
 ```
 
-**Note:** In case you are using proxy, setup correct `HTTP[S]_PROXY` in `.env` file
+**Note:** In case you are using a proxy, set up the correct `HTTP[S]_PROXY` in the `.env` file.
 
 ## Admin panels and credentials
 
-* Grafana UI: http://localhost:3000
+* Grafana UI: <http://localhost:3000>
   * Admin user: `admin` or GF_SECURITY_ADMIN_USER
   * Admin password: `admin` or GF_SECURITY_ADMIN_PASSWORD
 
-* ClickHouse HTTP endpoint: http://localhost:8123
+* ClickHouse HTTP endpoint: <http://localhost:8123>
   * User: `admin` or CLICKHOUSE_USER
   * Password: `admin` or CLICKHOUSE_PASSWORD
 

@@ -37,7 +37,7 @@ void LogInit(LoggingConfig cfg)
             gl_logFile = STDERR_FILENO;
             constexpr size_t BufSize = 512;
             char buffer[BufSize];
-            LogPrint("Failed to initialise logging: " fStr ", error: ", filename.c_str(),
+            LogPrint("Failed to initialise logging: " fStr ", error: " fStr "\n", filename.c_str(),
                      strerror_r(error, buffer, 512));
             exit(-1);
         }

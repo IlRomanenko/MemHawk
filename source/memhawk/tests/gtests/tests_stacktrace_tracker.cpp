@@ -81,7 +81,7 @@ TEST_F(StacktraceTrackerFixture, AddSimilarTraces_ExpectAllFound)
         const size_t traceId = m_tracker->InsertStacktrace(stacktrace);
         EXPECT_EQ(traceId, 6 + i);
     }
-    // insert original trace once more time
+    // insert original trace one more time
     auto testDataStacktrace = SetUpStacktrace(testData);
     const size_t traceId = m_tracker->InsertStacktrace(testDataStacktrace);
     EXPECT_EQ(traceId, 6);

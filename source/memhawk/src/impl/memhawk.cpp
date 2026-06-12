@@ -135,7 +135,7 @@ void MemHawk::RegisterThread()
 void MemHawk::SetUpThreadTracker(ThreadTracker* tracker)
 {
     gtl_tracker = tracker;
-    // setup non-trivial tracker finalizer
+    // set up non-trivial tracker finalizer
     gtl_trackerFinalizer = m_trackerGuards.Register([this, tracker] {
         ReclaimTracker(tracker);
     });
@@ -258,8 +258,8 @@ void MemHawk::ChildPostFork()
     m_trackerGuards.UnsafeUnlock();
     m_thTrackersMt.Unlock();
     m_mt.unlock();
-    // recreate condvar and inner thread. corresponding object will be destroyed in parent process, in child it's
-    // necessary to reinit object otherwise there will be deadlock during MemHawk destruction
+    // recreate condvar and inner thread. Corresponding objects will be destroyed in the parent process; in the child it's
+    // necessary to reinitialize them, otherwise there will be a deadlock during MemHawk destruction
     new (&m_cv) std::condition_variable{};
     new (&m_worker) std::thread{};
 }
@@ -297,7 +297,7 @@ void MemHawk::PostponeAlloc(const AllocInfo& info)
     const absl::base_internal::SpinLockHolder lock(&m_postponedMt);
     if (m_postponed.size() >= m_postponedCapacity)
     {
-        LogWarning("Skipped postponed alloc due to exhausting capacity");
+        LogWarning("Skipped postponed alloc: capacity exhausted");
         return;
     }
     Postponed op{.info = info, .op = Postponed::Operation::Alloc};
@@ -310,7 +310,7 @@ void MemHawk::PostponeDealloc(const AllocInfo& info)
     const absl::base_internal::SpinLockHolder lock(&m_postponedMt);
     if (m_postponed.size() >= m_postponedCapacity)
     {
-        LogWarning("Skipped postponed alloc due to exhausting capacity");
+        LogWarning("Skipped postponed dealloc: capacity exhausted");
         return;
     }
     Postponed op{.info = info, .op = Postponed::Operation::Free};
@@ -320,7 +320,7 @@ void MemHawk::PostponeDealloc(const AllocInfo& info)
 
 void MemHawk::TrackingWorker()
 {
-    // set guard, that indicates, that this thread is local to memhawk
+    // set guard that indicates that this thread is local to memhawk
     const RecursionGuard<AllocTag> guard;
     pthread_setname_np(pthread_self(), "MemHawkTh");
     const ScopedSignalBlocker signalBlocker{};

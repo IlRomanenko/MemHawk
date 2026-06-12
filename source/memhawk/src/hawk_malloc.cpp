@@ -167,11 +167,11 @@ __attribute__((__constructor__)) void init_memhawk()
         gl_memhawk = new MemHawk(*cfg.MemHawk, std::make_unique<writers::WritersFactory>());
         gl_memhawkReady = true;
 
-        // after that can save traces as postponed into memhawk
+        // after this, allocation hooks can postpone traces into memhawk
         gl_initialised = true;
         gl_memhawk->PostponedConstruct();
 
-        // setup atfork handlers
+        // set up atfork handlers
         pthread_atfork(PreFork, ParentPostFork, ChildPostFork);
     }
     else
@@ -190,7 +190,7 @@ __attribute__((__destructor__)) void deinit_memhawk()
         gl_memhawk->Stop();
         // intentionally leak MemHawk
         // it's safe because the process will be terminated by OS after the main thread exited
-        // it's necessary because there can exists detached threads, that continue to operate even after
+        // it's necessary because there can exist detached threads that continue to operate even after
         // main thread started termination process
     }
     LogDeinit();
@@ -199,7 +199,7 @@ __attribute__((__destructor__)) void deinit_memhawk()
 }; // namespace hooks
 
 constexpr size_t AdditionalSize = sizeof(AllocInfo);
-// Ensure, that we won't ruin malloc invariant
+// Ensure that we won't ruin malloc invariant
 static_assert(alignof(max_align_t) == sizeof(AllocInfo));
 
 auto align_ceil(auto value, size_t alignment)
@@ -233,7 +233,7 @@ void* mmap_malloc(size_t size)
     }
     memset(ptr, 0, totalSize);
     AllocInfo* info = new (ptr) AllocInfo{size, AdditionalSize};
-    // set specific TraceId, that shouldn't be used by memhawk
+    // set specific TraceId that shouldn't be used by memhawk
     info->traceId = InvalidTraceId;
     ptr = reinterpret_cast<char*>(ptr) + AdditionalSize;
     return ptr;
@@ -267,7 +267,7 @@ void* mmap_realloc(void* ptr, size_t size)
 void* mmap_alloc_aligned(size_t size, size_t alignment)
 {
     const size_t totalSize = size + AdditionalSize + alignment;
-    // allocate enough memory in order to find suitably aligned pointer for user data
+    // allocate enough memory to find a suitably aligned pointer for user data
     auto ptr =
         absl::base_internal::DirectMmap(nullptr, totalSize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
 
@@ -279,7 +279,7 @@ void* mmap_alloc_aligned(size_t size, size_t alignment)
 
     // reserve memory for AllocInfo
     const auto shiftedPtr = reinterpret_cast<char*>(ptr) + AdditionalSize;
-    // find first aligned addr
+    // find the first aligned address
     const auto alignedPtrValue = align_ceil(reinterpret_cast<uintptr_t>(shiftedPtr), alignment);
     void* alignedPtr = reinterpret_cast<void*>(alignedPtrValue); // start of user data
 
@@ -290,7 +290,7 @@ void* mmap_alloc_aligned(size_t size, size_t alignment)
     // save `totalSize - offset` as user size instead of `size`
     // it's necessary in order to correctly unmap full memory region
     AllocInfo* info = new (infoLocation) AllocInfo{totalSize - offset, static_cast<uint32_t>(offset)};
-    // set specific TraceId, that shouldn't be used by memhawk
+    // set specific TraceId that shouldn't be used by memhawk
     info->traceId = InvalidTraceId;
 
     return alignedPtr;
@@ -499,7 +499,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void hawk_free(void* ptr)
     if (unlikely(!hooks::CheckInitialized()))
     {
         // will be printed into stderr
-        LogError("Got pointer from static-initialisation, that wasn't allocated via memhawk: " fPtr, ptr);
+        LogError("Got pointer from static-initialisation that wasn't allocated via memhawk: " fPtr, ptr);
         abort();
     }
 
@@ -543,7 +543,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE int hawk_dlclose(void* handle)
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
         // todo: force waiting for tracking thread to dump state?
-        // and wake up tracking thread, otherwise can loose data
+        // and wake up tracking thread, otherwise can lose data
         memhawk->InvalidateModulesCache();
     }
     return res;

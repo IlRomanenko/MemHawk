@@ -97,10 +97,10 @@ TEST(Config, ParseStruct_ExpectOk)
     EXPECT_EQ(cfg, exp);
 }
 
-TEST(Config, ParseStruct_MissedRequiredFiled_ExpectError)
+TEST(Config, ParseStruct_MissingRequiredField_ExpectError)
 {
     constexpr const auto expError = config::ParseError{
-        .type = config::ParseErrorType::RequiredFieldMissed, .key = "cfg.value", .field = "value", .value = ""};
+        .type = config::ParseErrorType::RequiredFieldMissing, .key = "cfg.value", .field = "value", .value = ""};
 
     MockFunction<config::ErrorCallback> mock;
     EXPECT_CALL(mock, Call(Eq(expError))).WillOnce(Return());
@@ -149,11 +149,11 @@ TEST(Config, ParseStruct_WithNested_ExpectAllTypesOfErrors)
         config::ParseError{
             .type = config::ParseErrorType::ValueNotFound, .key = "enabledtrue", .field = "enabledtrue", .value = ""},
         config::ParseError{
-            .type = config::ParseErrorType::RequiredFieldMissed, .key = "cfg.name", .field = "name", .value = ""},
+            .type = config::ParseErrorType::RequiredFieldMissing, .key = "cfg.name", .field = "name", .value = ""},
         config::ParseError{
-            .type = config::ParseErrorType::RequiredFieldMissed, .key = "cfg.value", .field = "value", .value = ""},
+            .type = config::ParseErrorType::RequiredFieldMissing, .key = "cfg.value", .field = "value", .value = ""},
         config::ParseError{
-            .type = config::ParseErrorType::RequiredFieldMissed, .key = "enabled", .field = "enabled", .value = ""},
+            .type = config::ParseErrorType::RequiredFieldMissing, .key = "enabled", .field = "enabled", .value = ""},
     };
     MockFunction<config::ErrorCallback> mock;
     for (const auto& err : expectedErrors)

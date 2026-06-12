@@ -61,7 +61,7 @@ TEST(LruCache, CheckExisting_ExpectFound)
     memhawk::LruCache<MovableKey, int> cache(1);
     const MovableKey key{1};
     EXPECT_FALSE(cache.Touch(key));
-    // check, that nothing was evicted
+    // check that nothing was evicted
     EXPECT_FALSE(cache.Insert(MovableKey{1}, 1));
     EXPECT_TRUE(cache.Touch(key));
 }

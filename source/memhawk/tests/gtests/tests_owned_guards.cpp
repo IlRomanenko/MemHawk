@@ -52,7 +52,7 @@ TEST_F(OwnedGuardsFixture, SingleThread_ExpectCalled)
         const auto guard = guardsOwner.Register([&value] { value++; });
         EXPECT_EQ(value, 0);
     }
-    // updated on guard dtr
+    // updated on guard dtor
     EXPECT_EQ(value, 1);
 }
 
@@ -159,7 +159,7 @@ TEST_F(OwnedGuardsFixture, MultiThread_DrainAndThreadExit_ExpectCalledOnce)
             threads.emplace_back([&] {
                 const auto guard = owner.Register([&value] { value++; });
                 registerLatch.arrive_and_wait();
-                // guard dtr is concurrent with owner.Drain
+                // guard dtor is concurrent with owner.Drain
             });
         }
 

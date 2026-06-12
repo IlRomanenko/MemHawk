@@ -125,7 +125,7 @@ async fn process(args: ProcessorArgs, task_tracker: &TaskTracker) -> anyhow::Res
         )
         .await?;
 
-    log::info!("Get process_id: {}", process_id);
+    log::info!("Got process_id: {}", process_id);
 
     let mut processor = create_processor(&args, task_tracker, &postgres_client, process_id).await?;
 

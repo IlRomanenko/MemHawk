@@ -21,7 +21,7 @@ enum class ParseErrorType : uint8_t
     FieldNotFound,
     ValueNotParsed,
     ValueNotFound,
-    RequiredFieldMissed,
+    RequiredFieldMissing,
 };
 
 struct ParseError
@@ -154,7 +154,7 @@ inline bool ValidateStruct(T& object, const ErrorCallback& onError = nullptr, co
             {
                 if (onError)
                 {
-                    onError(ParseError{.type = ParseErrorType::RequiredFieldMissed,
+                    onError(ParseError{.type = ParseErrorType::RequiredFieldMissing,
                                        .key = fullPath,
                                        .field = memberName,
                                        .value = {}});

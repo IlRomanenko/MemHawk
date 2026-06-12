@@ -145,7 +145,7 @@ void TextWriter::FlushData()
 
         if (!trace.has_value())
         {
-            LogWarning("Missed stacktrace: " fU32, traceId);
+            LogWarning("Missing stacktrace: " fU32, traceId);
             continue;
         }
 

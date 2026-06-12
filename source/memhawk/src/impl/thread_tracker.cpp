@@ -29,7 +29,7 @@ void ThreadTracker::LockedTracker::PrintTracker()
 
 void ThreadTracker::UnlockTrackerUnsafe()
 {
-    // manually unlock tracker, that can be locked
+    // manually unlock tracker that can be locked
     m_mt.unlock();
 }
 

@@ -1,18 +1,18 @@
 # Grafana integration
 
-MemHawk can write aggregated data without symbolification step as protobufs. Such output is enabled if option `memhawk.writers.proto_writer.enabled` is set to `true`, right now it's **enabled** by default.
+MemHawk can write aggregated data without a symbolification step as protobufs. Such output is enabled if option `memhawk.writers.proto_writer.enabled` is set to `true`; right now it's **enabled** by default.
 
 File format is described in the last paragraph.
 
 ## Usage
 
-### Step 1: Download latest release or build memhawk
+### Step 1: Download latest release or build MemHawk
 
-Download latest release (can be acquired from github release page) and unpack it. Or build memhawk locally and install artifacts into necessary directory.
+Download the latest release (can be acquired from the GitHub release page) and unpack it. Alternatively, build MemHawk locally and install artifacts into the necessary directory.
 
-### Step 2: Start grafana and clickhouse
+### Step 2: Start Grafana and ClickHouse
 
-Start containers by running `docker-compose up -d` inside `monitoring` folder of installation.
+Start containers by running `docker-compose up -d` inside the `monitoring` folder of the installation.
 
 **Cheatsheet:**
 
@@ -29,7 +29,7 @@ Start containers by running `docker-compose up -d` inside `monitoring` folder of
 LD_PRELOAD=./memhawk/lib/libmemhawk.so <your_application>
 ```
 
-* Using patchelf for binaries with suid/guid bit
+* Using patchelf for binaries with suid/sgid bit
 
 ```bash
 patchelf --add-needed ./memhawk/lib/libmemhawk.so <your_application>
@@ -44,13 +44,13 @@ patchelf --add-needed ./memhawk/lib/libmemhawk.so <your_application>
 
 ### Step 5: Inspect memory profile
 
-Open grafana ui: <http://localhost:3000>, user - `admin`, password - `admin`
+Open Grafana UI: <http://localhost:3000>, user - `admin`, password - `admin`
 
 ## File format
 
 Protobuf messages are defined in [snapshot.proto](../source/proto/snapshot.proto).
 
-```
+```text
 <binpb> ::= <header> <snapshots>
 <snapshots> ::= <snapshot> | <snapshot> <snapshots>
 <header> ::= <record(ProcessInfo)>

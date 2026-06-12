@@ -83,7 +83,7 @@ pub struct Processor {
 
     ptr_id_to_addr_map: FxHashMap<u32, u64>,
 
-    symbolized_graph: Graph, //  graph after symbolyzer for frames
+    symbolized_graph: Graph, //  graph after symbolizer for frames
 
     trace_id_to_leaf_id: FxHashMap<TraceId, NodeId>,
 
@@ -100,7 +100,7 @@ impl Processor {
         save_location: bool,
     ) -> anyhow::Result<Self> {
         let frames_sub = Rc::new(RefCell::new(FramesSubscription::new()));
-        // clear all leftover state if there is some
+        // clear all leftover state if there is any
         click.clear(process_id).await?;
         let processor = Self {
             process_id,
@@ -401,7 +401,7 @@ impl Processor {
                     .filter_map(|x| self.ptr_id_to_addr_map.get(x).copied())
                     .rev(),
             );
-            // Check is it a memhawk trace
+            // Check if it is a memhawk trace
             if stacktrace.trace_id >= 2_i32.saturating_pow(31) as u32 {
                 localized_trace.push(MEMHAWK_ROOT_LOCALIZED_ID);
             }
@@ -422,7 +422,7 @@ impl Processor {
         if let Some(range) = self.localizer.get_frame_range(addr) {
             return *range;
         }
-        log::warn!("got addr, with unknown symbol, perform additional lookup");
+        log::warn!("Got addr with unknown symbol, performing additional lookup");
         let frame = match self.symbolizer.read().await.lookup_symbol(addr).await {
             Ok(frame) => frame,
             Err(err) => {

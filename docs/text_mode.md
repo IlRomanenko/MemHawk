@@ -1,13 +1,13 @@
 # Text mode
 
-MemHawk library can print information about top-consumer stacktraces without any additional post-processing. It will lack support for aggregation on path therefore. But it's simple and in most cases can be sufficient enough.
-Such output is enabled if option `memhawk.writers.text_writer.enabled` is set to `true`, right now it's **disabled** by default.
+MemHawk library can print information about top-consumer stacktraces without any additional post-processing. It will therefore lack support for aggregation on the path. But it's simple and in most cases can be sufficient.
+Such output is enabled if option `memhawk.writers.text_writer.enabled` is set to `true`; right now it's **disabled** by default.
 
 ## Examples
 
 ### 1. Basic Profiling
 
-For example section `filelight` binary will be used (kde disk analyzer).
+For the example section, the `filelight` binary will be used (KDE disk analyzer).
 
 #### Step 1: Run the application with MemHawk
 
@@ -60,7 +60,7 @@ TraceId: 440633
 
 The stack trace clearly points to the Filelight::LocalLister::scan function as the source of the allocations.
 
-### 2. Advanced profling: Working with Stripped Binaries and addr2line
+### 2. Advanced profiling: Working with Stripped Binaries and addr2line
 
 You can get full stack trace information even if your binary is stripped of its debug symbols.
 
@@ -81,6 +81,7 @@ strip --strip-all ./bench_allocs -o stripped
 ```bash
 LD_PRELOAD=./libmemhawk.so ./stripped
 ```
+
 In stacktraces.log, you will see unresolved addresses:
 
 ```log
@@ -106,4 +107,4 @@ worker()
 /path/to/memhawk/tests/bench_allocs.cpp:48
 ```
 
-The -i flag shows the full chain of inlined calls, making this method incredibly powerful for debugging production builds.
+The `-i` flag shows the full chain of inlined calls, making this method incredibly powerful for debugging production builds.

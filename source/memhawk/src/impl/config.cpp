@@ -40,8 +40,8 @@ void OnError(const config::ParseError& err)
     case config::ParseErrorType::ValueNotFound:
         PrintMessage("Incorrect option format: {}, failed to find value\n", err.key);
         break;
-    case config::ParseErrorType::RequiredFieldMissed:
-        PrintMessage("Required filed missed, key: {}, field: {}\n", err.key, err.field);
+    case config::ParseErrorType::RequiredFieldMissing:
+        PrintMessage("Required field missing, key: {}, field: {}\n", err.key, err.field);
         break;
     }
 }

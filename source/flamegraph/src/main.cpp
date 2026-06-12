@@ -90,7 +90,7 @@ void process(size_t count, bool stats)
         }
         if (line.path.empty() || line.path.front() != 0)
         {
-            std::cerr << "Missed root node: " << buf << "\n";
+            std::cerr << "Missing root node: " << buf << "\n";
             return;
         }
         // path without root node

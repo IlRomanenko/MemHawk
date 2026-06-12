@@ -48,14 +48,14 @@ RecursiveStacktrace::RecursiveStacktrace(size_t capacity, bool useAbsl)
     }
     else
     {
-        // unwind for local allocations, perhaps frame pointer unwinding can be used, but i'm not sure
+        // unwind for local allocations, perhaps frame pointer unwinding can be used, but I'm not sure
         unwindStacktrace();
 
         // shrink stacktrace in order to contain only memhawk frames
         trace.ShrinkByPtr(m_retPtrs[level - 1]); // level can't be less than 1
         if (level > 1 && !trace.GetTrace().empty())
         {
-            // don't interested in previous memhawk call
+            // not interested in previous memhawk call
             // malloc->trace->malloc and free->trace->malloc will be squashed into trace->malloc
             trace.ShrinkBySize(trace.GetTrace().size() - 1);
         }
@@ -190,7 +190,7 @@ void Stacktrace::ShrinkByPtr(void* ptr)
     {
         if (span[i] == ptr)
         {
-            // don't included matched pointer
+            // don't include matched pointer
             ShrinkBySize(i);
             return;
         }
