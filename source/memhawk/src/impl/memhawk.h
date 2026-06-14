@@ -39,7 +39,7 @@ public:
     void InvalidateModulesCache();
 
     void TrackAlloc(AllocInfo& info, Stacktrace& trace, bool isExternal);
-    void TrackDealloc(AllocInfo& info, bool isExternal);
+    void TrackDealloc(const AllocInfo& info, bool isExternal);
 
 
     void PreFork();

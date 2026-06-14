@@ -35,4 +35,9 @@ add_executable(test_not_joined_threads
 )
 memhawk_build(test_not_joined_threads)
 
+add_executable(test_aligned_realloc
+    test_aligned_realloc.cpp
+)
+memhawk_build(test_aligned_realloc)
+
 memhawk_devbuild_file(bench_allocs ${CMAKE_CURRENT_SOURCE_DIR}/run_benchmarks.sh)

@@ -221,6 +221,22 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void TrackAllocation(void* userPtr, size_t userSize
     }
 }
 
+ABSL_ATTRIBUTE_ALWAYS_INLINE void TrackReallocation(void* userPtr, size_t userSize, uint32_t offset,
+                                                    const AllocInfo& prev, RecursiveStacktrace& stacktrace)
+{
+    auto* infoLocation = reinterpret_cast<char*>(userPtr) - AdditionalSize;
+    AllocInfo* info = new (infoLocation) AllocInfo{userSize, offset};
+    LogTrace("result: " fPtr, userPtr);
+
+    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
+    {
+        auto& trace = stacktrace.GetStacktrace();
+        // todo: merge dealloc and alloc into a single function call, performing realloc
+        memhawk->TrackDealloc(prev, stacktrace.IsExternal());
+        memhawk->TrackAlloc(*info, trace, stacktrace.IsExternal());
+    }
+}
+
 // Allocate memory via mmap before memhawk is initialised
 void* mmap_malloc(size_t size)
 {
@@ -395,42 +411,40 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_realloc(void* ptr, size_t size)
     }
     LogTrace("requested: " fPtr " " fSzt, ptr, size);
 
+    if (!ptr)
+    {
+        // use malloc in case of nullptr
+        return hawk_malloc(size);
+    }
+
     RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
 
-    auto origPtr = ptr;
+    AllocInfo prev = *reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) - AdditionalSize);
+    auto origPtr = reinterpret_cast<char*>(ptr) - prev.offset;
 
-    if (ptr)
+    // check if pointer was allocated during statics initialisation
+    if (unlikely(prev.traceId == InvalidTraceId))
     {
-        AllocInfo* info = reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) - AdditionalSize);
-        origPtr = reinterpret_cast<char*>(ptr) - info->offset;
-
-        // check if pointer was allocated during statics initialisation
-        if (unlikely(info->traceId == InvalidTraceId))
+        // account realloc by malloc, launder pointer
+        void* clearPtr = hawk_malloc(size);
+        if (!clearPtr)
         {
-            // account realloc by malloc, launder pointer
-            void* clearPtr = hawk_malloc(size);
-            if (!clearPtr)
-            {
-                return nullptr;
-            }
-            // copy user data
-            memcpy(clearPtr, ptr, std::min(info->size, size));
-            mmap_free(origPtr, info);
-            return clearPtr;
+            return nullptr;
         }
-
-        if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
-        {
-            memhawk->TrackDealloc(*info, stacktrace.IsExternal());
-        }
+        // copy user data
+        memcpy(clearPtr, ptr, std::min(prev.size, size));
+        mmap_free(origPtr, &prev);
+        return clearPtr;
     }
-    void* realloced = hooks::realloc(origPtr, size + AdditionalSize);
+
+    void* realloced = hooks::realloc(origPtr, size + prev.offset);
     if (unlikely(!realloced))
     {
+        // not necessary to track deallocation, because failed realloc will not deallocate the memory
         return nullptr;
     }
-    void* userPtr = reinterpret_cast<char*>(realloced) + AdditionalSize;
-    TrackAllocation(userPtr, size, AdditionalSize, stacktrace);
+    void* userPtr = reinterpret_cast<char*>(realloced) + prev.offset;
+    TrackReallocation(userPtr, size, prev.offset, prev, stacktrace);
     return userPtr;
 }
 

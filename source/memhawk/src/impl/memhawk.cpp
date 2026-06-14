@@ -186,7 +186,7 @@ void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace& trace, bool isExternal)
     }
 }
 
-void MemHawk::TrackDealloc(AllocInfo& info, bool isExternal)
+void MemHawk::TrackDealloc(const AllocInfo& info, bool isExternal)
 {
     const RecursionGuard<AllocTag> guard;
     if (likely(isExternal))
