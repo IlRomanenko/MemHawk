@@ -419,7 +419,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_realloc(void* ptr, size_t size)
 
     RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
 
-    AllocInfo prev = *reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) - AdditionalSize);
+    const AllocInfo prev = *reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) - AdditionalSize);
     auto origPtr = reinterpret_cast<char*>(ptr) - prev.offset;
 
     // check if pointer was allocated during statics initialisation
@@ -498,7 +498,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void hawk_free(void* ptr)
     {
         return;
     }
-    AllocInfo* info = reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) - AdditionalSize);
+    const AllocInfo* info = reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) - AdditionalSize);
     ptr = reinterpret_cast<char*>(ptr) - info->offset;
 
     // check if pointer was allocated during statics initialisation

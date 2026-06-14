@@ -167,7 +167,7 @@ TEST_F(MemHawkFixture, AccountDeallocs_ExpectOk)
     auto testLambda = [&]() {
         for (size_t i = 0; i < TestAllocations; i++)
         {
-            AllocInfo info{AllocationSize, Offset};
+            const AllocInfo info{AllocationSize, Offset};
             m_memhawk->TrackDealloc(info, true);
         }
     };
