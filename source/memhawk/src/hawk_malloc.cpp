@@ -131,7 +131,8 @@ bool CheckProgname(std::string_view prognameRegex)
         return true;
     }
     const re2::RE2 pattern(prognameRegex);
-    if (!pattern.ok()) {
+    if (!pattern.ok())
+    {
         LogError("Incorrect progname regex: " fStr, pattern.error().c_str());
         return false;
     }
@@ -231,9 +232,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void TrackReallocation(void* userPtr, size_t userSi
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
         auto& trace = stacktrace.GetStacktrace();
-        // todo: merge dealloc and alloc into a single function call, performing realloc
-        memhawk->TrackDealloc(prev, stacktrace.IsExternal());
-        memhawk->TrackAlloc(*info, trace, stacktrace.IsExternal());
+        memhawk->TrackRealloc(prev, *info, trace, stacktrace.IsExternal());
     }
 }
 

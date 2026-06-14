@@ -40,7 +40,7 @@ public:
 
     void TrackAlloc(AllocInfo& info, Stacktrace& trace, bool isExternal);
     void TrackDealloc(const AllocInfo& info, bool isExternal);
-
+    void TrackRealloc(const AllocInfo& prev, AllocInfo& info, Stacktrace& trace, bool isExternal);
 
     void PreFork();
     void ParentPostFork();

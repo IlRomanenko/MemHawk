@@ -99,7 +99,7 @@ Stacktrace StacktraceTracker::GetStacktrace(uint32_t traceId)
     while (nodeId != 0)
     {
         const auto& node = m_storage->nodes[nodeId];
-        const auto ptrValue = m_storage->tree.GetPtrValue(node.id);;
+        const auto ptrValue = m_storage->tree.GetPtrValue(node.id);
         trace[traceIt] = reinterpret_cast<void*>(ptrValue);
         traceIt++;
         nodeId = node.parent;

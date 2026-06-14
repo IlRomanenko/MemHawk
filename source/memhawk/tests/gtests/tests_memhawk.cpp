@@ -1,6 +1,6 @@
 #include "alloc_info.h"
 #include "config.h"
-#include "impl/memhawk.h"
+#include "memhawk.h"
 #include "mock.h"
 #include "stacktrace.h"
 #include "thread_tracker.h"
@@ -77,7 +77,7 @@ public:
             threads.emplace_back(func);
         }
 
-        for (auto& th: threads)
+        for (auto& th : threads)
         {
             if (th.joinable())
             {
@@ -141,7 +141,7 @@ TEST_F(MemHawkFixture, AccountAllocs_ExpectOk)
 
     const std::scoped_lock lock(m_mt);
     EXPECT_EQ(m_summaries.size(), 1);
-    for (const auto& [_, summary]: m_summaries)
+    for (const auto& [_, summary] : m_summaries)
     {
         EXPECT_EQ(summary.active, TotalAllocations);
         EXPECT_EQ(summary.totalCount, TotalAllocations);
@@ -178,13 +178,13 @@ TEST_F(MemHawkFixture, AccountDeallocs_ExpectOk)
 
     const std::scoped_lock lock(m_mt);
     EXPECT_EQ(m_summaries.size(), 1);
-    for (const auto& [_, summary]: m_summaries)
+    for (const auto& [_, summary] : m_summaries)
     {
         EXPECT_EQ(summary.active, -TotalAllocations);
         EXPECT_EQ(summary.size, ExpectedSize);
         EXPECT_EQ(summary.overhead, -Offset * TotalAllocations);
 
-        // below fields are updated only by TrackAlloc 
+        // below fields are updated only by TrackAlloc
         EXPECT_EQ(summary.totalCount, 0);
         EXPECT_EQ(summary.totalBytes, 0);
     }
@@ -219,33 +219,82 @@ TEST_F(MemHawkFixture, AllocsAndDeallocs_ExpectOk)
 
     const std::scoped_lock lock(m_mt);
     EXPECT_EQ(m_summaries.size(), 1);
-    for (const auto& [_, summary]: m_summaries)
+    for (const auto& [_, summary] : m_summaries)
     {
         EXPECT_EQ(summary.active, 0);
         EXPECT_EQ(summary.size, 0);
         EXPECT_EQ(summary.overhead, 0);
 
-        // below fields are updated only by TrackAlloc 
+        // below fields are updated only by TrackAlloc
         EXPECT_EQ(summary.totalCount, TotalAllocations);
         EXPECT_EQ(summary.totalBytes, TotalAllocations * AllocationSize);
     }
 }
 
-TEST_F(MemHawkFixture, AllocsAndDeallocs_FromMainThread_ExpectOk)
+TEST_F(MemHawkFixture, Reallocs_ExpectOk)
 {
     constexpr int64_t TestAllocations = 100'000;
-    constexpr int64_t AllocationSize = 127;
+    constexpr int64_t AllocationSize = 10;
+    constexpr int64_t ReallocationSize = 127;
+    constexpr size_t Offset = 16;
+    constexpr int64_t TestThreads = 4;
+
+    constexpr auto TotalAllocations = TestAllocations * TestThreads;
+
+    SetAccountingExpectations();
+    SetUpMemHawk();
+
+    auto testLambda = [&]() {
+        for (size_t i = 0; i < TestAllocations; i++)
+        {
+            Stacktrace stacktrace{};
+            AllocInfo origAllocIinfo{AllocationSize, Offset};
+            m_memhawk->TrackAlloc(origAllocIinfo, stacktrace, true);
+            // reallocate memory
+            AllocInfo reallocInfo{ReallocationSize, Offset};
+            m_memhawk->TrackRealloc(origAllocIinfo, reallocInfo, stacktrace, true);
+            // dealloc allocated memory
+            m_memhawk->TrackDealloc(reallocInfo, true);
+        }
+    };
+    StartThreadsAndWaitForFinish(testLambda, TestThreads);
+    EXPECT_TRUE(WaitForFlush());
+    // stop memhawk processing
+    m_memhawk->Stop();
+
+    const std::scoped_lock lock(m_mt);
+    EXPECT_EQ(m_summaries.size(), 1);
+    for (const auto& [_, summary] : m_summaries)
+    {
+        EXPECT_EQ(summary.active, 0);
+        EXPECT_EQ(summary.size, 0);
+        EXPECT_EQ(summary.overhead, 0);
+
+        // below fields are updated by TrackAlloc and TrackRealloc
+        EXPECT_EQ(summary.totalCount, TotalAllocations * 2);
+        EXPECT_EQ(summary.totalBytes, TotalAllocations * (AllocationSize + ReallocationSize));
+    }
+}
+
+TEST_F(MemHawkFixture, AllocsDeallocsReallocs_FromMainThread_ExpectOk)
+{
+    constexpr int64_t TestAllocations = 100'000;
+    constexpr int64_t AllocationSize = 10;
+    constexpr int64_t ReallocationSize = 127;
     constexpr size_t Offset = 16;
 
     SetAccountingExpectations();
     SetUpMemHawk();
     for (size_t i = 0; i < TestAllocations; i++)
     {
-        AllocInfo info{AllocationSize, Offset};
         Stacktrace stacktrace{};
-        m_memhawk->TrackAlloc(info, stacktrace, true);
+        AllocInfo origAllocIinfo{AllocationSize, Offset};
+        m_memhawk->TrackAlloc(origAllocIinfo, stacktrace, true);
+        // reallocate memory
+        AllocInfo reallocInfo{ReallocationSize, Offset};
+        m_memhawk->TrackRealloc(origAllocIinfo, reallocInfo, stacktrace, true);
         // dealloc allocated memory
-        m_memhawk->TrackDealloc(info, true);
+        m_memhawk->TrackDealloc(reallocInfo, true);
     }
     EXPECT_TRUE(WaitForFlush());
     // stop memhawk processing
@@ -253,15 +302,15 @@ TEST_F(MemHawkFixture, AllocsAndDeallocs_FromMainThread_ExpectOk)
 
     const std::scoped_lock lock(m_mt);
     EXPECT_EQ(m_summaries.size(), 1);
-    for (const auto& [_, summary]: m_summaries)
+    for (const auto& [_, summary] : m_summaries)
     {
         EXPECT_EQ(summary.active, 0);
         EXPECT_EQ(summary.size, 0);
         EXPECT_EQ(summary.overhead, 0);
 
-        // below fields are updated only by TrackAlloc 
-        EXPECT_EQ(summary.totalCount, TestAllocations);
-        EXPECT_EQ(summary.totalBytes, TestAllocations * AllocationSize);
+        // below fields are updated by TrackAlloc and TrackRealloc
+        EXPECT_EQ(summary.totalCount, TestAllocations * 2);
+        EXPECT_EQ(summary.totalBytes, TestAllocations * (AllocationSize + ReallocationSize));
     }
 }
 

@@ -67,7 +67,7 @@ void MemHawk::Stop()
     {
         const absl::base_internal::SpinLockHolder lock(&m_thTrackersMt);
         LogInfo("Total trackers: " fSzt ", empty: " fSzt ", max postponed: " fSzt, m_thTrackers.size(),
-            m_finishedTrackers.size(), m_maxPostponedSize);
+                m_finishedTrackers.size(), m_maxPostponedSize);
     }
     LogInfo("Inner traces: (" fSzt ", " fSzt "), external: " fSzt, m_innerBtTracker.StacktracesCount(),
             m_innerBtTracker.GetStorageSize(), m_btTracker.StacktracesCount());
@@ -136,9 +136,7 @@ void MemHawk::SetUpThreadTracker(ThreadTracker* tracker)
 {
     gtl_tracker = tracker;
     // set up non-trivial tracker finalizer
-    gtl_trackerFinalizer = m_trackerGuards.Register([this, tracker] {
-        ReclaimTracker(tracker);
-    });
+    gtl_trackerFinalizer = m_trackerGuards.Register([this, tracker] { ReclaimTracker(tracker); });
 }
 
 void MemHawk::ReclaimTracker(ThreadTracker* tracker)
@@ -216,6 +214,45 @@ void MemHawk::TrackDealloc(const AllocInfo& info, bool isExternal)
     }
 }
 
+void MemHawk::TrackRealloc(const AllocInfo& prev, AllocInfo& info, Stacktrace& trace, bool isExternal)
+{
+    if (likely(isExternal))
+    {
+        // external reallocation
+        if (unlikely(gtl_tracker == nullptr))
+        {
+            RegisterThread();
+        }
+        auto lockedTracker = gtl_tracker->LockTracker();
+        lockedTracker.SaveTraceId(info, trace);
+
+        lockedTracker.TrackDealloc(prev);
+        lockedTracker.TrackAlloc(info);
+    }
+    else
+    {
+        // internal reallocation of memhawk
+        const RecursionGuard<InnerAllocTag> innerGuard;
+        // set trace id manually, otherwise there can be malloc recursion upon inserting into tracker caches
+        info.traceId = m_innerBtTracker.InsertStacktrace(trace);
+
+        if (innerGuard)
+        {
+            ProcessPostponed();
+
+            auto lockedTracker = m_innerTracker->LockTracker();
+
+            lockedTracker.TrackDealloc(prev);
+            lockedTracker.TrackAlloc(info);
+        }
+        else
+        {
+            PostponeDealloc(prev);
+            PostponeAlloc(info);
+        }
+    }
+}
+
 void MemHawk::InvalidateModulesCache()
 {
     m_modulesCacheInvalidated.store(true);
@@ -258,8 +295,8 @@ void MemHawk::ChildPostFork()
     m_trackerGuards.UnsafeUnlock();
     m_thTrackersMt.Unlock();
     m_mt.unlock();
-    // recreate condvar and inner thread. Corresponding objects will be destroyed in the parent process; in the child it's
-    // necessary to reinitialize them, otherwise there will be a deadlock during MemHawk destruction
+    // recreate condvar and inner thread. Corresponding objects will be destroyed in the parent process; in the child
+    // it's necessary to reinitialize them, otherwise there will be a deadlock during MemHawk destruction
     new (&m_cv) std::condition_variable{};
     new (&m_worker) std::thread{};
 }
