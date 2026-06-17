@@ -50,17 +50,6 @@ struct AllocSummary
         return *this;
     }
 
-    AllocSummary& operator-=(const AllocSummary& rhs) noexcept
-    {
-        size -= rhs.size;
-        overhead -= rhs.overhead;
-        active -= rhs.active;
-        // sum of all allocations
-        totalBytes += rhs.totalBytes;
-        totalCount += rhs.totalCount;
-        return *this;
-    }
-
     AllocSummary& operator+=(const AllocInfo& rhs) noexcept
     {
         size += static_cast<int64_t>(rhs.size);
