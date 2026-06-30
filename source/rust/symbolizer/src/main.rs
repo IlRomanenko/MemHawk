@@ -154,7 +154,7 @@ async fn process(args: ProcessorArgs, task_tracker: &TaskTracker) -> anyhow::Res
         }
     } else {
         while let Ok(message) = reader.read_message::<Snapshot>().await {
-            let _ = processor.process(&message).await?;
+            processor.process(&message).await?;
         }
     }
 

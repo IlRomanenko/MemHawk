@@ -66,7 +66,7 @@ pub struct RestorableState {
 
     ptr_id_to_addr_map: FxHashMap<u32, u64>,
     trace_id_to_leaf_id: FxHashMap<TraceId, NodeId>,
-    raw_data_to_save: FxHashMap<NodeId, AllocSummary>,
+    trace_id_to_last_summary: FxHashMap<TraceId, AllocSummary>,
 
     last_processed_timestamp: u64,
 }
@@ -86,8 +86,7 @@ pub struct Processor {
     symbolized_graph: Graph, //  graph after symbolizer for frames
 
     trace_id_to_leaf_id: FxHashMap<TraceId, NodeId>,
-
-    raw_data_to_save: FxHashMap<NodeId, AllocSummary>,
+    trace_id_to_last_summary: FxHashMap<TraceId, AllocSummary>,
 
     last_processed_timestamp: u64,
 }
@@ -112,7 +111,7 @@ impl Processor {
             ptr_id_to_addr_map: FxHashMap::default(),
             symbolized_graph: Graph::new(),
             trace_id_to_leaf_id: FxHashMap::default(),
-            raw_data_to_save: FxHashMap::default(),
+            trace_id_to_last_summary: FxHashMap::default(),
             last_processed_timestamp: 0,
         };
         Ok(processor)
@@ -144,7 +143,7 @@ impl Processor {
             ptr_id_to_addr_map: state.ptr_id_to_addr_map,
             symbolized_graph: Graph::restore(state.graph_state),
             trace_id_to_leaf_id: state.trace_id_to_leaf_id,
-            raw_data_to_save: state.raw_data_to_save,
+            trace_id_to_last_summary: state.trace_id_to_last_summary,
             last_processed_timestamp: state.last_processed_timestamp,
         };
         Ok(processor)
@@ -159,7 +158,7 @@ impl Processor {
             graph_state: self.symbolized_graph.save(),
             ptr_id_to_addr_map: self.ptr_id_to_addr_map.clone(),
             trace_id_to_leaf_id: self.trace_id_to_leaf_id.clone(),
-            raw_data_to_save: self.raw_data_to_save.clone(),
+            trace_id_to_last_summary: self.trace_id_to_last_summary.clone(),
             last_processed_timestamp: self.last_processed_timestamp,
         }
     }
@@ -213,9 +212,7 @@ impl Processor {
 
         let stacktraces = self.prepare_stacktraces(graph_update.new_leaf_nodes);
         let timeseries = self.prepare_timeseries(timestamp, graph_update.frames);
-
-        let raw_data_to_save = std::mem::take(&mut self.raw_data_to_save);
-        let raw_data = self.prepare_raw_data(raw_data_to_save, timestamp);
+        let raw_data = self.prepare_raw_data(timestamp, graph_update.modified_self_nodes);
 
         let update = UpdateData {
             raw_data,
@@ -232,8 +229,8 @@ impl Processor {
 
     fn prepare_raw_data(
         &self,
-        raw_data: FxHashMap<NodeId, AllocSummary>,
         timestamp: OffsetDateTime,
+        raw_data: FxHashMap<NodeId, AllocSummary>,
     ) -> Vec<RawDataRow> {
         let mut result = Vec::new();
         for value_type in memhawk_core::proto::schema::ValueType::iter() {
@@ -323,6 +320,8 @@ impl Processor {
     }
 
     fn process_alloc_summary(&mut self, summary: &TracedAllocSummary) -> anyhow::Result<()> {
+        let trace_id = TraceId(summary.trace_id);
+
         let actual = match summary.actual {
             Some(actual) => actual,
             None => bail!(
@@ -331,7 +330,8 @@ impl Processor {
             ),
         };
 
-        let leaf_id = match self.trace_id_to_leaf_id.get(&TraceId(summary.trace_id)) {
+        // trace_id -> leaf_id is many-to-one relation
+        let leaf_id = match self.trace_id_to_leaf_id.get(&trace_id) {
             Some(node_id) => *node_id,
             None => {
                 log::warn!(
@@ -339,14 +339,15 @@ impl Processor {
                     summary.trace_id
                 );
                 self.symbolized_graph
-                    .construct_path(&vec![UNKNOWN_LOCALIZED_ID])
+                    .construct_path(&[UNKNOWN_LOCALIZED_ID])
             }
         };
-        self.raw_data_to_save
-            .entry(leaf_id)
-            .and_modify(|x| *x += actual)
-            .or_insert(actual);
-        self.symbolized_graph.postpone_update(leaf_id, actual);
+        let last_summary = self.trace_id_to_last_summary.entry(trace_id).or_default();
+        let summary_diff = actual - *last_summary;
+        *last_summary = actual;
+
+        self.symbolized_graph
+            .postpone_diff_update(leaf_id, summary_diff);
         Ok(())
     }
 

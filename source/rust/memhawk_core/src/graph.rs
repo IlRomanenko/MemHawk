@@ -6,7 +6,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
     localizer::{LocalizedFrameId, ROOT_LOCALIZED_ID},
-    proto::schema::AllocSummary,
+    proto::schema::{AllocDiff, AllocSummary},
 };
 
 #[derive(
@@ -78,7 +78,7 @@ impl AggregatedAllocSummary {
         }
     }
 
-    fn accumulate(&mut self, diff: &AllocSummary, diff_type: AccumulateDiffType) {
+    fn accumulate(&mut self, diff: &AllocDiff, diff_type: AccumulateDiffType) {
         match diff_type {
             AccumulateDiffType::Current => {
                 let self_value = self.self_value.get_or_insert_default();
@@ -97,15 +97,15 @@ pub struct RestorableState {
     edges: FxHashMap<GraphEdge, NodeId>,
     localized_frame_agg: FxHashMap<LocalizedFrameId, AggregatedAllocSummary>,
     modified_frame_agg: FxHashSet<LocalizedFrameId>,
-    postponed_updates: FxHashMap<u32, FxHashMap<NodeId, AllocSummary>>,
-    new_nodes: FxHashSet<NodeId>,
+    postponed_updates: FxHashMap<u32, FxHashMap<NodeId, AllocDiff>>,
+    modified_self_nodes: FxHashSet<NodeId>,
     new_leaf_nodes: FxHashSet<NodeId>,
 }
 
 pub struct AggregatedModifications {
-    pub new_nodes: FxHashSet<NodeId>,
     pub new_leaf_nodes: FxHashSet<NodeId>,
     pub frames: FxHashMap<LocalizedFrameId, AggregatedAllocSummary>,
+    pub modified_self_nodes: FxHashMap<NodeId, AllocSummary>,
 }
 
 pub struct NodeWithValue {
@@ -119,8 +119,8 @@ pub struct Graph {
     edges: FxHashMap<GraphEdge, NodeId>,
     localized_frame_agg: FxHashMap<LocalizedFrameId, AggregatedAllocSummary>,
     modified_frame_agg: FxHashSet<LocalizedFrameId>,
-    postponed_updates: FxHashMap<u32, FxHashMap<NodeId, AllocSummary>>,
-    new_nodes: FxHashSet<NodeId>,
+    postponed_updates: FxHashMap<u32, FxHashMap<NodeId, AllocDiff>>,
+    modified_self_nodes: FxHashSet<NodeId>,
     new_leaf_nodes: FxHashSet<NodeId>,
 }
 
@@ -132,8 +132,8 @@ impl Graph {
             localized_frame_agg: FxHashMap::default(),
             modified_frame_agg: FxHashSet::default(),
             postponed_updates: FxHashMap::default(),
+            modified_self_nodes: FxHashSet::default(),
 
-            new_nodes: FxHashSet::default(),
             new_leaf_nodes: FxHashSet::default(),
         };
         // push root node
@@ -155,7 +155,7 @@ impl Graph {
             localized_frame_agg: self.localized_frame_agg.clone(),
             modified_frame_agg: self.modified_frame_agg.clone(),
             postponed_updates: self.postponed_updates.clone(),
-            new_nodes: self.new_nodes.clone(),
+            modified_self_nodes: self.modified_self_nodes.clone(),
             new_leaf_nodes: self.new_leaf_nodes.clone(),
         }
     }
@@ -167,7 +167,7 @@ impl Graph {
             localized_frame_agg: state.localized_frame_agg,
             modified_frame_agg: state.modified_frame_agg,
             postponed_updates: state.postponed_updates,
-            new_nodes: state.new_nodes,
+            modified_self_nodes: state.modified_self_nodes,
             new_leaf_nodes: state.new_leaf_nodes,
         }
     }
@@ -212,7 +212,6 @@ impl Graph {
             first_on_path: is_first_on_path,
             aggregated: AggregatedAllocSummary::default(),
         });
-        self.new_nodes.insert(child_id);
         child_id
     }
 
@@ -220,19 +219,20 @@ impl Graph {
         (self.nodes.len() as u32).into()
     }
 
-    pub fn postpone_update(&mut self, node_id: NodeId, summary: AllocSummary) {
+    pub fn postpone_diff_update(&mut self, node_id: NodeId, alloc_diff: AllocDiff) {
         let level = self.nodes[node_id].level;
         let level_map = self.postponed_updates.entry(level).or_default();
         level_map
             .entry(node_id)
-            .and_modify(|x| *x += summary)
-            .or_insert(summary);
+            .and_modify(|x| *x += alloc_diff)
+            .or_insert(alloc_diff);
+        self.modified_self_nodes.insert(node_id);
     }
 
     fn aggregate_on_frame(
         &mut self,
         node_id: NodeId,
-        diff: AllocSummary,
+        diff: AllocDiff,
         diff_type: AccumulateDiffType,
     ) {
         let node = self.inspect(node_id);
@@ -240,7 +240,10 @@ impl Graph {
         self.localized_frame_agg
             .entry(node_key)
             .and_modify(|x| x.accumulate(&diff, diff_type))
-            .or_insert(AggregatedAllocSummary::from_summary(diff, diff_type));
+            .or_insert(AggregatedAllocSummary::from_summary(
+                AllocSummary::from(diff),
+                diff_type,
+            ));
         self.modified_frame_agg.insert(node_key);
     }
 
@@ -256,13 +259,12 @@ impl Graph {
         for level in (0..max_level + 1).rev() {
             // process node self value update
             if let Some((_, level_map)) = self.postponed_updates.remove_entry(&level) {
-                for (node_id, summary) in level_map {
+                for (node_id, diff) in level_map {
                     let node = self.inspect_mut(node_id);
 
                     // update self value for node
                     let current = node.aggregated.self_value.get_or_insert_default();
-                    let diff = summary - **current;
-                    **current = summary;
+                    **current += diff;
 
                     // accumulate diff to change nodes on path
                     cur_accumulated_diff
@@ -297,12 +299,17 @@ impl Graph {
 
     pub fn consume_modifications(&mut self) -> AggregatedModifications {
         let mut result = AggregatedModifications {
-            new_nodes: FxHashSet::default(),
             new_leaf_nodes: FxHashSet::default(),
             frames: FxHashMap::default(),
+            modified_self_nodes: FxHashMap::default(),
         };
-        std::mem::swap(&mut result.new_nodes, &mut self.new_nodes);
         std::mem::swap(&mut result.new_leaf_nodes, &mut self.new_leaf_nodes);
+        for node_id in self.modified_self_nodes.drain() {
+            result.modified_self_nodes.insert(
+                node_id,
+                *(self.nodes[node_id].aggregated.self_value.clone().unwrap()),
+            );
+        }
         for frame_id in self.modified_frame_agg.drain() {
             result.frames.insert(
                 frame_id,
@@ -390,5 +397,86 @@ mod tests {
             assert_eq!(*path_nodes.first().unwrap(), NodeId(0));
             assert_eq!(*path_nodes.last().unwrap(), *leaf_id);
         }
+    }
+
+    #[test]
+    fn test_postpone_process_multiple_times() {
+        let mut graph = Graph::new();
+        let frame_id = LocalizedFrameId::from(1);
+        let trace = vec![frame_id];
+        let leaf_node = graph.construct_path(&trace);
+        graph.postpone_diff_update(
+            leaf_node,
+            AllocDiff {
+                size: 10,
+                active: 2,
+                overhead: 0,
+                total_count: 2,
+                total_bytes: 10,
+            },
+        );
+        graph.process_postponed_updates();
+        graph.postpone_diff_update(
+            leaf_node,
+            AllocDiff {
+                size: 20,
+                active: 4,
+                overhead: 0,
+                total_count: 4,
+                total_bytes: 20,
+            },
+        );
+        graph.process_postponed_updates();
+        let res = graph.consume_modifications();
+        assert_eq!(
+            res.frames[&frame_id].total_value,
+            AllocSummary {
+                size: 30,
+                active: 6,
+                overhead: 0,
+                total_count: 6,
+                total_bytes: 30
+            }
+        );
+    }
+
+    #[test]
+    fn test_multiple_postpone_single_process() {
+        let mut graph = Graph::new();
+        let frame_id = LocalizedFrameId::from(1);
+        let trace = vec![frame_id];
+        let leaf_node = graph.construct_path(&trace);
+        graph.postpone_diff_update(
+            leaf_node,
+            AllocDiff {
+                size: 10,
+                active: 2,
+                overhead: 0,
+                total_count: 2,
+                total_bytes: 10,
+            },
+        );
+        graph.postpone_diff_update(
+            leaf_node,
+            AllocDiff {
+                size: 20,
+                active: 4,
+                overhead: 0,
+                total_count: 4,
+                total_bytes: 20,
+            },
+        );
+        graph.process_postponed_updates();
+        let res = graph.consume_modifications();
+        assert_eq!(
+            res.frames[&frame_id].total_value,
+            AllocSummary {
+                size: 30,
+                active: 6,
+                overhead: 0,
+                total_count: 6,
+                total_bytes: 30
+            }
+        );
     }
 }
