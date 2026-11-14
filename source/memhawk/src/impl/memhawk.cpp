@@ -315,7 +315,7 @@ void MemHawk::ProcessPostponed()
             delayed = std::move(m_postponed.front());
             m_postponed.pop_front();
         }
-        LogDebug("processing: [size: " fU32 ", op: " fI32 "]", delayed.info.size, static_cast<int>(delayed.op));
+        LogDebug("processing: [size: " fU64 ", op: " fU32 "]", delayed.info.size, static_cast<uint32_t>(delayed.op));
 
         auto lockedTracker = m_innerTracker->LockTracker();
         if (delayed.op == Postponed::Operation::Alloc)

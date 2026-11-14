@@ -12,7 +12,7 @@ inline LogLevel gl_loggingLevel = LogLevel::Info;
 
 void LogInit(LoggingConfig cfg);
 void LogDeinit();
-void LogPrint(const char* fmt, ...);
+void LogPrint(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
 
 std::string GetProcessLogName(const char* suffix, const char* fileext = "log");
 
