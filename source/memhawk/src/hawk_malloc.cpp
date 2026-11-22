@@ -2,6 +2,7 @@
 #include "hawk_malloc.h"
 
 #include "impl/alloc_info.h"
+#include "impl/checked_math.h"
 #include "impl/config.h"
 #include "impl/i_stacktrace_tracker.h"
 #include "impl/logging.h"
@@ -17,13 +18,17 @@
 #include <re2/re2.h>
 #include <sys/mman.h>
 
+#include <algorithm>
 #include <atomic>
+#include <bit>
+#include <cerrno>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <dlfcn.h>
+#include <limits>
 #include <pthread.h>
 #include <unistd.h>
 
@@ -79,6 +84,16 @@ DEFINE_HOOK(dlclose);
 
 #pragma GCC diagnostic pop
 #undef DEFINE_HOOK
+
+#define RETURN_ENOMEM_ON_FAILURE(x)                                                                                    \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if (unlikely(!(x)))                                                                                            \
+        {                                                                                                              \
+            errno = ENOMEM;                                                                                            \
+            return nullptr;                                                                                            \
+        }                                                                                                              \
+    } while (0)
 
 static ABSL_CONST_INIT std::atomic<bool> gl_initialised = false;
 static ABSL_CONST_INIT std::atomic<bool> gl_dlInitialised = false;
@@ -203,11 +218,6 @@ constexpr size_t AdditionalSize = sizeof(AllocInfo);
 // Ensure that we won't ruin malloc invariant
 static_assert(alignof(max_align_t) == sizeof(AllocInfo));
 
-auto align_ceil(auto value, size_t alignment)
-{
-    return (value + alignment - 1) / alignment * alignment;
-}
-
 ABSL_ATTRIBUTE_ALWAYS_INLINE void TrackAllocation(void* userPtr, size_t userSize, uint32_t offset,
                                                   RecursiveStacktrace& stacktrace)
 {
@@ -236,27 +246,72 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void TrackReallocation(void* userPtr, size_t userSi
     }
 }
 
-// Allocate memory via mmap before memhawk is initialised
+// Anonymous mappings provide zero-filled storage for bootstrap calloc.
 void* mmap_malloc(size_t size)
 {
-    auto totalSize = size + AdditionalSize;
-    auto ptr =
-        absl::base_internal::DirectMmap(nullptr, totalSize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    const auto totalSize = CheckedAdd(size, AdditionalSize);
+    RETURN_ENOMEM_ON_FAILURE(totalSize);
+
+    void* ptr =
+        absl::base_internal::DirectMmap(nullptr, *totalSize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
     if (unlikely(ptr == MAP_FAILED))
     {
         return nullptr;
     }
-    memset(ptr, 0, totalSize);
-    AllocInfo* info = new (ptr) AllocInfo{size, AdditionalSize};
-    // set specific TraceId that shouldn't be used by memhawk
+
+    auto* info = new (ptr) AllocInfo{size, AdditionalSize};
     info->traceId = InvalidTraceId;
-    ptr = reinterpret_cast<char*>(ptr) + AdditionalSize;
-    return ptr;
+    return static_cast<char*>(ptr) + AdditionalSize;
 }
 
-void mmap_free(void* ptr, const AllocInfo* info)
+void* mmap_alloc_aligned(size_t size, size_t alignment)
 {
-    absl::base_internal::DirectMunmap(ptr, info->size + info->offset);
+    if (unlikely(!std::has_single_bit(alignment)))
+    {
+        errno = EINVAL;
+        return nullptr;
+    }
+
+    constexpr auto MaxOffset = std::numeric_limits<uint32_t>::max();
+    alignment = std::max(alignment, alignof(max_align_t));
+    if (unlikely(alignment > MaxOffset))
+    {
+        errno = ENOMEM;
+        return nullptr;
+    }
+
+    const auto mappingSize = CheckedAdd(CheckedAdd(size, AdditionalSize), alignment - 1);
+    RETURN_ENOMEM_ON_FAILURE(mappingSize);
+
+    void* basePtr =
+        absl::base_internal::DirectMmap(nullptr, *mappingSize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
+    if (unlikely(basePtr == MAP_FAILED))
+    {
+        return nullptr;
+    }
+
+    auto* payloadStart = static_cast<char*>(basePtr) + AdditionalSize;
+    // find suitable alignment for user data
+    const auto remainder = reinterpret_cast<uintptr_t>(payloadStart) & (alignment - 1);
+    const auto padding = remainder == 0 ? 0 : alignment - remainder;
+    const auto offset = AdditionalSize + padding;
+    if (unlikely(offset > MaxOffset))
+    {
+        absl::base_internal::DirectMunmap(basePtr, *mappingSize);
+        errno = ENOMEM;
+        return nullptr;
+    }
+
+    auto* userPtr = static_cast<char*>(basePtr) + offset;
+    auto* info = new (userPtr - AdditionalSize) AllocInfo{*mappingSize - offset, static_cast<uint32_t>(offset)};
+    info->traceId = InvalidTraceId;
+    return userPtr;
+}
+
+void mmap_free(void* base, const AllocInfo& info)
+{
+    const auto mappingSize = info.offset + info.size;
+    absl::base_internal::DirectMunmap(base, mappingSize);
 }
 
 void* mmap_realloc(void* ptr, size_t size)
@@ -274,41 +329,9 @@ void* mmap_realloc(void* ptr, size_t size)
         return nullptr;
     }
     memcpy(realloced, ptr, std::min(info->size, size));
-    mmap_free(origPtr, info);
+    mmap_free(origPtr, *info);
 
     return realloced;
-}
-
-void* mmap_alloc_aligned(size_t size, size_t alignment)
-{
-    const size_t totalSize = size + AdditionalSize + alignment;
-    // allocate enough memory to find a suitably aligned pointer for user data
-    auto ptr =
-        absl::base_internal::DirectMmap(nullptr, totalSize, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, -1, 0);
-
-    if (unlikely(ptr == MAP_FAILED))
-    {
-        return nullptr;
-    }
-    memset(ptr, 0, totalSize);
-
-    // reserve memory for AllocInfo
-    const auto shiftedPtr = reinterpret_cast<char*>(ptr) + AdditionalSize;
-    // find the first aligned address
-    const auto alignedPtrValue = align_ceil(reinterpret_cast<uintptr_t>(shiftedPtr), alignment);
-    void* alignedPtr = reinterpret_cast<void*>(alignedPtrValue); // start of user data
-
-    const auto offset = alignedPtrValue - reinterpret_cast<uintptr_t>(ptr);
-    // NOLINTNEXTLINE(misc-const-correctness) false positive
-    void* infoLocation = reinterpret_cast<char*>(alignedPtr) - AdditionalSize;
-
-    // save `totalSize - offset` as user size instead of `size`
-    // it's necessary in order to correctly unmap full memory region
-    AllocInfo* info = new (infoLocation) AllocInfo{totalSize - offset, static_cast<uint32_t>(offset)};
-    // set specific TraceId that shouldn't be used by memhawk
-    info->traceId = InvalidTraceId;
-
-    return alignedPtr;
 }
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_malloc(size_t size)
@@ -319,7 +342,10 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_malloc(size_t size)
     }
     LogTrace("requested: " fSzt, size);
 
-    void* raw = hooks::malloc(size + AdditionalSize);
+    auto totalSize = CheckedAdd(size, AdditionalSize);
+    RETURN_ENOMEM_ON_FAILURE(totalSize);
+
+    void* raw = hooks::malloc(*totalSize);
     if (unlikely(!raw))
     {
         return nullptr;
@@ -331,66 +357,97 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_malloc(size_t size)
     return userPtr;
 }
 
-ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_aligned_alloc(size_t align, size_t size)
+ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_aligned_alloc(size_t alignment, size_t size)
 {
+    if (unlikely(!std::has_single_bit(alignment)))
+    {
+        errno = EINVAL;
+        return nullptr;
+    }
     if (unlikely(!hooks::CheckInitialized()))
     {
-        return mmap_alloc_aligned(size, align);
+        return mmap_alloc_aligned(size, alignment);
     }
     LogTrace("requested: " fSzt, size);
 
-    const auto alignedSize = align_ceil(AdditionalSize, align);
-    void* raw = hooks::aligned_alloc(align, size + alignedSize);
+    const auto alignedSize = CheckedAlignUp(AdditionalSize, alignment);
+    if (unlikely(!alignedSize || *alignedSize > std::numeric_limits<uint32_t>::max()))
+    {
+        errno = ENOMEM;
+        return nullptr;
+    }
+    const auto totalSize = CheckedAdd(alignedSize, size);
+    RETURN_ENOMEM_ON_FAILURE(totalSize);
+
+    void* raw = hooks::aligned_alloc(alignment, *totalSize);
     if (unlikely(!raw))
     {
         return nullptr;
     }
-    void* userPtr = reinterpret_cast<char*>(raw) + alignedSize;
+    void* userPtr = reinterpret_cast<char*>(raw) + *alignedSize;
 
     RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
-    TrackAllocation(userPtr, size, static_cast<uint32_t>(alignedSize), stacktrace);
+    TrackAllocation(userPtr, size, static_cast<uint32_t>(*alignedSize), stacktrace);
     return userPtr;
 }
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE int hawk_posix_memalign(void** memptr, size_t alignment, size_t size)
 {
+    // alignment requirements for posix_memalign
+    if (unlikely(!std::has_single_bit(alignment) || alignment % sizeof(void*) != 0))
+    {
+        return EINVAL;
+    }
+
     if (unlikely(!hooks::CheckInitialized()))
     {
-        *memptr = mmap_alloc_aligned(size, alignment);
+        auto result = mmap_alloc_aligned(size, alignment);
+        if (!result)
+        {
+            return ENOMEM;
+        }
+        *memptr = result;
         return 0;
     }
     LogTrace("requested: " fSzt, size);
 
-    const auto alignedSize = align_ceil(AdditionalSize, alignment);
-    const auto res = hooks::posix_memalign(memptr, alignment, size + alignedSize);
+    const auto alignedSize = CheckedAlignUp(AdditionalSize, alignment);
+    if (unlikely(!alignedSize || *alignedSize > std::numeric_limits<uint32_t>::max()))
+    {
+        return ENOMEM;
+    }
+    const auto totalSize = CheckedAdd(*alignedSize, size);
+    if (unlikely(!totalSize))
+    {
+        return ENOMEM;
+    }
+    const auto res = hooks::posix_memalign(memptr, alignment, *totalSize);
     if (unlikely(res != 0))
     {
         return res;
     }
-    *memptr = reinterpret_cast<char*>(*memptr) + alignedSize;
+    *memptr = reinterpret_cast<char*>(*memptr) + *alignedSize;
 
     RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
-    TrackAllocation(*memptr, size, static_cast<uint32_t>(alignedSize), stacktrace);
+    TrackAllocation(*memptr, size, static_cast<uint32_t>(*alignedSize), stacktrace);
     return res;
 }
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_calloc(size_t nm, size_t size)
 {
-    size_t bytes{};
-    // add check similar to glibc
-    if (unlikely(__builtin_mul_overflow(nm, size, &bytes)))
-    {
-        errno = ENOMEM;
-        return nullptr;
-    }
+    const auto userSize = CheckedMult(size, nm);
+    RETURN_ENOMEM_ON_FAILURE(userSize);
 
     if (unlikely(!hooks::CheckInitialized()))
     {
-        return mmap_malloc(nm * size);
+        return mmap_malloc(*userSize);
     }
     LogTrace("requested: " fSzt " " fSzt, nm, size);
 
-    void* raw = hooks::calloc(1UL, nm * size + AdditionalSize);
+    const auto totalSize = CheckedAdd(userSize, AdditionalSize);
+    RETURN_ENOMEM_ON_FAILURE(totalSize);
+
+    void* raw = hooks::calloc(1UL, *totalSize);
     if (unlikely(!raw))
     {
         return nullptr;
@@ -398,7 +455,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_calloc(size_t nm, size_t size)
     void* userPtr = reinterpret_cast<char*>(raw) + AdditionalSize;
 
     RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
-    TrackAllocation(userPtr, nm * size, AdditionalSize, stacktrace);
+    TrackAllocation(userPtr, *userSize, AdditionalSize, stacktrace);
     return userPtr;
 }
 
@@ -432,11 +489,14 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_realloc(void* ptr, size_t size)
         }
         // copy user data
         memcpy(clearPtr, ptr, std::min(prev.size, size));
-        mmap_free(origPtr, &prev);
+        mmap_free(origPtr, prev);
         return clearPtr;
     }
 
-    void* realloced = hooks::realloc(origPtr, size + prev.offset);
+    const auto newSize = CheckedAdd(size, prev.offset);
+    RETURN_ENOMEM_ON_FAILURE(newSize);
+
+    void* realloced = hooks::realloc(origPtr, *newSize);
     if (unlikely(!realloced))
     {
         // not necessary to track deallocation, because failed realloc will not deallocate the memory
@@ -449,12 +509,6 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_realloc(void* ptr, size_t size)
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_valloc(size_t size)
 {
-    if (unlikely(!hooks::CheckInitialized()))
-    {
-        // will be printed into stderr
-        LogError("valloc is not supported yet on statics initialisation");
-        abort();
-    }
     LogTrace("requested: " fSzt, size);
 
     const auto pageSize = getpagesize();
@@ -469,12 +523,6 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_valloc(size_t size)
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_pvalloc(size_t size)
 {
-    if (unlikely(!hooks::CheckInitialized()))
-    {
-        // will be printed into stderr
-        LogError("pvalloc is not supported yet on statics initialisation");
-        abort();
-    }
     LogTrace("requested: " fSzt, size);
 
     const auto pageSize = getpagesize();
@@ -486,8 +534,10 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_pvalloc(size_t size)
     }
     const auto szPageSize = static_cast<size_t>(pageSize);
     // rounds the size of the allocation up to the next multiple of the system page size
-    size = align_ceil(size, szPageSize);
-    return hawk_aligned_alloc(szPageSize, size);
+    const auto totalSize = CheckedAlignUp(size, szPageSize);
+    RETURN_ENOMEM_ON_FAILURE(totalSize);
+
+    return hawk_aligned_alloc(szPageSize, *totalSize);
 }
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE void hawk_free(void* ptr)
@@ -503,7 +553,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void hawk_free(void* ptr)
     // check if pointer was allocated during statics initialisation
     if (unlikely(info->traceId == InvalidTraceId))
     {
-        mmap_free(ptr, info);
+        mmap_free(ptr, *info);
         return;
     }
     // highly unlikely situation, got pointer
@@ -529,6 +579,10 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void hawk_free(void* ptr)
 
 size_t hawk_malloc_usable_size(void* ptr)
 {
+    if (!ptr)
+    {
+        return 0;
+    }
     const AllocInfo* info = reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) - AdditionalSize);
     return info->size;
 }
@@ -584,7 +638,10 @@ void* hawk_aligned_alloc(size_t align, size_t size)
 
 int hawk_posix_memalign(void** memptr, size_t alignment, size_t size)
 {
-    return memhawk::hawk_posix_memalign(memptr, alignment, size);
+    const auto savedErrno = errno;
+    const auto result = memhawk::hawk_posix_memalign(memptr, alignment, size);
+    errno = savedErrno;
+    return result;
 }
 
 void* hawk_calloc(size_t nm, size_t size)
