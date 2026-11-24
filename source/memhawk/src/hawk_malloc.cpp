@@ -12,6 +12,7 @@
 #include "impl/writers/factory.h"
 #include "overrides-libc.h" // IWYU pragma: export
 #include "overrides.h"
+#include "recursion_guard.h"
 
 #include <absl/base/attributes.h>
 #include <absl/base/internal/direct_mmap.h>
@@ -594,10 +595,16 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void hawk_free(void* ptr)
 
     LogTrace("requested: ", ptr);
 
-    const RecursiveStacktrace stacktrace(MinUnwindDepth, *hooks::gl_unwind.UseAbslStacktraces);
+    #ifdef MEMHAWK_SELF_PROFILING
+        const RecursiveStacktrace stacktrace(MinUnwindDepth, *hooks::gl_unwind.UseAbslStacktraces);
+        const auto isExternal = stacktrace.IsExternal();
+    #else
+        RecursionGuard<AllocTag> guard;
+        const auto isExternal = guard.IsFirst();
+    #endif
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
-        memhawk->TrackDealloc(*info, stacktrace.IsExternal());
+        memhawk->TrackDealloc(*info, isExternal);
     }
 
     hooks::free(ptr);
