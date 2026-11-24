@@ -1,4 +1,5 @@
 #include <atomic>
+#include <charconv>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -41,10 +42,16 @@ void worker()
     }
 }
 
-int main()
+int main(int argc, const char* const* argv)
 {
     std::vector<std::thread> workers;
     gl_totalWorkers = std::thread::hardware_concurrency();
+
+    if (argc == 2)
+    {
+        std::string arg{argv[1]};
+        std::from_chars(arg.data(), arg.data() + arg.size(), gl_totalWorkers);
+    }
     workers.reserve(gl_totalWorkers);
     for (size_t i = 0; i < gl_totalWorkers; i++)
     {

@@ -93,7 +93,7 @@ TEST_F(CompressionFixture, BitEncode_SeveralBytes_ExpectOk)
 
 TEST_F(CompressionFixture, Compress_SeveralBytes_ExpectOk)
 {
-    const std::vector<uint64_t> TestData = {TestValue, 0, 1, (1 << 16) + 8};
+    const std::vector<uint64_t> TestData = {TestValue, 0, 1, (1 << 16ULL) + 8};
 
     Compress(absl::MakeConstSpan(TestData), m_data);
 
@@ -126,7 +126,7 @@ TEST_F(CompressionFixture, Compress_BoundaryValues_ExpectOk)
     testData.emplace_back(0);
     for (const auto bitCount : {8, 16, 24, 32, 40, 48, 56, 63})
     {
-        const uint64_t value = 1ULL << bitCount;
+        const uint64_t value = 1ULL << static_cast<uint64_t>(bitCount);
         testData.emplace_back(value - 1);
         testData.emplace_back(value);
         testData.emplace_back(value + 1);
@@ -142,7 +142,7 @@ TEST_F(CompressionFixture, Compress_BoundaryValues_ExpectOk)
 TEST_F(CompressionFixture, Compress_LargeDiffs_ExpectOk)
 {
     const std::vector<uint64_t> TestData = {
-        1ULL << 60, 1ULL << 12, 1ULL << 59, 0, 1ULL << 58, 1, 1ULL << 57,
+        1ULL << 60UL, 1ULL << 12UL, 1ULL << 59UL, 0, 1ULL << 58UL, 1, 1ULL << 57UL,
     };
 
     Compress(absl::MakeConstSpan(TestData), m_data);
@@ -231,8 +231,9 @@ TEST_F(CompressionFixture, Compress_SignIterativeDiffs_ExpectOk)
 
 TEST_F(CompressionFixture, Compress_SomePtrs_ExpectOk)
 {
-    const std::vector<uint64_t> TestData = {0x7514af7f7063, 0x7514af839744, 0x7514af8049eb,
-                                            0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4};
+    const std::vector<uint64_t> TestData = {
+        0x7514af7f7063, 0x7514af839744, 0x7514af8049eb, 0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4,
+    };
 
     Compress(absl::MakeConstSpan(TestData), m_data);
 

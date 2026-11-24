@@ -73,7 +73,7 @@ uint32_t StaticStacktraceTracker::InsertStacktrace(const Stacktrace& trace)
     {
         span = span.subspan(0, MaxStacktraceLength);
     }
-    auto traceId = InsertStacktraceUnlocked(span);
+    const auto traceId = InsertStacktraceUnlocked(span);
     return traceId ^ FixedTrackerIdFlag;
 }
 
@@ -104,7 +104,9 @@ uint32_t StaticStacktraceTracker::InsertStacktraceUnlocked(absl::Span<void* cons
         if (m_storageSize + compressedSize < StorageSize && m_size + 1 < ElementsCount)
         {
             m_elements[m_size] = TraceElement{
-                .hash = hash, .trace = absl::MakeConstSpan(m_storage.data() + m_storageSize, compressedSize)};
+                .hash = hash,
+                .trace = absl::MakeConstSpan(m_storage.data() + m_storageSize, compressedSize),
+            };
             memcpy(m_storage.data() + m_storageSize, compressedSpan.data(), compressedSize * sizeof(uint32_t));
             m_storageSize += compressedSize;
             m_size++;

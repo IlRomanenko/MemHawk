@@ -25,7 +25,7 @@ struct LineValue
 template <typename T>
 bool parse_number(const char*& begin, const char* end, T& value)
 {
-    auto res = std::from_chars(begin, end, value);
+    const auto res = std::from_chars(begin, end, value);
     CHECK(res.ptr != begin);
     begin = res.ptr;
     return res.ec == std::errc();
@@ -121,7 +121,7 @@ void help()
     // clang-format on
 }
 
-int main(int argc, char** argv)
+int main(int argc, const char* const* argv)
 {
     std::ios::sync_with_stdio(false);
     std::cin.tie(nullptr);

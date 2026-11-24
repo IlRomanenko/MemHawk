@@ -28,8 +28,9 @@ template <typename T>
 void WriteHexValue(std::ostream& stream, T value)
 {
 
-    constexpr const char hexChars[16] = {'0', '1', '2', '3', '4', '5', '6', '7',
-                                         '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+    constexpr const char hexChars[16] = {
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+    };
 
     using Type = std::decay_t<T>;
     if constexpr (std::is_integral_v<Type>)
@@ -120,7 +121,7 @@ void HeaptrackWriter::AccountSnapshot(const SummariesMap& summaries, const Alloc
     for (const auto& [traceId, summary] : summaries)
     {
         m_changedSummaries.insert(traceId);
-        auto it = m_summaries.find(traceId);
+        const auto it = m_summaries.find(traceId);
         if (it == m_summaries.end())
         {
             m_summaries.insert({traceId, {summary.size, 0}});
@@ -134,7 +135,7 @@ void HeaptrackWriter::WriteTimestamp()
 {
     static const auto startTime = std::chrono::steady_clock::now();
     const auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
     WriteHexLine(*m_ofstream, "c", static_cast<size_t>(elapsed)) << "\n";
 }
 
@@ -173,8 +174,8 @@ void HeaptrackWriter::WriteCommandLine()
     char buf[BUF_SIZE + 1] = {0};
 
     // contains some amount of 0 terminated strings
-    auto fd = open("/proc/self/cmdline", O_RDONLY | O_CLOEXEC);
-    auto bytesRead = read(fd, buf, BUF_SIZE);
+    const auto fd = open("/proc/self/cmdline", O_RDONLY | O_CLOEXEC);
+    const auto bytesRead = read(fd, buf, BUF_SIZE);
     close(fd);
 
     const char* end = buf + bytesRead;

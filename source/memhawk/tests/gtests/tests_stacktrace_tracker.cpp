@@ -42,8 +42,9 @@ protected:
 
 TEST_F(StacktraceTrackerFixture, AddTrace_ExpectFound)
 {
-    const std::vector<uint64_t> testData = {0x7514af7f7063, 0x7514af839744, 0x7514af8049eb,
-                                            0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4};
+    const std::vector<uint64_t> testData = {
+        0x7514af7f7063, 0x7514af839744, 0x7514af8049eb, 0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4,
+    };
     auto trace = SetUpStacktrace(testData);
     const size_t traceId = m_tracker->InsertStacktrace(trace);
     EXPECT_NE(traceId, 0);
@@ -54,8 +55,9 @@ TEST_F(StacktraceTrackerFixture, AddTrace_ExpectFound)
 
 TEST_F(StacktraceTrackerFixture, AddTraceTwice_ExpectOneCopy)
 {
-    const std::vector<uint64_t> testData = {0x7514af7f7063, 0x7514af839744, 0x7514af8049eb,
-                                            0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4};
+    const std::vector<uint64_t> testData = {
+        0x7514af7f7063, 0x7514af839744, 0x7514af8049eb, 0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4,
+    };
     auto trace = SetUpStacktrace(testData);
     const size_t traceId = m_tracker->InsertStacktrace(trace);
     trace = SetUpStacktrace(testData);
@@ -71,8 +73,9 @@ TEST_F(StacktraceTrackerFixture, AddTraceTwice_ExpectOneCopy)
 TEST_F(StacktraceTrackerFixture, AddSimilarTraces_ExpectAllFound)
 {
     constexpr size_t Count = 3;
-    const std::vector<uint64_t> testData = {0xdeadbeef0000, 0x7514af839744, 0x7514af8049eb,
-                                            0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4};
+    const std::vector<uint64_t> testData = {
+        0xdeadbeef0000, 0x7514af839744, 0x7514af8049eb, 0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4,
+    };
     for (size_t i = 0; i < Count; i++)
     {
         auto trace = testData;

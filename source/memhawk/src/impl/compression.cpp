@@ -10,7 +10,7 @@ enum class SizeBits : uint32_t
     Zero = 0,
     TwoBytes = 1,
     ThreeBytes = 2,
-    FourBytes = 3
+    FourBytes = 3,
 };
 
 inline uint32_t shift_left(uint32_t value, uint32_t count)
@@ -38,7 +38,7 @@ inline void ClearBits(uint32_t& value, uint32_t from, uint32_t to)
     value &= ~lower;
 }
 
-void ClearUnusedBits(MutBitIterator& iter)
+void ClearUnusedBits(const MutBitIterator& iter)
 {
     if (iter.bitIndex == 0)
     {
@@ -201,7 +201,7 @@ void Compress(absl::Span<const uint64_t> in, std::vector<uint32_t>& out)
 {
     out.clear();
     out.resize(CalculateMaxExpectedSize(in));
-    auto size = Compress(in, out.data());
+    const auto size = Compress(in, out.data());
     out.resize(size);
 }
 

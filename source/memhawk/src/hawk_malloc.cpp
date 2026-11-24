@@ -317,7 +317,7 @@ void* mmap_alloc_aligned(size_t size, size_t alignment)
         return nullptr;
     }
 
-    auto* payloadStart = static_cast<char*>(basePtr) + AdditionalSize;
+    const auto* payloadStart = static_cast<char*>(basePtr) + AdditionalSize;
     // find suitable alignment for user data
     const auto remainder = reinterpret_cast<uintptr_t>(payloadStart) & (alignment - 1);
     const auto padding = remainder == 0 ? 0 : alignment - remainder;
@@ -599,7 +599,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void hawk_free(void* ptr)
     const RecursiveStacktrace stacktrace(MinUnwindDepth, *hooks::gl_unwind.UseAbslStacktraces);
     const auto isExternal = stacktrace.IsExternal();
 #else
-    RecursionGuard<AllocTag> guard;
+    const RecursionGuard<AllocTag> guard;
     const auto isExternal = guard.IsFirst();
 #endif
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))

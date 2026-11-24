@@ -20,8 +20,8 @@ const std::string_view TestData = "abacabacffdghjkqweqwelabdfabdfqlabacabacffdgh
 
 void TestCollapseRecursion(benchmark::State& state, size_t (*func)(absl::Span<void*>, size_t))
 {
-    void* testData[memhawk::MaxUnwindDepth];
-    void* input[memhawk::MaxUnwindDepth];
+    void* testData[memhawk::MaxUnwindDepth]{};
+    void* input[memhawk::MaxUnwindDepth]{};
     SetUpData(TestData, testData);
     const auto depth = static_cast<size_t>(state.range(0));
 

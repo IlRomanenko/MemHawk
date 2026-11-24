@@ -102,7 +102,7 @@ void MemHawk::PostponedConstruct()
         m_workerStorage->writer =
             m_writersFactory->CreateWritersAdaptor(*m_cfg.Writers, std::make_shared<InnerStacktraceFinder>(*this));
 
-        m_worker = std::thread([this]() { TrackingWorker(); });
+        m_worker = std::thread([this] { TrackingWorker(); });
     }
     LogDebug("end");
     LogInfo("MemHawk fully initialized");
@@ -369,7 +369,7 @@ void MemHawk::TrackingWorker()
     while (!m_stopped)
     {
         std::unique_lock lock(m_mt);
-        m_cv.wait_until(lock, nextTimepoint, [this]() { return m_stopped.load(); });
+        m_cv.wait_until(lock, nextTimepoint, [this] { return m_stopped.load(); });
         nextTimepoint += waitingDelay;
         WorkerUpdateData();
         WorkerPrintData();

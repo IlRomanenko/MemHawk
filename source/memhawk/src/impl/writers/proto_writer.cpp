@@ -30,7 +30,7 @@ namespace
 std::string GetPrognameFullPath()
 {
     std::error_code ec{};
-    auto res = std::filesystem::read_symlink("/proc/self/exe", ec);
+    const auto res = std::filesystem::read_symlink("/proc/self/exe", ec);
     if (ec)
     {
         return program_invocation_name;
@@ -38,7 +38,7 @@ std::string GetPrognameFullPath()
     return res.native();
 }
 
-int iterate_dl_headers(struct dl_phdr_info* info, size_t /*size*/, void* data)
+int iterate_dl_headers(struct dl_phdr_info* info, size_t /*size*/, void* data) // NOLINT(misc-const-correctness)
 {
     auto snapshot = reinterpret_cast<proto::Snapshot*>(data);
     auto* loadedSo = snapshot->add_loadedso();
@@ -118,7 +118,7 @@ void ProtobufWriter::AccountSnapshot(const SummariesMap& summaries, const AllocS
     for (const auto& [traceId, summary] : summaries)
     {
         m_changedSummaries.insert(traceId);
-        auto it = m_localSummaries.find(traceId);
+        const auto it = m_localSummaries.find(traceId);
         if (it == m_localSummaries.end())
         {
             m_localSummaries.insert({traceId, summary});
@@ -195,7 +195,7 @@ void ProtobufWriter::AddStacktrace(uint32_t traceId, proto::Snapshot* snapshot)
     stacktrace->set_traceid(traceId);
     for (const auto& ptr : trace->GetTrace())
     {
-        auto ptrValue = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(ptr)) - 1;
+        const auto ptrValue = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(ptr)) - 1;
         auto ptrIt = m_ptrMap.find(ptrValue);
         if (ptrIt == m_ptrMap.end())
         {

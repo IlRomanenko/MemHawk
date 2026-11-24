@@ -47,8 +47,9 @@ protected:
 
 TEST_F(StaticStacktraceTrackerFixture, AddTrace_ExpectFound)
 {
-    const std::vector<uint64_t> testData = {0x7514af7f7063, 0x7514af839744, 0x7514af8049eb,
-                                            0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4};
+    const std::vector<uint64_t> testData = {
+        0x7514af7f7063, 0x7514af839744, 0x7514af8049eb, 0x7514af80d866, 0x7514af80b092, 0x7514af80b5b4,
+    };
     auto trace = SetUpStacktrace(testData);
     const size_t traceId = m_tracker->InsertStacktrace(trace);
     EXPECT_EQ(traceId, GetFixedSizeTraceId(0));

@@ -93,7 +93,7 @@ MainConfig ParseConfig()
     if (*cfg.Help)
     {
         PrintMessage("full set of fields in config:\n");
-        config::DescribeStruct(MainConfig{}, OnKey);
+        config::DescribeStruct(MainConfig(), OnKey);
         exit(0);
     }
     return cfg;
