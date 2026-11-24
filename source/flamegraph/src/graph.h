@@ -240,7 +240,7 @@ private:
     };
 
     void RetrieveNodes(uint32_t nodeId, uint32_t depth, const absl::flat_hash_set<NodeOnPath>& selectedNodes,
-                      std::vector<RetrievedNode>& result) const
+                       std::vector<RetrievedNode>& result) const
     {
         const auto& node = m_nodes[nodeId];
         const auto nodePath = DequeSpan(m_paths, node.path);
@@ -337,7 +337,7 @@ private:
         node.path = matchedSpan;
         node.edges = {{key, leftoverNodeId}};
         node.value = 0;
-        // node.total accounts for whole subtree and therefore not changed 
+        // node.total accounts for whole subtree and therefore not changed
         return matched;
     }
 

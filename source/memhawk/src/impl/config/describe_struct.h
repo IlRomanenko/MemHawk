@@ -74,7 +74,7 @@ inline void DescribeStruct(const T& object, std::function<void(const DescribeCon
         }
         else
         {
-            const auto valueStr = ValueDescriber<std::decay_t<decltype(member)>>::Describe(member); 
+            const auto valueStr = ValueDescriber<std::decay_t<decltype(member)>>::Describe(member);
             onKey({.key = fullPath, .field = memberName, .value = valueStr});
         }
     });

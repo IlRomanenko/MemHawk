@@ -69,7 +69,8 @@ uint32_t StaticStacktraceTracker::InsertStacktrace(const Stacktrace& trace)
 {
     const absl::base_internal::SpinLockHolder lock(&m_mt);
     auto span = trace.GetTrace();
-    if (span.size() > MaxStacktraceLength) {
+    if (span.size() > MaxStacktraceLength)
+    {
         span = span.subspan(0, MaxStacktraceLength);
     }
     auto traceId = InsertStacktraceUnlocked(span);

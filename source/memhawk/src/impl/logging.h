@@ -8,7 +8,7 @@ namespace memhawk
 #define LogEx(level, ...)                                                                                              \
     do                                                                                                                 \
     {                                                                                                                  \
-        if (memhawk::logging::LogLevel::level >= memhawk::logging::gl_loggingLevel)                                             \
+        if (memhawk::logging::LogLevel::level >= memhawk::logging::gl_loggingLevel)                                    \
         {                                                                                                              \
             memhawk::logging::LogMessage("[", #level, "] (", __func__, ":", __LINE__, ") ", ##__VA_ARGS__);            \
         }                                                                                                              \

@@ -65,7 +65,7 @@ size_t malloc_usable_size(void* ptr) ALIAS(hawk_malloc_usable_size);
 
 // libdl functions
 void* dlopen(const char* file, int mode) __THROWNL ALIAS(hawk_dlopen);
-int dlclose(void* handle)__THROWNL __nonnull ((1)) ALIAS(hawk_dlclose);
+int dlclose(void* handle) __THROWNL __nonnull((1)) ALIAS(hawk_dlclose);
 
 
 } // extern "C"

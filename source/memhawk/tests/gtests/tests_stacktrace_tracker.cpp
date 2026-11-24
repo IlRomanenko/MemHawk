@@ -152,7 +152,7 @@ TEST_F(StacktraceTrackerFixture, AddRandomTraces_ExpectAllFound)
             trace.emplace_back(dist(rng));
         }
         testData.emplace_back(trace); // copy trace
-        
+
         auto stacktrace = SetUpStacktrace(trace);
         const auto traceId = m_tracker->InsertStacktrace(stacktrace);
         EXPECT_NE(traceId, 0);

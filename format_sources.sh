@@ -1,4 +1,8 @@
 #!/bin/bash
-FOLDERS="source tests"
+set -euo pipefail
+cd "$(dirname "$0")"
 
-find $FOLDERS -name "*.cpp" -o -name "*.hpp" -o -name "*.h" -o -name "*.c" | xargs clang-format -i
+FOLDERS=(source tests)
+
+find "${FOLDERS[@]}" -type f \( -name "*.cpp" -o -name "*.hpp" -o -name "*.h" -o -name "*.c" \) -print0 |
+    xargs -0 -r clang-format -i

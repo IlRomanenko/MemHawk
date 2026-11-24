@@ -38,7 +38,6 @@ public:
     void FlushData() override;
 
 private:
-
     void WriteUint64BigEndian(uint64_t value);
     void WriteProcessInfo();
     void WriteMessage(google::protobuf::MessageLite* message);

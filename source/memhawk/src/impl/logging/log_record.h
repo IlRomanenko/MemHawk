@@ -172,7 +172,8 @@ public:
     }
 
     template <std::integral Integer>
-    void Append(Integer value) noexcept requires(!std::same_as<Integer, bool>)
+    void Append(Integer value) noexcept
+        requires(!std::same_as<Integer, bool>)
     {
         std::array<char, std::numeric_limits<Integer>::digits10 + 2> number{};
         const auto result = std::to_chars(number.data(), number.data() + number.size(), value);
@@ -209,11 +210,8 @@ private:
 };
 
 template <typename Part>
-concept LogPart = requires(LogRecord & record, const Part& part)
-{
-    {
-        record.Append(part)
-    } noexcept;
+concept LogPart = requires(LogRecord& record, const Part& part) {
+    { record.Append(part) } noexcept;
 };
 
 } // namespace memhawk::logging

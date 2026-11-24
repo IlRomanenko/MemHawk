@@ -2,9 +2,9 @@
 
 #include "config.h"
 #include "i_stacktrace_tracker.h"
+#include "stacktrace_tree.h"
 #include "thread_tracker.h"
 #include "writers/i_writer.h"
-#include "stacktrace_tree.h"
 
 #include <absl/container/flat_hash_map.h>
 #include <absl/container/flat_hash_set.h>

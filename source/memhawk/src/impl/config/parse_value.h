@@ -15,14 +15,16 @@ template <typename T>
 inline bool ParseValue(std::string_view str, T& value);
 
 template <typename T>
-inline bool ParseValue(std::string_view str, T& value) requires(std::is_integral_v<T>)
+inline bool ParseValue(std::string_view str, T& value)
+    requires(std::is_integral_v<T>)
 {
     auto res = std::from_chars(str.begin(), str.end(), value);
     return res.ec == std::errc();
 }
 
 template <typename T>
-inline bool ParseValue(std::string_view str, T& value) requires(std::is_enum_v<T>)
+inline bool ParseValue(std::string_view str, T& value)
+    requires(std::is_enum_v<T>)
 {
     std::underlying_type_t<T> v = {};
     auto res = ParseValue(str, v);

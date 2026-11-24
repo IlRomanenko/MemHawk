@@ -38,7 +38,8 @@ TextWriter::TextWriter(TextWriterConfig cfg, std::shared_ptr<IStacktraceFinder> 
     : m_cfg{std::move(cfg)}, m_stacktraceFinder{std::move(finder)}
 {
     m_summaryFile = std::ofstream(logging::GetProcessLogName("summary"), std::ios_base::out | std::ios_base::trunc);
-    m_stacktracesFile = std::ofstream(logging::GetProcessLogName("stacktraces"), std::ios_base::out | std::ios_base::trunc);
+    m_stacktracesFile =
+        std::ofstream(logging::GetProcessLogName("stacktraces"), std::ios_base::out | std::ios_base::trunc);
 }
 
 TextWriter::~TextWriter()
@@ -87,7 +88,7 @@ void TextWriter::DumpIndex(const Index& index, const TextWriterIndexConfig& cfg,
     const auto& bySizeIndex = index.get<ByTotalSize>();
     size_t topElementsCount = std::min(*cfg.TrackerBySizeCount, bySizeIndex.size());
     const auto bySizeRange = boost::make_iterator_range_n(bySizeIndex.begin(), topElementsCount);
-    
+
     const auto& byCountIndex = index.get<ByTotalCount>();
     topElementsCount = std::min(*cfg.TrackerByTotalCount, byCountIndex.size());
     const auto byCountRange = boost::make_iterator_range_n(byCountIndex.begin(), topElementsCount);

@@ -23,7 +23,7 @@ public:
         return m_value;
     }
 
-    auto operator<=> (const IdTagType&) const = default;
+    auto operator<=>(const IdTagType&) const = default;
 
     template <typename H>
     friend H AbslHashValue(H state, const IdTagType& v)

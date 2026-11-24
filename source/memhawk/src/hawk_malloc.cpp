@@ -595,13 +595,13 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void hawk_free(void* ptr)
 
     LogTrace("requested: ", ptr);
 
-    #ifdef MEMHAWK_SELF_PROFILING
-        const RecursiveStacktrace stacktrace(MinUnwindDepth, *hooks::gl_unwind.UseAbslStacktraces);
-        const auto isExternal = stacktrace.IsExternal();
-    #else
-        RecursionGuard<AllocTag> guard;
-        const auto isExternal = guard.IsFirst();
-    #endif
+#ifdef MEMHAWK_SELF_PROFILING
+    const RecursiveStacktrace stacktrace(MinUnwindDepth, *hooks::gl_unwind.UseAbslStacktraces);
+    const auto isExternal = stacktrace.IsExternal();
+#else
+    RecursionGuard<AllocTag> guard;
+    const auto isExternal = guard.IsFirst();
+#endif
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
         memhawk->TrackDealloc(*info, isExternal);
