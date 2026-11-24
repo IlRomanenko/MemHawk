@@ -221,7 +221,7 @@ private:
         }
 
     private:
-        const std::deque<T>& m_data; // NOLINT(cppcoreguidelines-avoid-const-or-ref-data-members)
+        const std::deque<T>& m_data;
         PathSpan m_span;
     };
 
