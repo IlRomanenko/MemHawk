@@ -97,7 +97,7 @@ int iterate_dl_headers(struct dl_phdr_info* info, size_t /*size*/, void* data)
 HeaptrackWriter::HeaptrackWriter(HeaptrackWriterConfig cfg, std::shared_ptr<IStacktraceFinder> finder)
     : m_cfg{std::move(cfg)}, m_finder(std::move(finder))
 {
-    auto filename = GetProcessLogName("heaptrack", "txt");
+    auto filename = logging::GetProcessLogName("heaptrack", "txt");
     if (m_cfg.Filename->has_value())
     {
         filename = m_cfg.Filename->value(); // NOLINT(bugprone-unchecked-optional-access)

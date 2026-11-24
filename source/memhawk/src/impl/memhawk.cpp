@@ -66,11 +66,11 @@ void MemHawk::Stop()
     }
     {
         const absl::base_internal::SpinLockHolder lock(&m_thTrackersMt);
-        LogInfo("Total trackers: " fSzt ", empty: " fSzt ", max postponed: " fSzt, m_thTrackers.size(),
-                m_finishedTrackers.size(), m_maxPostponedSize);
+        LogInfo("Total trackers: ", m_thTrackers.size(), ", empty: ", m_finishedTrackers.size(),
+                ", max postponed: ", m_maxPostponedSize);
     }
-    LogInfo("Inner traces: (" fSzt ", " fSzt "), external: " fSzt, m_innerBtTracker.StacktracesCount(),
-            m_innerBtTracker.GetStorageSize(), m_btTracker.StacktracesCount());
+    LogInfo("Inner traces: (", m_innerBtTracker.StacktracesCount(), ", ", m_innerBtTracker.GetStorageSize(),
+            "), external: ", m_btTracker.StacktracesCount());
     m_btTracker.Describe();
 
     LogInfo("ExternalTrackers");
@@ -113,7 +113,7 @@ void MemHawk::RegisterThread()
     if (unlikely(gtl_tracker != nullptr))
     {
         const auto trace = Stacktrace::Unwind(32, false).Describe();
-        LogError("Trying to register already registered thread, stacktrace:\n" fStr, trace.c_str());
+        LogError("Trying to register already registered thread, stacktrace:\n", trace.c_str());
         return;
     }
     const RecursionGuard<AllocTag> guard;
@@ -147,7 +147,7 @@ void MemHawk::ReclaimTracker(ThreadTracker* tracker)
     // reclaim old tracker
     const absl::base_internal::SpinLockHolder lock(&m_thTrackersMt);
     m_finishedTrackers.push_back(tracker->GetTrackerId());
-    LogDebug("Finished tracker: " fU32, tracker->GetTrackerId());
+    LogDebug("Finished tracker: ", tracker->GetTrackerId());
 }
 
 void MemHawk::TrackAlloc(AllocInfo& info, Stacktrace& trace, bool isExternal)
@@ -315,7 +315,7 @@ void MemHawk::ProcessPostponed()
             delayed = std::move(m_postponed.front());
             m_postponed.pop_front();
         }
-        LogDebug("processing: [size: " fU64 ", op: " fU32 "]", delayed.info.size, static_cast<uint32_t>(delayed.op));
+        LogDebug("processing: [size: ", delayed.info.size, ", op: ", static_cast<uint32_t>(delayed.op), "]");
 
         auto lockedTracker = m_innerTracker->LockTracker();
         if (delayed.op == Postponed::Operation::Alloc)

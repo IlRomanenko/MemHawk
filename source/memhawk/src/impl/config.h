@@ -1,7 +1,7 @@
 #pragma once
 
 #include "config/config_var.h"
-#include "logging_level.h"
+#include "logging/log_level.h"
 
 #include <boost/hana.hpp>
 
@@ -77,7 +77,7 @@ struct MemHawkConfig
 struct LoggingConfig
 {
     CONFIG_VAR_OPT(bool, MainLogIntoFile, "main_log", true);
-    CONFIG_VAR_OPT(LogLevel, LoggingLevel, "log_level", LogLevel::Info);
+    CONFIG_VAR_OPT(logging::LogLevel, LoggingLevel, "log_level", logging::LogLevel::Info);
     CONFIG_VAR_OPT(std::string_view, LogDir, "log_dir", "./");
 };
 

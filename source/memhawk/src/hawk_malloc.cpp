@@ -22,6 +22,7 @@
 #include <atomic>
 #include <bit>
 #include <cerrno>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
@@ -148,7 +149,7 @@ bool CheckProgname(std::string_view prognameRegex)
     const re2::RE2 pattern(prognameRegex);
     if (!pattern.ok())
     {
-        LogError("Incorrect progname regex: " fStr, pattern.error().c_str());
+        LogError("Incorrect progname regex: ", pattern.error().c_str());
         return false;
     }
     return re2::RE2::FullMatch(program_invocation_name, pattern);
@@ -169,6 +170,31 @@ static void ChildPostFork()
     gl_memhawk->ChildPostFork();
 }
 
+void LogTimezone()
+try
+{
+    const auto zone = std::chrono::get_tzdb().current_zone();
+    if (!zone)
+    {
+        LogWarning("Empty timezone");
+        return;
+    }
+    const auto now = std::chrono::system_clock::now();
+    const auto info = zone->get_info(now);
+
+    LogInfo("Timezone name: ", info.abbrev, ", offset: ", info.offset.count(), " seconds");
+}
+catch (const std::exception& ex)
+{
+    LogError("Failed to get timezone info: ", ex.what());
+}
+
+void LogStartInfo()
+{
+    LogInfo("pid: ", getpid());
+    LogTimezone();
+}
+
 __attribute__((__constructor__)) void init_memhawk()
 {
     InitHooks();
@@ -176,10 +202,10 @@ __attribute__((__constructor__)) void init_memhawk()
     const auto cfg = ParseConfig();
     if (CheckProgname(*cfg.PrognameRegex))
     {
-        LogInit(*cfg.Logging);
+        logging::LogInit(*cfg.Logging);
         gl_unwind = *cfg.Unwind;
 
-        LogInfo("[" fI32 "]", getpid());
+        LogStartInfo();
         gl_memhawk = new MemHawk(*cfg.MemHawk, std::make_unique<writers::WritersFactory>());
         gl_memhawkReady = true;
 
@@ -194,7 +220,7 @@ __attribute__((__constructor__)) void init_memhawk()
     {
         // allow hooks usage
         gl_initialised = true;
-        gl_loggingLevel = LogLevel::Off;
+        logging::gl_loggingLevel = logging::LogLevel::Off;
     }
 }
 
@@ -209,7 +235,7 @@ __attribute__((__destructor__)) void deinit_memhawk()
         // it's necessary because there can exist detached threads that continue to operate even after
         // main thread started termination process
     }
-    LogDeinit();
+    logging::LogDeinit();
 }
 
 }; // namespace hooks
@@ -223,7 +249,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void TrackAllocation(void* userPtr, size_t userSize
 {
     auto* infoLocation = reinterpret_cast<char*>(userPtr) - AdditionalSize;
     AllocInfo* info = new (infoLocation) AllocInfo{userSize, offset};
-    LogTrace("result: " fPtr, userPtr);
+    LogTrace("result: ", userPtr);
 
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
@@ -237,7 +263,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void TrackReallocation(void* userPtr, size_t userSi
 {
     auto* infoLocation = reinterpret_cast<char*>(userPtr) - AdditionalSize;
     AllocInfo* info = new (infoLocation) AllocInfo{userSize, offset};
-    LogTrace("result: " fPtr, userPtr);
+    LogTrace("result: ", userPtr);
 
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
@@ -340,7 +366,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_malloc(size_t size)
     {
         return mmap_malloc(size);
     }
-    LogTrace("requested: " fSzt, size);
+    LogTrace("requested: ", size);
 
     auto totalSize = CheckedAdd(size, AdditionalSize);
     RETURN_ENOMEM_ON_FAILURE(totalSize);
@@ -368,7 +394,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_aligned_alloc(size_t alignment, size_t s
     {
         return mmap_alloc_aligned(size, alignment);
     }
-    LogTrace("requested: " fSzt, size);
+    LogTrace("requested: ", size);
 
     const auto alignedSize = CheckedAlignUp(AdditionalSize, alignment);
     if (unlikely(!alignedSize || *alignedSize > std::numeric_limits<uint32_t>::max()))
@@ -409,7 +435,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE int hawk_posix_memalign(void** memptr, size_t align
         *memptr = result;
         return 0;
     }
-    LogTrace("requested: " fSzt, size);
+    LogTrace("requested: ", size);
 
     const auto alignedSize = CheckedAlignUp(AdditionalSize, alignment);
     if (unlikely(!alignedSize || *alignedSize > std::numeric_limits<uint32_t>::max()))
@@ -442,7 +468,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_calloc(size_t nm, size_t size)
     {
         return mmap_malloc(*userSize);
     }
-    LogTrace("requested: " fSzt " " fSzt, nm, size);
+    LogTrace("requested: ", nm, " ", size);
 
     const auto totalSize = CheckedAdd(userSize, AdditionalSize);
     RETURN_ENOMEM_ON_FAILURE(totalSize);
@@ -465,7 +491,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_realloc(void* ptr, size_t size)
     {
         return mmap_realloc(ptr, size);
     }
-    LogTrace("requested: " fPtr " " fSzt, ptr, size);
+    LogTrace("requested: ", ptr, " ", size);
 
     if (!ptr)
     {
@@ -509,13 +535,13 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_realloc(void* ptr, size_t size)
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_valloc(size_t size)
 {
-    LogTrace("requested: " fSzt, size);
+    LogTrace("requested: ", size);
 
     const auto pageSize = getpagesize();
     if (pageSize <= 0)
     {
         // highly unlikely
-        LogError("incorrect page size from getpagesize(): " fI32, pageSize);
+        LogError("incorrect page size from getpagesize(): ", pageSize);
         abort();
     }
     return hawk_aligned_alloc(static_cast<size_t>(pageSize), size);
@@ -523,13 +549,13 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_valloc(size_t size)
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_pvalloc(size_t size)
 {
-    LogTrace("requested: " fSzt, size);
+    LogTrace("requested: ", size);
 
     const auto pageSize = getpagesize();
     if (pageSize <= 0)
     {
         // highly unlikely
-        LogError("incorrect page size from getpagesize(): " fI32, pageSize);
+        LogError("incorrect page size from getpagesize(): ", pageSize);
         abort();
     }
     const auto szPageSize = static_cast<size_t>(pageSize);
@@ -562,11 +588,11 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void hawk_free(void* ptr)
     if (unlikely(!hooks::CheckInitialized()))
     {
         // will be printed into stderr
-        LogError("Got pointer from static-initialisation that wasn't allocated via memhawk: " fPtr, ptr);
+        LogError("Got pointer from static-initialisation that wasn't allocated via memhawk: ", ptr);
         abort();
     }
 
-    LogTrace("requested: " fPtr, ptr);
+    LogTrace("requested: ", ptr);
 
     const RecursiveStacktrace stacktrace(MinUnwindDepth, *hooks::gl_unwind.UseAbslStacktraces);
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))

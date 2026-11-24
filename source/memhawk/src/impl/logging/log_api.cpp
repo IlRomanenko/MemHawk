@@ -1,4 +1,4 @@
-#include "logging.h"
+#include "log_api.h"
 
 #include "config.h"
 
@@ -6,7 +6,6 @@
 #include <fmt/format.h>
 
 #include <cerrno>
-#include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -14,7 +13,7 @@
 #include <unistd.h>
 #include <utility>
 
-namespace memhawk
+namespace memhawk::logging
 {
 namespace
 {
@@ -37,8 +36,7 @@ void LogInit(LoggingConfig cfg)
             gl_logFile = STDERR_FILENO;
             constexpr size_t BufSize = 512;
             char buffer[BufSize];
-            LogPrint("Failed to initialise logging: " fStr ", error: " fStr "\n", filename.c_str(),
-                     strerror_r(error, buffer, 512));
+            LogMessage("Failed to initialise logging: ", filename, ", error: ", strerror_r(error, buffer, BufSize));
             exit(-1);
         }
     }
@@ -58,19 +56,38 @@ void LogDeinit()
     gl_logFile = STDERR_FILENO;
 }
 
-void LogPrint(const char* fmt, ...) // NOLINT(modernize-avoid-variadic-functions)
-{
-    va_list args;
-    va_start(args, fmt);
-    vdprintf(gl_logFile, fmt, args);
-    va_end(args);
-}
-
 std::string GetProcessLogName(const char* suffix, const char* fileext)
 {
     return fmt::format("{}/memhawk_{}_{}_{}.{}", *gl_loggingConfig.LogDir, program_invocation_short_name, getpid(),
                        suffix, fileext);
 }
 
+void WriteMessage(std::string_view data)
+{
+    while (!data.empty())
+    {
+        const auto written = ::write(gl_logFile, data.data(), data.size());
+        if (written > 0)
+        {
+            data = data.substr(static_cast<size_t>(written));
+        }
+        else if (errno == EINTR)
+        {
+            // try again
+            continue;
+        }
+        else if (written == 0 || errno == EAGAIN) // NOLINTNEXTLINE(bugprone-branch-clone)
+        {
+            // actually it's possible to have EAGAIN or written == 0 during normal workflow
+            // but it's better to skip internal memhawk logs than to hang external process
+            return;
+        }
+        else
+        {
+            // any other error
+            return;
+        }
+    }
+}
 
-} // namespace memhawk
+} // namespace memhawk::logging

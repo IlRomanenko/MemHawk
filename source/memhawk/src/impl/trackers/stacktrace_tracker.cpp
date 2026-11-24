@@ -39,8 +39,8 @@ StacktraceTracker::StacktraceTracker(StacktraceTrackerConfig cfg) : m_cfg{std::m
 void StacktraceTracker::Describe()
 {
     const absl::base_internal::SpinLockHolder lock(&m_mt);
-    LogInfo("StacktraceTracker: nodes: " fSzt ", edges: " fSzt ", ptrMap: " fSzt, m_storage->nodes.size(),
-            m_storage->tree.GetEdgesCount(), m_storage->tree.GetPtrMapSize());
+    LogInfo("StacktraceTracker: nodes: ", m_storage->nodes.size(), ", edges: ", m_storage->tree.GetEdgesCount(),
+            ", ptrMap: ", m_storage->tree.GetPtrMapSize());
 }
 
 StacktraceTracker::~StacktraceTracker()
@@ -49,7 +49,7 @@ StacktraceTracker::~StacktraceTracker()
     {
         return;
     }
-    auto filename = GetProcessLogName("external_stacktraces");
+    auto filename = logging::GetProcessLogName("external_stacktraces");
     if (m_cfg.Filename.Value().has_value())
     {
         filename = *m_cfg.Filename.Value(); // NOLINT(bugprone-unchecked-optional-access)

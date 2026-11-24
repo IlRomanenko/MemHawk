@@ -1,49 +1,28 @@
 #pragma once
 
-#include "config.h"
-#include "logging_level.h"
-
-#include <string>
+#include "logging/log_api.h" // IWYU pragma: export
 
 namespace memhawk
 {
 
-inline LogLevel gl_loggingLevel = LogLevel::Info;
-
-void LogInit(LoggingConfig cfg);
-void LogDeinit();
-void LogPrint(const char* fmt, ...) __attribute__((format(printf, 1, 2)));
-
-std::string GetProcessLogName(const char* suffix, const char* fileext = "log");
-
-#define LogEx(level, format, ...)                                                                                      \
+#define LogEx(level, ...)                                                                                              \
     do                                                                                                                 \
     {                                                                                                                  \
-        if (memhawk::LogLevel::level >= memhawk::gl_loggingLevel)                                                      \
+        if (memhawk::logging::LogLevel::level >= memhawk::logging::gl_loggingLevel)                                             \
         {                                                                                                              \
-            memhawk::LogPrint("[%s]:%s :: " format "\n", #level, __func__, ##__VA_ARGS__);                             \
+            memhawk::logging::LogMessage("[", #level, "] (", __func__, ":", __LINE__, ") ", ##__VA_ARGS__);            \
         }                                                                                                              \
     } while (0)
 
-#define LogError(format, ...) LogEx(Error, format, ##__VA_ARGS__)
-#define LogWarning(format, ...) LogEx(Warning, format, ##__VA_ARGS__)
-#define LogInfo(format, ...) LogEx(Info, format, ##__VA_ARGS__)
-#define LogDebug(format, ...) LogEx(Debug, format, ##__VA_ARGS__)
+#define LogError(...) LogEx(Error, ##__VA_ARGS__)
+#define LogWarning(...) LogEx(Warning, ##__VA_ARGS__)
+#define LogInfo(...) LogEx(Info, ##__VA_ARGS__)
+#define LogDebug(...) LogEx(Debug, ##__VA_ARGS__)
 
 #ifdef VERBOSE_DEBUG
 #define LogTrace(format, ...) LogEx(Trace, format, ##__VA_ARGS__)
 #else
 #define LogTrace(...)
 #endif
-
-// define our own version of specifiers, perhaps they can be replaced with PRI*
-#define fU32 "%u"
-#define fU64 "%lu"
-#define fSzt "%zu"
-#define fI32 "%d"
-#define fI64 "%ld"
-#define fStr "%s"
-#define fPtr "%p"
-#define fHex "%x"
 
 } // namespace memhawk

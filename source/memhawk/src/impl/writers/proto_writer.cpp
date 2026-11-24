@@ -65,7 +65,7 @@ ProtobufWriter::ProtobufWriter(ProtobufWriterConfig cfg, std::shared_ptr<IStackt
 {
     m_startTime = std::chrono::system_clock::now();
 
-    auto filename = GetProcessLogName("protobuf", "binpb");
+    auto filename = logging::GetProcessLogName("protobuf", "binpb");
     if (m_cfg.Filename->has_value())
     {
         filename = m_cfg.Filename->value(); // NOLINT(bugprone-unchecked-optional-access)

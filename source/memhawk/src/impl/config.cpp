@@ -2,7 +2,6 @@
 
 #include "config/describe_struct.h"
 #include "config/parse_struct.h"
-#include "logging.h"
 
 #include <absl/base/attributes.h>
 #include <boost/algorithm/string/finder.hpp>
@@ -21,7 +20,7 @@ template <typename... Args>
 void PrintMessage(fmt::format_string<Args...> fmt, Args... args)
 {
     const auto str = fmt::format(fmt, std::forward<Args>(args)...);
-    dprintf(STDERR_FILENO, fStr, str.c_str());
+    dprintf(STDERR_FILENO, "%s", str.c_str());
 }
 
 void OnError(const config::ParseError& err)

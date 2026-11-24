@@ -36,7 +36,7 @@ StaticStacktraceTracker::~StaticStacktraceTracker()
     {
         return;
     }
-    auto filename = GetProcessLogName("inner_stacktraces");
+    auto filename = logging::GetProcessLogName("inner_stacktraces");
     if (m_cfg.Filename.Value().has_value())
     {
         filename = *m_cfg.Filename.Value(); // NOLINT(bugprone-unchecked-optional-access)

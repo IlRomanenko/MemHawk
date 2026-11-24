@@ -20,11 +20,11 @@ void ThreadTracker::LockedTracker::PrintTracker()
     {
         cacheMissRatio = static_cast<float>(m_tracker.m_cacheMisses) / static_cast<float>(m_tracker.m_cacheUsages);
     }
-    LogInfo("TrackerId: " fU32 ", allocSummaries: (" fSzt "," fSzt "), lru: " fSzt
-            ", cache: (miss-ratio: %.3f, misses: " fU64 ", usages: " fU64 "), allocs: " fU64 ", deallocs: " fU64,
-            m_tracker.m_trackerId, m_tracker.m_allocSummaries.size(), m_tracker.m_allocSummaries.capacity(),
-            m_tracker.m_lruStacktraces.Size(), cacheMissRatio, m_tracker.m_cacheMisses, m_tracker.m_cacheUsages,
-            m_tracker.m_totalAllocs, m_tracker.m_totalDeallocs);
+    LogInfo("TrackerId: ", m_tracker.m_trackerId, ", allocSummaries: (", m_tracker.m_allocSummaries.size(), ",",
+            m_tracker.m_allocSummaries.capacity(), "), lru: ", m_tracker.m_lruStacktraces.Size(),
+            ", cache: (miss-ratio:", cacheMissRatio, ", misses: ", m_tracker.m_cacheMisses,
+            ", usages: ", m_tracker.m_cacheUsages, "), allocs: ", m_tracker.m_totalAllocs,
+            ", deallocs: ", m_tracker.m_totalDeallocs);
 }
 
 void ThreadTracker::UnlockTrackerUnsafe()

@@ -37,8 +37,8 @@ std::string ToString(const AllocSummary& summary)
 TextWriter::TextWriter(TextWriterConfig cfg, std::shared_ptr<IStacktraceFinder> finder)
     : m_cfg{std::move(cfg)}, m_stacktraceFinder{std::move(finder)}
 {
-    m_summaryFile = std::ofstream(GetProcessLogName("summary"), std::ios_base::out | std::ios_base::trunc);
-    m_stacktracesFile = std::ofstream(GetProcessLogName("stacktraces"), std::ios_base::out | std::ios_base::trunc);
+    m_summaryFile = std::ofstream(logging::GetProcessLogName("summary"), std::ios_base::out | std::ios_base::trunc);
+    m_stacktracesFile = std::ofstream(logging::GetProcessLogName("stacktraces"), std::ios_base::out | std::ios_base::trunc);
 }
 
 TextWriter::~TextWriter()
@@ -145,7 +145,7 @@ void TextWriter::FlushData()
 
         if (!trace.has_value())
         {
-            LogWarning("Missing stacktrace: " fU32, traceId);
+            LogWarning("Missing stacktrace: ", traceId);
             continue;
         }
 
