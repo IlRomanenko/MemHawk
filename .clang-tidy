@@ -29,7 +29,7 @@ Checks: [
   '-llvm-*',
 
   '-llvmlibc-*',
-  
+
   '-boost-use-ranges',
 
   '-bugprone-easily-swappable-parameters',
@@ -80,8 +80,7 @@ Checks: [
   '-misc-non-private-member-variables-in-classes',
   '-misc-use-anonymous-namespace',
   '-misc-use-internal-linkage',
-  # '-misc-definitions-in-headers', # perhaps, can be enabled
-  # '-misc-const-correctness',
+  '-misc-const-correctness',
   '-misc-override-with-different-visibility',
 
   '-modernize-avoid-c-arrays',

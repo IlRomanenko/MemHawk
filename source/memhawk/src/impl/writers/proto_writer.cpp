@@ -38,7 +38,7 @@ std::string GetPrognameFullPath()
     return res.native();
 }
 
-int iterate_dl_headers(struct dl_phdr_info* info, size_t /*size*/, void* data) // NOLINT(misc-const-correctness)
+int iterate_dl_headers(struct dl_phdr_info* info, size_t /*size*/, void* data)
 {
     auto snapshot = reinterpret_cast<proto::Snapshot*>(data);
     auto* loadedSo = snapshot->add_loadedso();
