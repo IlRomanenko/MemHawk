@@ -83,7 +83,12 @@ inline bool ParseStructField(const ParseContext& ctx, T& object)
     {
         if (ctx.onError)
         {
-            ctx.onError(ParseError{.type = errorType, .key = ctx.keyView, .field = fieldKey, .value = ctx.valueView});
+            ctx.onError(ParseError{
+                .type = errorType,
+                .key = ctx.keyView,
+                .field = fieldKey,
+                .value = ctx.valueView,
+            });
         }
     }
     return errorType == ParseErrorType::Ok;
@@ -154,10 +159,12 @@ inline bool ValidateStruct(T& object, const ErrorCallback& onError = nullptr, co
             {
                 if (onError)
                 {
-                    onError(ParseError{.type = ParseErrorType::RequiredFieldMissing,
-                                       .key = fullPath,
-                                       .field = memberName,
-                                       .value = {}});
+                    onError(ParseError{
+                        .type = ParseErrorType::RequiredFieldMissing,
+                        .key = fullPath,
+                        .field = memberName,
+                        .value = {},
+                    });
                 }
                 valid = false;
             }
@@ -179,8 +186,12 @@ inline bool ParseStruct(std::string_view input, T& object, const ErrorCallback& 
         {
             if (onError)
             {
-                onError(
-                    ParseError{.type = ParseErrorType::ValueNotFound, .key = elemView, .field = elemView, .value = {}});
+                onError(ParseError{
+                    .type = ParseErrorType::ValueNotFound,
+                    .key = elemView,
+                    .field = elemView,
+                    .value = {},
+                });
             }
             valid = false;
             continue;
@@ -188,7 +199,12 @@ inline bool ParseStruct(std::string_view input, T& object, const ErrorCallback& 
         const auto keyView = elemView.substr(0, separatorPos);
         const auto valueView = elemView.substr(separatorPos + 1);
 
-        const auto ctx = ParseContext{.keyView = keyView, .parsedSize = 0, .valueView = valueView, .onError = onError};
+        const auto ctx = ParseContext{
+            .keyView = keyView,
+            .parsedSize = 0,
+            .valueView = valueView,
+            .onError = onError,
+        };
         valid &= ParseStructNested(ctx, object);
     }
     return valid & ValidateStruct(object, onError);

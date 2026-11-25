@@ -39,7 +39,12 @@ namespace memhawk
 TEST(Config, ParseStructField_ExpectOk)
 {
     SmallConfig cfg{};
-    const config::ParseContext ctx{.keyView = "name", .parsedSize = 0, .valueView = "qwerty", .onError = nullptr};
+    const config::ParseContext ctx{
+        .keyView = "name",
+        .parsedSize = 0,
+        .valueView = "qwerty",
+        .onError = nullptr,
+    };
     auto res = config::ParseStructField(ctx, cfg);
     EXPECT_TRUE(res);
 }

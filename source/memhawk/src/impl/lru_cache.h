@@ -25,6 +25,10 @@ public:
     // returns evicted key if capacity is exceeded
     std::optional<Key> Insert(Key key, Value value)
     {
+        if (m_capacity == 0)
+        {
+            return {std::move(key)};
+        }
         auto& byKey = m_index.template get<TagByKey>();
         if (m_index.size() >= m_capacity)
         {

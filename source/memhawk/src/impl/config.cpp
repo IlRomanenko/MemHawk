@@ -20,7 +20,7 @@ template <typename... Args>
 void PrintMessage(fmt::format_string<Args...> fmt, Args... args)
 {
     const auto str = fmt::format(fmt, std::forward<Args>(args)...);
-    dprintf(STDERR_FILENO, "%s", str.c_str());
+    dprintf(STDERR_FILENO, "%s\n", str.c_str());
 }
 
 void OnError(const config::ParseError& err)
@@ -31,23 +31,23 @@ void OnError(const config::ParseError& err)
     case config::ParseErrorType::Ok:
         break;
     case config::ParseErrorType::FieldNotFound:
-        PrintMessage("Failed to find field: {}, during parsing key: {}\n", err.field, err.key);
+        PrintMessage("Failed to find field: {}, during parsing key: {}", err.field, err.key);
         break;
     case config::ParseErrorType::ValueNotParsed:
-        PrintMessage("Failed to parse value: {}, field: {}, during parsing key: {}\n", err.value, err.field, err.key);
+        PrintMessage("Failed to parse value: {}, field: {}, during parsing key: {}", err.value, err.field, err.key);
         break;
     case config::ParseErrorType::ValueNotFound:
-        PrintMessage("Incorrect option format: {}, failed to find value\n", err.key);
+        PrintMessage("Incorrect option format: {}, failed to find value", err.key);
         break;
     case config::ParseErrorType::RequiredFieldMissing:
-        PrintMessage("Required field missing, key: {}, field: {}\n", err.key, err.field);
+        PrintMessage("Required field missing, key: {}, field: {}", err.key, err.field);
         break;
     }
 }
 
 void OnKey(const config::DescribeContext& ctx)
 {
-    PrintMessage("{} = {}\n", ctx.key, ctx.value);
+    PrintMessage("{} = {}", ctx.key, ctx.value);
 }
 
 bool ValidateConfig(MainConfig& cfg)
@@ -92,7 +92,7 @@ MainConfig ParseConfig()
     }
     if (*cfg.Help)
     {
-        PrintMessage("full set of fields in config:\n");
+        PrintMessage("full set of fields in config:");
         config::DescribeStruct(MainConfig(), OnKey);
         exit(0);
     }
