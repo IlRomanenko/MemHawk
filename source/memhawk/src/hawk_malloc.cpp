@@ -500,6 +500,14 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_realloc(void* ptr, size_t size)
         return hawk_malloc(size);
     }
 
+    if (unlikely(size == 0))
+    {
+        // match default glibc behaviour on zero-size reallocation
+        // although according to the standard it's an implementation defined behaviour
+        hawk_free(ptr);
+        return nullptr;
+    }
+
     RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
 
     const AllocInfo prev = *reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) - AdditionalSize);
