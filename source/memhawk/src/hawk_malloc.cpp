@@ -245,8 +245,7 @@ constexpr size_t AdditionalSize = sizeof(AllocInfo);
 // Ensure that we won't ruin malloc invariant
 static_assert(alignof(max_align_t) == sizeof(AllocInfo));
 
-ABSL_ATTRIBUTE_ALWAYS_INLINE void TrackAllocation(void* userPtr, size_t userSize, uint32_t offset,
-                                                  RecursiveStacktrace& stacktrace)
+ABSL_ATTRIBUTE_ALWAYS_INLINE void TrackAllocation(void* userPtr, size_t userSize, uint32_t offset)
 {
     auto* infoLocation = reinterpret_cast<char*>(userPtr) - AdditionalSize;
     AllocInfo* info = new (infoLocation) AllocInfo{userSize, offset};
@@ -254,13 +253,14 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void TrackAllocation(void* userPtr, size_t userSize
 
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
+        RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
         auto& trace = stacktrace.GetStacktrace();
         memhawk->TrackAlloc(*info, trace, stacktrace.IsExternal());
     }
 }
 
 ABSL_ATTRIBUTE_ALWAYS_INLINE void TrackReallocation(void* userPtr, size_t userSize, uint32_t offset,
-                                                    const AllocInfo& prev, RecursiveStacktrace& stacktrace)
+                                                    const AllocInfo& prev)
 {
     auto* infoLocation = reinterpret_cast<char*>(userPtr) - AdditionalSize;
     AllocInfo* info = new (infoLocation) AllocInfo{userSize, offset};
@@ -268,8 +268,24 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void TrackReallocation(void* userPtr, size_t userSi
 
     if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
     {
+        RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
         auto& trace = stacktrace.GetStacktrace();
         memhawk->TrackRealloc(prev, *info, trace, stacktrace.IsExternal());
+    }
+}
+
+ABSL_ATTRIBUTE_ALWAYS_INLINE void TrackDeallocation(const AllocInfo& info)
+{
+    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
+    {
+#ifdef MEMHAWK_SELF_PROFILING
+        const RecursiveStacktrace stacktrace(MinUnwindDepth, *hooks::gl_unwind.UseAbslStacktraces);
+        const auto isExternal = stacktrace.IsExternal();
+#else
+        const RecursionGuard<AllocTag> guard;
+        const auto isExternal = guard.IsFirst();
+#endif
+        memhawk->TrackDealloc(info, isExternal);
     }
 }
 
@@ -379,8 +395,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_malloc(size_t size)
     }
     void* userPtr = reinterpret_cast<char*>(raw) + AdditionalSize;
 
-    RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
-    TrackAllocation(userPtr, size, AdditionalSize, stacktrace);
+    TrackAllocation(userPtr, size, AdditionalSize);
     return userPtr;
 }
 
@@ -413,8 +428,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_aligned_alloc(size_t alignment, size_t s
     }
     void* userPtr = reinterpret_cast<char*>(raw) + *alignedSize;
 
-    RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
-    TrackAllocation(userPtr, size, static_cast<uint32_t>(*alignedSize), stacktrace);
+    TrackAllocation(userPtr, size, static_cast<uint32_t>(*alignedSize));
     return userPtr;
 }
 
@@ -455,8 +469,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE int hawk_posix_memalign(void** memptr, size_t align
     }
     *memptr = reinterpret_cast<char*>(*memptr) + *alignedSize;
 
-    RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
-    TrackAllocation(*memptr, size, static_cast<uint32_t>(*alignedSize), stacktrace);
+    TrackAllocation(*memptr, size, static_cast<uint32_t>(*alignedSize));
     return res;
 }
 
@@ -481,8 +494,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_calloc(size_t nm, size_t size)
     }
     void* userPtr = reinterpret_cast<char*>(raw) + AdditionalSize;
 
-    RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
-    TrackAllocation(userPtr, *userSize, AdditionalSize, stacktrace);
+    TrackAllocation(userPtr, *userSize, AdditionalSize);
     return userPtr;
 }
 
@@ -507,8 +519,6 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_realloc(void* ptr, size_t size)
         hawk_free(ptr);
         return nullptr;
     }
-
-    RecursiveStacktrace stacktrace(*hooks::gl_unwind.TrackDepth, *hooks::gl_unwind.UseAbslStacktraces);
 
     const AllocInfo prev = *reinterpret_cast<AllocInfo*>(reinterpret_cast<char*>(ptr) - AdditionalSize);
     auto origPtr = reinterpret_cast<char*>(ptr) - prev.offset;
@@ -538,7 +548,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void* hawk_realloc(void* ptr, size_t size)
         return nullptr;
     }
     void* userPtr = reinterpret_cast<char*>(realloced) + prev.offset;
-    TrackReallocation(userPtr, size, prev.offset, prev, stacktrace);
+    TrackReallocation(userPtr, size, prev.offset, prev);
     return userPtr;
 }
 
@@ -603,17 +613,7 @@ ABSL_ATTRIBUTE_ALWAYS_INLINE void hawk_free(void* ptr)
 
     LogTrace("requested: ", ptr);
 
-#ifdef MEMHAWK_SELF_PROFILING
-    const RecursiveStacktrace stacktrace(MinUnwindDepth, *hooks::gl_unwind.UseAbslStacktraces);
-    const auto isExternal = stacktrace.IsExternal();
-#else
-    const RecursionGuard<AllocTag> guard;
-    const auto isExternal = guard.IsFirst();
-#endif
-    if (auto memhawk = hooks::GetMemHawk(); likely(memhawk))
-    {
-        memhawk->TrackDealloc(*info, isExternal);
-    }
+    TrackDeallocation(*info);
 
     hooks::free(ptr);
 }
